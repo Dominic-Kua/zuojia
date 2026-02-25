@@ -1,0 +1,26 @@
+{
+  "name": "netwriter-helper",
+  "version": "1.0.0",
+  "description": "Helper process for Netwriter: orchestrates file I/O, Git, export, backups",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest --coverage"
+  },
+  "keywords": [
+    "netwriter",
+    "helper",
+    "electron"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "simple-git": "^3.23.0"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.0"
+  }
+}
