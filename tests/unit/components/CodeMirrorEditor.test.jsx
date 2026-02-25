@@ -18,7 +18,7 @@ describe('CodeMirrorEditor Component', () => {
     render(<CodeMirrorEditor content={mockContent} onContentChange={vi.fn()} />);
     
     const container = document.querySelector('.codemirror-editor-container');
-    expect(container).toBeDefined();
+    expect(container).toBeInTheDocument();
   });
 
   it('should accept and display content prop', () => {
@@ -27,7 +27,7 @@ describe('CodeMirrorEditor Component', () => {
     );
     
     // Editor container should exist
-    expect(container.querySelector('.codemirror-editor-container')).toBeDefined();
+    expect(container.querySelector('.codemirror-editor-container')).not.toBeNull();
   });
 
   it('should call onContentChange when editor content changes', async () => {
@@ -37,7 +37,7 @@ describe('CodeMirrorEditor Component', () => {
     );
     
     // Verify editor is set up (contains Monaco/CodeMirror ref)
-    expect(container.querySelector('[data-testid="editor"]')).toBeDefined();
+    expect(container.querySelector('[data-testid="editor"]')).not.toBeNull();
   });
 
   it('should apply markdown syntax highlighting', () => {
@@ -46,7 +46,7 @@ describe('CodeMirrorEditor Component', () => {
     );
     
     const editor = container.querySelector('[data-testid="editor"]');
-    expect(editor).toBeDefined();
+    expect(editor).toBeInTheDocument();
   });
 
   it('should accept font size configuration', () => {
@@ -65,7 +65,7 @@ describe('CodeMirrorEditor Component', () => {
     );
     
     const editor = container.querySelector('[data-testid="editor"]');
-    expect(editor).toBeDefined();
+    expect(editor).toBeInTheDocument();
     // Inline styles should reflect config
     expect(editor?.style.fontSize).toContain('px');
   });
@@ -80,7 +80,7 @@ describe('CodeMirrorEditor Component', () => {
     );
     
     const editor = container.querySelector('[data-testid="editor"]');
-    expect(editor).toBeDefined();
+    expect(editor).toBeInTheDocument();
   });
 
   it('should preserve cursor position when content is updated', () => {
@@ -95,7 +95,7 @@ describe('CodeMirrorEditor Component', () => {
 
     // Editor should still exist and be functional
     const editor = document.querySelector('[data-testid="editor"]');
-    expect(editor).toBeDefined();
+    expect(editor).toBeInTheDocument();
   });
 
   it('should allow setting initial cursor position', () => {
@@ -108,7 +108,7 @@ describe('CodeMirrorEditor Component', () => {
     );
     
     const editor = container.querySelector('[data-testid="editor"]');
-    expect(editor).toBeDefined();
+    expect(editor).toBeInTheDocument();
   });
 
   it('should handle empty content gracefully', () => {
@@ -117,7 +117,7 @@ describe('CodeMirrorEditor Component', () => {
     );
     
     const editor = container.querySelector('[data-testid="editor"]');
-    expect(editor).toBeDefined();
+    expect(editor).toBeInTheDocument();
   });
 
   it('should provide ref for programmatic access', () => {
