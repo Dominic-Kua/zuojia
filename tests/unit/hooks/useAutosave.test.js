@@ -20,7 +20,7 @@ describe('useAutosave Hook', () => {
   });
 
   afterEach(() => {
-    // Cleanup
+    vi.useRealTimers();
   });
 
   it('should initialize with unsaved changes = false', () => {
@@ -103,6 +103,91 @@ describe('useAutosave Hook', () => {
 
     // After manual save, should have called commit with correct parameters
     expect(gitHandlers.commit).toHaveBeenCalledWith(mockNovelPath, mockFilename, expect.any(String));
+  });
+
+  it('should not auto-commit before debounce delay elapses', async () => {
+    vi.useFakeTimers();
+    const debounceMs = 100;
+    const autocommitMs = 1000;
+
+    const { rerender } = renderHook(
+      ({ content }) => useAutosave(mockNovelPath, mockFilename, content, debounceMs, autocommitMs),
+      { initialProps: { content: initialContent } }
+    );
+
+    await act(async () => {
+      rerender({ content: 'Changed content' });
+    });
+
+    // Advance time to just before the autocommit fires
+    act(() => {
+      vi.advanceTimersByTime(autocommitMs - 1);
+    });
+
+    expect(gitHandlers.commit).not.toHaveBeenCalled();
+  });
+
+  it('should auto-commit after debounce and autocommit delays elapse', async () => {
+    vi.useFakeTimers();
+    const debounceMs = 100;
+    const autocommitMs = 1000;
+    const updatedContent = 'Auto-saved content';
+
+    const { rerender } = renderHook(
+      ({ content }) => useAutosave(mockNovelPath, mockFilename, content, debounceMs, autocommitMs),
+      { initialProps: { content: initialContent } }
+    );
+
+    await act(async () => {
+      rerender({ content: updatedContent });
+    });
+
+    // Advance time past the full autocommit delay and flush async callbacks
+    await act(async () => {
+      vi.advanceTimersByTime(autocommitMs);
+    });
+
+    expect(gitHandlers.commit).toHaveBeenCalledWith(mockNovelPath, mockFilename, updatedContent);
+  });
+
+  it('should reset debounce timer on rapid successive content changes', async () => {
+    vi.useFakeTimers();
+    const debounceMs = 100;
+    const autocommitMs = 1000;
+
+    const { rerender } = renderHook(
+      ({ content }) => useAutosave(mockNovelPath, mockFilename, content, debounceMs, autocommitMs),
+      { initialProps: { content: initialContent } }
+    );
+
+    // Trigger multiple rapid changes within the debounce window
+    await act(async () => {
+      rerender({ content: 'Draft 1' });
+    });
+    act(() => { vi.advanceTimersByTime(50); });
+
+    await act(async () => {
+      rerender({ content: 'Draft 2' });
+    });
+    act(() => { vi.advanceTimersByTime(50); });
+
+    await act(async () => {
+      rerender({ content: 'Draft 3' });
+    });
+
+    // Not yet past autocommit from the last change
+    act(() => { vi.advanceTimersByTime(autocommitMs - 1); });
+
+    // Commit should not have fired yet (debounce was reset by each change)
+    expect(gitHandlers.commit).not.toHaveBeenCalled();
+
+    // Now advance past the remaining time
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+    });
+
+    expect(gitHandlers.commit).toHaveBeenCalledTimes(1);
+    expect(gitHandlers.commit).toHaveBeenCalledWith(mockNovelPath, mockFilename, 'Draft 3');
   });
 });
 
