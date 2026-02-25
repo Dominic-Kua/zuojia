@@ -1,0 +1,14 @@
+[project]
+name = "netwriter-helper"
+version = "0.1.0"
+description = "Helper process for Netwriter (orchestration: git, export, backups)"
+requires-python = ">=3.9"
+
+[project.dependencies]
+fastapi = "*"
+uvicorn = "*"
+GitPython = "*"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
