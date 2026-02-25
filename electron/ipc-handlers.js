@@ -1,5 +1,5 @@
 import { ipcMain, dialog } from 'electron'
-import { createNovel, getIndex, validateNovel, rebuildIndex } from '../helper/src/index/index.js'
+import { createNovel, getIndex, validateNovel, rebuildIndex, readChapter, writeChapter } from '../helper/src/index/index.js'
 
 /**
  * Register all IPC handlers
@@ -39,6 +39,21 @@ export function registerHandlers() {
     'helper:index:rebuild',
     wrapHandler(async ({ novelPath }) => {
       return await rebuildIndex(novelPath);
+    })
+  );
+
+  // Chapter handlers
+  ipcMain.handle(
+    'helper:chapter:read',
+    wrapHandler(async ({ novelPath, filename }) => {
+      return await readChapter(novelPath, filename);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:chapter:write',
+    wrapHandler(async ({ novelPath, filename, content }) => {
+      return await writeChapter(novelPath, filename, content);
     })
   );
 

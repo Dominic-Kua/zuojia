@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import { mkdir, rm, readFile, writeFile } from 'fs/promises';
-import { createNovel, getIndex, validateNovel, rebuildIndex } from '../src/index/index.js';
+import { createNovel, getIndex, validateNovel, rebuildIndex, readChapter, writeChapter } from '../src/index/index.js';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -333,6 +333,108 @@ describe('Index Operations', () => {
       expect(result.data.chapters[0].title).toBeDefined();
       // Could be filename or a fallback - just verify it's not empty
       expect(result.data.chapters[0].title.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('readChapter', () => {
+    it('should read chapter content from manuscript directory', async () => {
+      const novelName = 'read-chapter-test';
+      const novelPath = path.join(TEST_HOME, novelName);
+
+      // Create novel and add a chapter
+      await createNovel(novelName, TEST_HOME);
+      const chapterContent = '# Chapter 1\n\nThis is the content of chapter one.';
+      await writeFile(path.join(novelPath, 'manuscript', 'chapter-01.md'), chapterContent);
+
+      const result = await readChapter(novelPath, 'chapter-01.md');
+
+      expect(result.status).toEqual('ok');
+      expect(result.data.content).toEqual(chapterContent);
+      expect(result.data.filename).toEqual('chapter-01.md');
+    });
+
+    it('should return error if chapter file does not exist', async () => {
+      const novelName = 'no-chapter-test';
+      const novelPath = path.join(TEST_HOME, novelName);
+
+      await createNovel(novelName, TEST_HOME);
+
+      const result = await readChapter(novelPath, 'nonexistent.md');
+
+      expect(result.status).toEqual('error');
+      expect(result.error.code).toEqual('ENOENT');
+    });
+
+    it('should return error if novel path is invalid', async () => {
+      const result = await readChapter('/nonexistent/path', 'chapter.md');
+
+      expect(result.status).toEqual('error');
+      expect(result.error.code).toEqual('ENOENT');
+    });
+  });
+
+  describe('writeChapter', () => {
+    it('should write chapter content to manuscript directory', async () => {
+      const novelName = 'write-chapter-test';
+      const novelPath = path.join(TEST_HOME, novelName);
+
+      await createNovel(novelName, TEST_HOME);
+
+      const content = '# New Chapter\n\nContent here.';
+      const result = await writeChapter(novelPath, 'new-chapter.md', content);
+
+      expect(result.status).toEqual('ok');
+      expect(result.data.filename).toEqual('new-chapter.md');
+
+      // Verify file was written
+      const filePath = path.join(novelPath, 'manuscript', 'new-chapter.md');
+      expect(fs.existsSync(filePath)).toBe(true);
+      
+      const savedContent = await readFile(filePath, 'utf-8');
+      expect(savedContent).toEqual(content);
+    });
+
+    it('should overwrite existing chapter', async () => {
+      const novelName = 'overwrite-chapter-test';
+      const novelPath = path.join(TEST_HOME, novelName);
+
+      await createNovel(novelName, TEST_HOME);
+
+      // Write initial content
+      await writeChapter(novelPath, 'chapter.md', 'Initial content');
+
+      // Overwrite with new content
+      const newContent = 'Updated content';
+      const result = await writeChapter(novelPath, 'chapter.md', newContent);
+
+      expect(result.status).toEqual('ok');
+
+      // Verify new content
+      const filePath = path.join(novelPath, 'manuscript', 'chapter.md');
+      const savedContent = await readFile(filePath, 'utf-8');
+      expect(savedContent).toEqual(newContent);
+    });
+
+    it('should return error if novel path is invalid', async () => {
+      const result = await writeChapter('/nonexistent/path', 'chapter.md', 'content');
+
+      expect(result.status).toEqual('error');
+      expect(result.error.code).toEqual('ENOENT');
+    });
+
+    it('should handle empty content', async () => {
+      const novelName = 'empty-content-test';
+      const novelPath = path.join(TEST_HOME, novelName);
+
+      await createNovel(novelName, TEST_HOME);
+
+      const result = await writeChapter(novelPath, 'empty.md', '');
+
+      expect(result.status).toEqual('ok');
+
+      const filePath = path.join(novelPath, 'manuscript', 'empty.md');
+      const savedContent = await readFile(filePath, 'utf-8');
+      expect(savedContent).toEqual('');
     });
   });
 });
