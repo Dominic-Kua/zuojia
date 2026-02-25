@@ -25,17 +25,28 @@ export const ChapterList = ({
       return;
     }
 
-    // If there are unsaved changes and a beforeSwitch handler, call it
-    if (hasUnsavedChanges && onBeforeSwitch) {
-      const shouldProceed = await onBeforeSwitch();
+    try {
+      let shouldProceed = true;
+
+      // If there are unsaved changes and a beforeSwitch handler, call it
+      if (hasUnsavedChanges && onBeforeSwitch) {
+        shouldProceed = await onBeforeSwitch();
+      }
+
       if (!shouldProceed) {
         // Reset the select to current chapter
         event.target.value = currentChapter;
         return;
       }
-    }
 
-    onChapterSelect(newChapter);
+      onChapterSelect(newChapter);
+    } catch (error) {
+      // Log the error and reset the select to the current chapter
+      // to keep the UI in a consistent state.
+      // eslint-disable-next-line no-console
+      console.error('Error while handling chapter change:', error);
+      event.target.value = currentChapter;
+    }
   }, [currentChapter, hasUnsavedChanges, onBeforeSwitch, onChapterSelect]);
 
   const handleSearchChange = useCallback((event) => {
