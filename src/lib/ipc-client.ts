@@ -65,6 +65,12 @@ export const gitHandlers = {
   history: (novelPath, limit) => invokeHandler('helper:git:history', { novelPath, limit }),
 };
 
+export const statsHandlers = {
+  wordCount: (content) => invokeHandler('helper:stats:word-count', { content }),
+  manuscriptCount: (novelPath) => invokeHandler('helper:stats:manuscript-count', { novelPath }),
+  todayCount: (novelPath) => invokeHandler('helper:stats:today-count', { novelPath }),
+};
+
 export const exportHandlers = {
   pdf: (novelPath, format, metadata) =>
     invokeHandler('helper:export:pdf', { novelPath, format, metadata }),
