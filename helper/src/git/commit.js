@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs';
+import { writeFile } from 'fs/promises';
 import { execSync } from 'child_process';
 import { createError } from '../util/error.js';
 
@@ -33,11 +34,17 @@ export async function commitChapter(novelPath, filename, content) {
         'Filename must be a simple filename without parent directory references');
     }
 
-    // Initialize git if needed
+    // Write content to disk before staging
     try {
-      execSync('git rev-parse --git-dir', { cwd: novelPath, stdio: 'ignore' });
-    } catch {
-      // Git not initialized, initialize it
+      await writeFile(resolvedFilename, content, 'utf-8');
+    } catch (writeErr) {
+      return createError('WRITE_FAILED', 'Failed to write chapter content',
+        'Check file permissions and disk space', { error: writeErr.message });
+    }
+
+    // Initialize git if needed (check for local .git, not parent repos)
+    const hasOwnGit = fs.existsSync(path.join(novelPath, '.git'));
+    if (!hasOwnGit) {
       try {
         execSync('git init', { cwd: novelPath, stdio: 'ignore' });
         execSync('git config user.name "Netwriter"', { cwd: novelPath, stdio: 'ignore' });

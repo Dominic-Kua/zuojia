@@ -475,18 +475,16 @@ describe('Index Operations', () => {
       const novelPath = path.join(TEST_HOME, novelName);
       await createNovel(novelName, TEST_HOME);
 
-      // Write a chapter
+      // commitChapter writes content to disk before staging - no need to call writeChapter first
       const filename = 'chapter-01.md';
       const content = '# Chapter 1\n\nSome content';
-      await writeChapter(novelPath, filename, content);
-
-      // Commit the chapter - may return error if git not available in test env
       const result = await commitChapter(novelPath, filename, content);
 
-      // Both ok and error are acceptable - we're mainly checking the function doesn't crash
-      expect(result).toBeDefined();
-      expect(result.status).toBeDefined();
-      expect(['ok', 'error']).toContain(result.status);
+      expect(result.status).toEqual('ok');
+      expect(result.data).toBeDefined();
+      expect(result.data.filename).toEqual(filename);
+      expect(result.data.message).toEqual(`autosave: ${filename}`);
+      expect(result.timestamp).toBeDefined();
     });
 
     it('should return error if novel path is invalid', async () => {
@@ -527,18 +525,14 @@ describe('Index Operations', () => {
       const novelPath = path.join(TEST_HOME, novelName);
       await createNovel(novelName, TEST_HOME);
 
-      // First write the chapter so there's something to commit
+      // commitChapter writes content to disk, no need to call writeChapter first
       const filename = 'chapter-02.md';
       const content = '# Chapter 2\n\nAuthor info test';
-      await writeChapter(novelPath, filename, content);
-
-      // Now commit it - should either succeed or fail gracefully
       const result = await commitChapter(novelPath, filename, content);
 
-      expect(result).toBeDefined();
-      expect(result.status).toBeDefined();
-      // Both ok and error are acceptable in test environment
-      expect(['ok', 'error']).toContain(result.status);
+      expect(result.status).toEqual('ok');
+      expect(result.data).toBeDefined();
+      expect(result.data.author).toBeDefined();
     });
   });
 });
