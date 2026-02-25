@@ -436,5 +436,34 @@ describe('Index Operations', () => {
       const savedContent = await readFile(filePath, 'utf-8');
       expect(savedContent).toEqual('');
     });
+
+    it('should reject chapter filenames with path traversal or absolute paths', async () => {
+      const novelName = 'write-chapter-path-traversal-test';
+      const novelPath = path.join(TEST_HOME, novelName);
+
+      await createNovel(novelName, TEST_HOME);
+
+      const traversalFilenames = ['../evil.md', '..\\\\evil.md'];
+
+      // Path traversal sequences should be rejected
+      for (const filename of traversalFilenames) {
+        const result = await writeChapter(novelPath, filename, 'malicious content');
+
+        expect(result.status).toEqual('error');
+        expect(result.error).toBeDefined();
+
+        // Ensure no file was created within the manuscript directory
+        const resolved = path.resolve(novelPath, 'manuscript', filename);
+        expect(fs.existsSync(resolved)).toBe(false);
+      }
+
+      // Absolute paths should also be rejected
+      const absoluteFilename = path.resolve(TEST_HOME, 'absolute-evil.md');
+      const absoluteResult = await writeChapter(novelPath, absoluteFilename, 'malicious content');
+
+      expect(absoluteResult.status).toEqual('error');
+      expect(absoluteResult.error).toBeDefined();
+      expect(fs.existsSync(absoluteFilename)).toBe(false);
+    });
   });
 });
