@@ -64,8 +64,13 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
         }
       }
     } catch (err) {
-      setError(err.message || 'Failed to open novel');
-      console.error('Error opening novel:', err);
+      if (err && err.code === 'DIALOG_CANCELED') {
+        // User canceled the folder picker; this is expected behavior, not an error.
+        console.info('Open novel dialog was canceled by the user.');
+      } else {
+        setError(err.message || 'Failed to open novel');
+        console.error('Error opening novel:', err);
+      }
     } finally {
       setLoading(false);
     }
