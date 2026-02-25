@@ -1,6 +1,9 @@
 import { ipcMain, dialog } from 'electron'
 import { createNovel, getIndex, validateNovel, rebuildIndex, readChapter, writeChapter } from '../helper/src/index/index.js'
 import { commitChapter } from '../helper/src/git/commit.js';
+import { calculateWordCount } from '../helper/src/stats/word-count.js';
+import { getManuscriptWordCount } from '../helper/src/stats/manuscript-count.js';
+import { getWordsWrittenToday } from '../helper/src/git/history.js';
 /**
  * Register all IPC handlers
  * Formats responses as structured envelopes
@@ -62,6 +65,76 @@ export function registerHandlers() {
     'helper:git:commit',
     wrapHandler(async ({ novelPath, filename, content }) => {
       return await commitChapter(novelPath, filename, content);
+    })
+  );
+
+  // Stats handlers
+  ipcMain.handle(
+    'helper:stats:word-count',
+    wrapHandler(async ({ content }) => {
+      try {
+        const wordCount = calculateWordCount(content);
+        return {
+          status: 'ok',
+          data: { wordCount },
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: 'WORD_COUNT_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    })
+  );
+
+  ipcMain.handle(
+    'helper:stats:manuscript-count',
+    wrapHandler(async ({ novelPath }) => {
+      try {
+        const wordCount = await getManuscriptWordCount(novelPath);
+        return {
+          status: 'ok',
+          data: { wordCount },
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: 'MANUSCRIPT_COUNT_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    })
+  );
+
+  ipcMain.handle(
+    'helper:stats:today-count',
+    wrapHandler(async ({ novelPath }) => {
+      try {
+        const wordCount = await getWordsWrittenToday(novelPath);
+        return {
+          status: 'ok',
+          data: { wordCount },
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: 'TODAY_COUNT_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
     })
   );
 
