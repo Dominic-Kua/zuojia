@@ -13,6 +13,7 @@ export const ChapterList = ({
   
   const filteredChapters = searchable && searchTerm
     ? chapters.filter(ch => 
+        ch.filename === currentChapter ||
         ch.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         ch.filename.toLowerCase().includes(searchTerm.toLowerCase())
       )
