@@ -47,7 +47,7 @@ describe('getWordsWrittenToday', () => {
     expect(count).toBe(10); // Entire new line counted (git diff shows full line as +)
   });
 
-  it('subtracts deleted words from count', async () => {
+  it('counts words from modified lines', async () => {
     // Create initial file
     const chapterPath = path.join(testDir, 'manuscript', 'chapter-1.md');
     await fs.writeFile(chapterPath, 'Start with ten words in this chapter file here.');
