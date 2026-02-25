@@ -20,30 +20,6 @@ export const useAutosave = (novelPath, filename, content, debounceMs = 300, auto
   const commitTimerRef = useRef(null);
   const lastSavedContentRef = useRef(content);
 
-  // Mark as unsaved when content changes
-  useEffect(() => {
-    if (content !== lastSavedContentRef.current) {
-      setHasUnsavedChanges(true);
-      setSaveError(null);
-
-      // Clear existing timers
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-      if (commitTimerRef.current) {
-        clearTimeout(commitTimerRef.current);
-      }
-
-      // Set debounce timer
-      debounceTimerRef.current = setTimeout(() => {
-        // Commit after debounce delay
-        commitTimerRef.current = setTimeout(async () => {
-          await performCommit();
-        }, autocommitMs - debounceMs);
-      }, debounceMs);
-    }
-  }, [content, novelPath, filename, debounceMs, autocommitMs]);
-
   // Perform the actual git commit
   const performCommit = useCallback(async () => {
     if (!novelPath || !filename || !content) {
@@ -74,6 +50,31 @@ export const useAutosave = (novelPath, filename, content, debounceMs = 300, auto
       setIsSaving(false);
     }
   }, [novelPath, filename, content]);
+
+  // Schedule a commit after the debounce + autocommit delay
+  const scheduleCommit = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    if (commitTimerRef.current) {
+      clearTimeout(commitTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      commitTimerRef.current = setTimeout(async () => {
+        await performCommit();
+      }, autocommitMs - debounceMs);
+    }, debounceMs);
+  }, [performCommit, debounceMs, autocommitMs]);
+
+  // Mark as unsaved when content changes
+  useEffect(() => {
+    if (content !== lastSavedContentRef.current) {
+      setHasUnsavedChanges(true);
+      setSaveError(null);
+      scheduleCommit();
+    }
+  }, [content, scheduleCommit]);
 
   // Manual save trigger
   const manualSave = useCallback(async () => {
