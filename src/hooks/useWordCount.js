@@ -63,7 +63,7 @@ export function useWordCount(novelPath, currentChapter, content) {
       console.error('Error loading manuscript count:', err);
       setError(err);
     }
-  }, [novelPath, MANUSCRIPT_CACHE_DURATION]);
+  }, [novelPath]);
 
   /**
    * Load today's word count
