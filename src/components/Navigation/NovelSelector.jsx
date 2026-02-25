@@ -10,6 +10,7 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [novelName, setNovelName] = useState('');
   const [error, setError] = useState(null);
+  const [openError, setOpenError] = useState(null);
   const [loading, setLoading] = useState(false);
 
   // Validate novel name (only lowercase alphanumeric, hyphen, underscore)
@@ -46,7 +47,7 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
   };
 
   const handleOpenNovel = async () => {
-    setError(null);
+    setOpenError(null);
     setLoading(true);
     try {
       const { novelPath } = await appHandlers.selectNovelDirectory();
@@ -68,7 +69,7 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
         // User canceled the folder picker; this is expected behavior, not an error.
         console.info('Open novel dialog was canceled by the user.');
       } else {
-        setError(err.message || 'Failed to open novel');
+        setOpenError(err.message || 'Failed to open novel');
         console.error('Error opening novel:', err);
       }
     } finally {
@@ -92,6 +93,10 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
       >
         Open Novel
       </button>
+
+      {openError && (
+        <p className="open-error-message">{openError}</p>
+      )}
 
       {showCreateDialog && (
         <div className="modal-overlay" onClick={() => !loading && setShowCreateDialog(false)}>
