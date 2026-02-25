@@ -87,6 +87,14 @@
   margin: -0.75rem 0 1rem 0;
 }
 
+.open-error-message {
+  color: #d32f2f;
+  font-size: 0.875rem;
+  margin: 0.5rem 0 0 0;
+  width: 100%;
+  text-align: center;
+}
+
 .dialog-buttons {
   display: flex;
   gap: 1rem;

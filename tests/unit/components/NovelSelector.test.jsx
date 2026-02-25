@@ -8,6 +8,7 @@ vi.mock('../../../src/lib/ipc-client', () => ({
   indexHandlers: {
     createNovel: vi.fn(),
     validateNovel: vi.fn(),
+    getIndex: vi.fn(),
   },
   appHandlers: {
     selectNovelDirectory: vi.fn(),
@@ -90,5 +91,62 @@ describe('NovelSelector Component', () => {
     await user.click(openButton);
 
     expect(appHandlers.selectNovelDirectory).toHaveBeenCalled();
+  });
+
+  it('should display inline error when opening a novel fails', async () => {
+    const user = userEvent.setup();
+    const { appHandlers } = await import('../../../src/lib/ipc-client');
+    appHandlers.selectNovelDirectory.mockRejectedValue(new Error('Failed to open novel'));
+
+    render(<NovelSelector />);
+
+    const openButton = screen.getByText(/Open Novel/i);
+    await user.click(openButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to open novel')).toBeInTheDocument();
+    });
+  });
+
+  it('should not display inline error when dialog is canceled', async () => {
+    const user = userEvent.setup();
+    const { appHandlers } = await import('../../../src/lib/ipc-client');
+    const cancelError = new Error('Dialog canceled');
+    cancelError.code = 'DIALOG_CANCELED';
+    appHandlers.selectNovelDirectory.mockRejectedValue(cancelError);
+
+    render(<NovelSelector />);
+
+    const openButton = screen.getByText(/Open Novel/i);
+    await user.click(openButton);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/canceled/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('should clear inline error when "Open Novel" is clicked again', async () => {
+    const user = userEvent.setup();
+    const { appHandlers, indexHandlers } = await import('../../../src/lib/ipc-client');
+    appHandlers.selectNovelDirectory
+      .mockRejectedValueOnce(new Error('Failed to open novel'))
+      .mockResolvedValue({ novelPath: '/some/path' });
+    indexHandlers.validateNovel.mockResolvedValue({ isValid: true });
+    indexHandlers.getIndex.mockResolvedValue({});
+
+    render(<NovelSelector />);
+
+    const openButton = screen.getByText(/Open Novel/i);
+    await user.click(openButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to open novel')).toBeInTheDocument();
+    });
+
+    await user.click(openButton);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Failed to open novel')).not.toBeInTheDocument();
+    });
   });
 });
