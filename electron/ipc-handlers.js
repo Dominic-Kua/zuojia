@@ -95,7 +95,23 @@ export function registerHandlers() {
   ipcMain.handle(
     'helper:stats:manuscript-count',
     wrapHandler(async ({ novelPath }) => {
-      return await getManuscriptWordCount(novelPath);
+      try {
+        const wordCount = await getManuscriptWordCount(novelPath);
+        return {
+          status: 'ok',
+          data: { wordCount },
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: 'MANUSCRIPT_COUNT_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
     })
   );
 
