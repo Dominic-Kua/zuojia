@@ -48,6 +48,11 @@ export const indexHandlers = {
   rebuildIndex: (novelPath) => invokeHandler('helper:index:rebuild', { novelPath }),
 };
 
+export const chapterHandlers = {
+  readChapter: (novelPath, filename) => invokeHandler('helper:chapter:read', { novelPath, filename }),
+  writeChapter: (novelPath, filename, content) => invokeHandler('helper:chapter:write', { novelPath, filename, content }),
+};
+
 export const appHandlers = {
   selectNovelDirectory: () => invokeHandler('app:selectNovelDirectory'),
 };
