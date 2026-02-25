@@ -6,7 +6,15 @@ import { gitHandlers } from '../../../src/lib/ipc-client';
 // Mock the IPC client
 vi.mock('../../../src/lib/ipc-client', () => ({
   gitHandlers: {
-    commit: vi.fn(() => Promise.resolve({ status: 'ok' })),
+    commit: vi.fn(() =>
+      Promise.resolve({
+        filename: 'chapter-01.md',
+        message: 'Autosave commit',
+        author: 'test-author',
+        hash: 'dummy-hash',
+        timestamp: Date.now(),
+      })
+    ),
   },
 }));
 
