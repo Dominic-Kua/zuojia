@@ -1,10 +1,12 @@
 .novel-selector {
   padding: 1rem;
   border-bottom: 1px solid var(--border-color, #ccc);
+  display: flex;
+  gap: 0.5rem;
 }
 
 .novel-selector-btn {
-  width: 100%;
+  flex: 1;
   padding: 0.75rem 1rem;
   background-color: var(--primary-color, #007acc);
   color: white;
@@ -21,6 +23,11 @@
 
 .novel-selector-btn:active {
   background-color: var(--primary-active, #003d82);
+}
+
+.novel-selector-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Modal Overlay */

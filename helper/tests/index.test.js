@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
-import { mkdir, rm, readFile } from 'fs/promises';
-import { createNovel, getIndex } from '../src/index/index.js';
+import { mkdir, rm, readFile, writeFile } from 'fs/promises';
+import { createNovel, getIndex, validateNovel } from '../src/index/index.js';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -116,6 +116,87 @@ describe('Index Operations', () => {
     it('should return error if index does not exist', async () => {
       const novelPath = path.join(TEST_HOME, 'nonexistent');
       const result = await getIndex(novelPath);
+
+      expect(result.status).toEqual('error');
+      expect(result.error.code).toEqual('ENOENT');
+    });
+  });
+
+  describe('validateNovel', () => {
+    it('should validate a properly structured novel directory', async () => {
+      const novelName = 'valid-novel';
+      const novelPath = path.join(TEST_HOME, novelName);
+
+      // Create a valid novel
+      await createNovel(novelName, TEST_HOME);
+
+      const result = await validateNovel(novelPath);
+
+      expect(result).toEqual({
+        status: 'ok',
+        data: { isValid: true, novelPath },
+        timestamp: expect.any(String),
+      });
+    });
+
+    it('should return error if manuscript directory is missing', async () => {
+      const novelPath = path.join(TEST_HOME, 'incomplete-novel');
+      await mkdir(novelPath, { recursive: true });
+      await mkdir(path.join(novelPath, 'wiki'), { recursive: true });
+      await mkdir(path.join(novelPath, 'meta'), { recursive: true });
+      await writeFile(path.join(novelPath, 'meta', 'index.json'), JSON.stringify({ chapters: [] }));
+
+      const result = await validateNovel(novelPath);
+
+      expect(result.status).toEqual('error');
+      expect(result.error.code).toEqual('INVALID_MANIFEST');
+      expect(result.error.message).toContain('manuscript');
+    });
+
+    it('should return error if wiki directory is missing', async () => {
+      const novelPath = path.join(TEST_HOME, 'incomplete-novel-2');
+      await mkdir(novelPath, { recursive: true });
+      await mkdir(path.join(novelPath, 'manuscript'), { recursive: true });
+      await mkdir(path.join(novelPath, 'meta'), { recursive: true });
+      await writeFile(path.join(novelPath, 'meta', 'index.json'), JSON.stringify({ chapters: [] }));
+
+      const result = await validateNovel(novelPath);
+
+      expect(result.status).toEqual('error');
+      expect(result.error.code).toEqual('INVALID_MANIFEST');
+      expect(result.error.message).toContain('wiki');
+    });
+
+    it('should return error if meta directory is missing', async () => {
+      const novelPath = path.join(TEST_HOME, 'incomplete-novel-3');
+      await mkdir(novelPath, { recursive: true });
+      await mkdir(path.join(novelPath, 'manuscript'), { recursive: true });
+      await mkdir(path.join(novelPath, 'wiki'), { recursive: true });
+
+      const result = await validateNovel(novelPath);
+
+      expect(result.status).toEqual('error');
+      expect(result.error.code).toEqual('INVALID_MANIFEST');
+      expect(result.error.message).toContain('meta');
+    });
+
+    it('should return error if index.json is missing', async () => {
+      const novelPath = path.join(TEST_HOME, 'incomplete-novel-4');
+      await mkdir(novelPath, { recursive: true });
+      await mkdir(path.join(novelPath, 'manuscript'), { recursive: true });
+      await mkdir(path.join(novelPath, 'wiki'), { recursive: true });
+      await mkdir(path.join(novelPath, 'meta'), { recursive: true });
+
+      const result = await validateNovel(novelPath);
+
+      expect(result.status).toEqual('error');
+      expect(result.error.code).toEqual('INVALID_MANIFEST');
+      expect(result.error.message).toContain('index.json');
+    });
+
+    it('should return error if novel path does not exist', async () => {
+      const novelPath = path.join(TEST_HOME, 'nonexistent-novel');
+      const result = await validateNovel(novelPath);
 
       expect(result.status).toEqual('error');
       expect(result.error.code).toEqual('ENOENT');

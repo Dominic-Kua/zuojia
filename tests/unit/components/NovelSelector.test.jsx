@@ -7,6 +7,10 @@ import { NovelSelector } from '../../../src/components/Navigation/NovelSelector'
 vi.mock('../../../src/lib/ipc-client', () => ({
   indexHandlers: {
     createNovel: vi.fn(),
+    validateNovel: vi.fn(),
+  },
+  appHandlers: {
+    selectNovelDirectory: vi.fn(),
   },
   invokeHandler: vi.fn(),
 }));
@@ -69,5 +73,22 @@ describe('NovelSelector Component', () => {
 
     const createButton = screen.getByRole('button', { name: /Create/i });
     expect(createButton).toBeDisabled();
+  });
+
+  it('should render "Open Novel" button', () => {
+    render(<NovelSelector />);
+    expect(screen.getByText(/Open Novel/i)).toBeInTheDocument();
+  });
+
+  it('should open dialog when "Open Novel" button clicked', async () => {
+    const user = userEvent.setup();
+    const { appHandlers } = await import('../../../src/lib/ipc-client');
+    
+    render(<NovelSelector />);
+
+    const openButton = screen.getByText(/Open Novel/i);
+    await user.click(openButton);
+
+    expect(appHandlers.selectNovelDirectory).toHaveBeenCalled();
   });
 });
