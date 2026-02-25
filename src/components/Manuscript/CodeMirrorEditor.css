@@ -1,0 +1,90 @@
+.codemirror-editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background-color: var(--editor-bg, #ffffff);
+  color: var(--editor-text, #1e1e1e);
+  font-family: 'Monaco', 'Menlo', 'Fira Code', monospace;
+  border-radius: 4px;
+}
+
+.codemirror-editor-container.theme-dark {
+  background-color: var(--editor-bg-dark, #1e1e1e);
+  color: var(--editor-text-dark, #e0e0e0);
+}
+
+.cm-editor-wrapper {
+  flex: 1;
+  overflow: hidden;
+  padding: 1rem;
+  position: relative;
+}
+
+.cm-editor-textarea {
+  width: 100%;
+  height: 100%;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  resize: none;
+  outline: none;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.cm-editor-textarea::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.cm-editor-textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cm-editor-textarea::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.5);
+  border-radius: 4px;
+}
+
+.cm-editor-textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.7);
+}
+
+/* Markdown syntax highlighting (basic) */
+.markdown-editor {
+  /* Font size and line height handled via inline styles */
+}
+
+/* Placeholder for when we integrate actual CodeMirror */
+.cm-editor {
+  width: 100%;
+  height: 100%;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.cm-gutters {
+  background-color: var(--gutter-bg, #f5f5f5);
+  border-right: 1px solid var(--gutter-border, #e0e0e0);
+}
+
+.cm-activeLineGutter {
+  background-color: var(--gutter-active-bg, #efefef);
+}
+
+.codemirror-editor-container.theme-dark .cm-gutters {
+  background-color: var(--gutter-bg-dark, #252526);
+  border-right-color: var(--gutter-border-dark, #3e3e42);
+}
+
+.codemirror-editor-container.theme-dark .cm-activeLineGutter {
+  background-color: var(--gutter-active-bg-dark, #2d2d30);
+}
