@@ -1,5 +1,6 @@
 import { ipcMain, dialog } from 'electron'
-import { createNovel, getIndex, validateNovel, rebuildIndex, readChapter, writeChapter } from '../helper/src/index/index.js'import { commitChapter } from '../helper/src/git/commit.js';
+import { createNovel, getIndex, validateNovel, rebuildIndex, readChapter, writeChapter } from '../helper/src/index/index.js'
+import { commitChapter } from '../helper/src/git/commit.js';
 /**
  * Register all IPC handlers
  * Formats responses as structured envelopes
