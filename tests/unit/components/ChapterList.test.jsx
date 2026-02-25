@@ -76,6 +76,30 @@ describe('ChapterList Component', () => {
     expect(dropdown).toBeInTheDocument();
   });
 
+  it('should always include current chapter in filtered results even when it does not match the search', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ChapterList
+        chapters={mockChapters}
+        currentChapter="chapter-01.md"
+        onChapterSelect={vi.fn()}
+        searchable={true}
+      />
+    );
+
+    // Search for something that excludes chapter-01.md
+    const searchInput = screen.getByRole('textbox', { name: /search chapters/i });
+    await user.type(searchInput, 'Big Reveal');
+
+    // The dropdown should still have chapter-01.md as a valid selected option
+    const dropdown = screen.getByRole('combobox');
+    expect(dropdown.value).toBe('chapter-01.md');
+    // chapter-01.md option should still be present
+    const options = Array.from(dropdown.options).map(o => o.value);
+    expect(options).toContain('chapter-01.md');
+  });
+
   it('should show unsaved indicator when hasUnsavedChanges is true', () => {
     render(
       <ChapterList 
