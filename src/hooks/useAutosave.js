@@ -37,8 +37,18 @@ export const useAutosave = (novelPath, filename, content, debounceMs = 300, auto
 
       const result = await gitHandlers.commit(novelPath, filename, content);
 
-      lastSavedContentRef.current = content;
-      setHasUnsavedChanges(false);
+      if (result && result.status === 'ok') {
+        lastSavedContentRef.current = content;
+        setHasUnsavedChanges(false);
+      } else {
+        const errorInfo = (result && result.error) ? result.error : {};
+        console.error('Autosave commit error:', errorInfo);
+        setSaveError({
+          message: errorInfo.message || 'Failed to autosave chapter',
+          code: errorInfo.code,
+        });
+        // Keep hasUnsavedChanges = true so user is aware
+      }
     } catch (err) {
       console.error('Autosave failed:', err);
       setSaveError({
