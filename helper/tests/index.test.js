@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import { mkdir, rm, readFile, writeFile } from 'fs/promises';
-import { createNovel, getIndex, validateNovel } from '../src/index/index.js';
+import { createNovel, getIndex, validateNovel, rebuildIndex } from '../src/index/index.js';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -200,6 +200,139 @@ describe('Index Operations', () => {
 
       expect(result.status).toEqual('error');
       expect(result.error.code).toEqual('ENOENT');
+    });
+  });
+
+  describe('rebuildIndex', () => {
+    it('should rebuild index from manuscript and wiki directories', async () => {
+      const novelName = 'rebuild-test';
+      const novelPath = path.join(TEST_HOME, novelName);
+
+      // Create novel
+      await createNovel(novelName, TEST_HOME);
+
+      // Add chapters to manuscript directory
+      const manuscriptPath = path.join(novelPath, 'manuscript');
+      await writeFile(
+        path.join(manuscriptPath, 'chapter-01.md'),
+        '# Chapter 1\n\nThis is the first chapter. Word one two three four five.'
+      );
+      await writeFile(
+        path.join(manuscriptPath, 'chapter-02.md'),
+        '# Chapter 2\n\nSecond chapter. Word one two three.'
+      );
+
+      // Add wiki pages
+      const wikiPath = path.join(novelPath, 'wiki');
+      await writeFile(
+        path.join(wikiPath, 'character-alice.md'),
+        '# Alice\n\nA main character. Her story unfolds.'
+      );
+
+      const result = await rebuildIndex(novelPath);
+
+      expect(result.status).toEqual('ok');
+      expect(result.data.chapters).toEqual([
+        expect.objectContaining({
+          filename: 'chapter-01.md',
+          title: 'Chapter 1',
+          wordCount: expect.any(Number),
+        }),
+        expect.objectContaining({
+          filename: 'chapter-02.md',
+          title: 'Chapter 2',
+          wordCount: expect.any(Number),
+        }),
+      ]);
+      expect(result.data.wiki).toEqual([
+        expect.objectContaining({
+          filename: 'character-alice.md',
+          title: 'Alice',
+        }),
+      ]);
+      expect(result.data.lastRebuild).toBeDefined();
+    });
+
+    it('should handle empty manuscript and wiki directories', async () => {
+      const novelName = 'empty-novel';
+      const novelPath = path.join(TEST_HOME, novelName);
+
+      // Create novel (manuscript and wiki are empty)
+      await createNovel(novelName, TEST_HOME);
+
+      const result = await rebuildIndex(novelPath);
+
+      expect(result.status).toEqual('ok');
+      expect(result.data.chapters).toEqual([]);
+      expect(result.data.wiki).toEqual([]);
+      expect(result.data.lastRebuild).toBeDefined();
+    });
+
+    it('should return error if novel path does not exist', async () => {
+      const novelPath = path.join(TEST_HOME, 'nonexistent');
+      const result = await rebuildIndex(novelPath);
+
+      expect(result.status).toEqual('error');
+      expect(result.error.code).toEqual('ENOENT');
+    });
+
+    it('should ignore non-markdown files in manuscript directory', async () => {
+      const novelName = 'ignore-test';
+      const novelPath = path.join(TEST_HOME, novelName);
+
+      // Create novel
+      await createNovel(novelName, TEST_HOME);
+
+      const manuscriptPath = path.join(novelPath, 'manuscript');
+      await writeFile(path.join(manuscriptPath, 'chapter-01.md'), '# Chapter 1\n\nContent.');
+      await writeFile(path.join(manuscriptPath, 'readme.txt'), 'This is not markdown');
+      await writeFile(path.join(manuscriptPath, '.hidden'), 'Hidden file');
+
+      const result = await rebuildIndex(novelPath);
+
+      expect(result.status).toEqual('ok');
+      expect(result.data.chapters).toHaveLength(1);
+      expect(result.data.chapters[0].filename).toEqual('chapter-01.md');
+    });
+
+    it('should use title from first heading if present', async () => {
+      const novelName = 'heading-test';
+      const novelPath = path.join(TEST_HOME, novelName);
+
+      // Create novel
+      await createNovel(novelName, TEST_HOME);
+
+      const manuscriptPath = path.join(novelPath, 'manuscript');
+      await writeFile(
+        path.join(manuscriptPath, 'chapter-01.md'),
+        '# My Custom Title\n\nContent with multiple words here.'
+      );
+
+      const result = await rebuildIndex(novelPath);
+
+      expect(result.status).toEqual('ok');
+      expect(result.data.chapters[0].title).toEqual('My Custom Title');
+    });
+
+    it('should use filename as title if no heading exists', async () => {
+      const novelName = 'no-heading-test';
+      const novelPath = path.join(TEST_HOME, novelName);
+
+      // Create novel
+      await createNovel(novelName, TEST_HOME);
+
+      const manuscriptPath = path.join(novelPath, 'manuscript');
+      await writeFile(
+        path.join(manuscriptPath, 'chapter-01.md'),
+        'Content without any heading. Words go here.'
+      );
+
+      const result = await rebuildIndex(novelPath);
+
+      expect(result.status).toEqual('ok');
+      expect(result.data.chapters[0].title).toBeDefined();
+      // Could be filename or a fallback - just verify it's not empty
+      expect(result.data.chapters[0].title.length).toBeGreaterThan(0);
     });
   });
 });

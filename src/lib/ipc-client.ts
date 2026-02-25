@@ -45,6 +45,7 @@ export const indexHandlers = {
   createNovel: (novelName) => invokeHandler('helper:index:createNovel', { novelName }),
   getIndex: (novelPath) => invokeHandler('helper:index:get', { novelPath }),
   validateNovel: (novelPath) => invokeHandler('helper:index:validate', { novelPath }),
+  rebuildIndex: (novelPath) => invokeHandler('helper:index:rebuild', { novelPath }),
 };
 
 export const appHandlers = {

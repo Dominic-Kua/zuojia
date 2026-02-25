@@ -9,6 +9,7 @@ vi.mock('../../../src/lib/ipc-client', () => ({
     createNovel: vi.fn(),
     validateNovel: vi.fn(),
     getIndex: vi.fn(),
+    rebuildIndex: vi.fn(),
   },
   appHandlers: {
     selectNovelDirectory: vi.fn(),
