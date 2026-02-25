@@ -189,5 +189,55 @@ describe('useAutosave Hook', () => {
     expect(gitHandlers.commit).toHaveBeenCalledTimes(1);
     expect(gitHandlers.commit).toHaveBeenCalledWith(mockNovelPath, mockFilename, 'Draft 3');
   });
+
+  it('should set saveError when commit fails during manual save', async () => {
+    const errorMessage = 'Git commit failed';
+    gitHandlers.commit.mockRejectedValueOnce(new Error(errorMessage));
+
+    const { result, rerender } = renderHook(
+      ({ content }) => useAutosave(mockNovelPath, mockFilename, content),
+      { initialProps: { content: initialContent } }
+    );
+
+    await act(async () => {
+      rerender({ content: 'Updated content with error' });
+    });
+
+    await act(async () => {
+      await result.current.manualSave();
+    });
+
+    expect(result.current.saveError).not.toBeNull();
+    expect(result.current.saveError.message).toBe(errorMessage);
+    expect(result.current.hasUnsavedChanges).toBe(true);
+    expect(result.current.isSaving).toBe(false);
+  });
+
+  it('should set saveError when auto-commit fails', async () => {
+    vi.useFakeTimers();
+    const errorMessage = 'Network error during auto-commit';
+    const debounceMs = 100;
+    const autocommitMs = 1000;
+
+    gitHandlers.commit.mockRejectedValueOnce(new Error(errorMessage));
+
+    const { result, rerender } = renderHook(
+      ({ content }) => useAutosave(mockNovelPath, mockFilename, content, debounceMs, autocommitMs),
+      { initialProps: { content: initialContent } }
+    );
+
+    await act(async () => {
+      rerender({ content: 'Content that fails to auto-commit' });
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(autocommitMs);
+    });
+
+    expect(result.current.saveError).not.toBeNull();
+    expect(result.current.saveError.message).toBe(errorMessage);
+    expect(result.current.hasUnsavedChanges).toBe(true);
+    expect(result.current.isSaving).toBe(false);
+  });
 });
 
