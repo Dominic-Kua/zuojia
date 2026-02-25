@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import { readFile, writeFile } from 'fs/promises'
+import { readFile, writeFile, unlink } from 'fs/promises'
 import { createError } from '../util/error.js'
 
 /**
@@ -45,6 +45,7 @@ export async function readChapter(novelPath, filename) {
  * @returns {Promise<{status, data, timestamp}>} Response envelope
  */
 export async function writeChapter(novelPath, filename, content) {
+  let tempPath;
   try {
     const manuscriptPath = path.join(novelPath, 'manuscript');
     
@@ -56,7 +57,7 @@ export async function writeChapter(novelPath, filename, content) {
     const chapterPath = path.join(manuscriptPath, filename);
 
     // Write content atomically (write to temp file, then rename)
-    const tempPath = `${chapterPath}.tmp`;
+    tempPath = `${chapterPath}.tmp`;
     await writeFile(tempPath, content, 'utf-8');
     fs.renameSync(tempPath, chapterPath);
 
@@ -69,6 +70,13 @@ export async function writeChapter(novelPath, filename, content) {
       timestamp: new Date().toISOString(),
     };
   } catch (err) {
+    if (tempPath) {
+      try {
+        await unlink(tempPath);
+      } catch {
+        // Ignore cleanup errors to avoid masking the original error
+      }
+    }
     if (err.code === 'ENOENT') {
       return createError('ENOENT', `Novel directory not found: ${novelPath}`);
     }
