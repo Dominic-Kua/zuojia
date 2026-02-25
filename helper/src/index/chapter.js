@@ -61,7 +61,7 @@ export async function writeChapter(novelPath, filename, content) {
     }
     
     // Check for directory traversal sequences
-    if (filename.includes('..') || filename.startsWith('/')) {
+    if (filename.includes('..')) {
       return createError('INVALID_PATH', 'Path traversal sequences not allowed');
     }
     
