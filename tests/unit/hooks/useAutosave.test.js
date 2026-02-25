@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useAutosave } from '../../../src/hooks/useAutosave';
+import { gitHandlers } from '../../../src/lib/ipc-client';
 
 // Mock the IPC client
 vi.mock('../../../src/lib/ipc-client', () => ({
@@ -82,20 +83,26 @@ describe('useAutosave Hook', () => {
   });
 
   it('should provide save tracking state', async () => {
-    const { result } = renderHook(() =>
-      useAutosave(mockNovelPath, mockFilename, 'content')
+    const { result, rerender } = renderHook(
+      ({ content }) => useAutosave(mockNovelPath, mockFilename, content),
+      { initialProps: { content: initialContent } }
     );
 
     // Initially not saving
     expect(result.current.isSaving).toBe(false);
+
+    // Change content to mark as unsaved before manual save
+    await act(async () => {
+      rerender({ content: 'Updated content for save test' });
+    });
 
     // Manual save should be callable
     await act(async () => {
       await result.current.manualSave();
     });
 
-    // After manual save, should have called commit
-    expect(result.current).toBeDefined();
+    // After manual save, should have called commit with correct parameters
+    expect(gitHandlers.commit).toHaveBeenCalledWith(mockNovelPath, mockFilename, expect.any(String));
   });
 });
 
