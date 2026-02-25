@@ -146,7 +146,7 @@ export function useWordCount(novelPath, currentChapter, content) {
         clearTimeout(debounceTimerRef.current);
       }
     };
-  }, [content, loading, loadChapterCount, DEBOUNCE_DELAY]);
+  }, [content, loading, loadChapterCount]);
 
   return {
     manuscriptCount,
