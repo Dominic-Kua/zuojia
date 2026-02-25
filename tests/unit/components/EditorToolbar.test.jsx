@@ -72,13 +72,6 @@ describe('EditorToolbar Component', () => {
     expect(onChapterChange).toHaveBeenCalledWith('chapter-02.md');
   });
 
-  it('should handle loading state', async () => {
-    const { container } = render(<EditorToolbar novelPath={mockNovelPath} currentChapter="chapter-01.md" onChapterChange={vi.fn()} />);
-    
-    // During loading, might show loading indicator or disabled state
-    expect(container).toBeInTheDocument();
-  });
-
   it('should handle error state when loading chapters fails', async () => {
     const { indexHandlers } = await import('../../../src/lib/ipc-client');
     indexHandlers.getIndex.mockRejectedValueOnce(new Error('Failed to load index'));
