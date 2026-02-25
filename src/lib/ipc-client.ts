@@ -44,6 +44,11 @@ export async function invokeHandler(handler, payload = {}) {
 export const indexHandlers = {
   createNovel: (novelName) => invokeHandler('helper:index:createNovel', { novelName }),
   getIndex: (novelPath) => invokeHandler('helper:index:get', { novelPath }),
+  validateNovel: (novelPath) => invokeHandler('helper:index:validate', { novelPath }),
+};
+
+export const appHandlers = {
+  selectNovelDirectory: () => invokeHandler('app:selectNovelDirectory'),
 };
 
 export const gitHandlers = {

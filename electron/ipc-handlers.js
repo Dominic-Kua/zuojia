@@ -1,5 +1,5 @@
-import { ipcMain } from 'electron'
-import { createNovel, getIndex } from '../helper/src/index/index.js'
+import { ipcMain, dialog } from 'electron'
+import { createNovel, getIndex, validateNovel } from '../helper/src/index/index.js'
 
 /**
  * Register all IPC handlers
@@ -27,6 +27,39 @@ export function registerHandlers() {
       return await getIndex(novelPath);
     })
   );
+
+  ipcMain.handle(
+    'helper:index:validate',
+    wrapHandler(async ({ novelPath }) => {
+      return await validateNovel(novelPath);
+    })
+  );
+
+  // Dialog handler
+  ipcMain.handle('app:selectNovelDirectory', async (event) => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      title: 'Open Novel Directory',
+      message: 'Select a novel directory',
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return {
+        status: 'error',
+        error: {
+          code: 'DIALOG_CANCELED',
+          message: 'Dialog was canceled',
+        },
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    return {
+      status: 'ok',
+      data: { novelPath: result.filePaths[0] },
+      timestamp: new Date().toISOString(),
+    };
+  });
 
   // TODO: Register other handlers as they're implemented
   // - helper:git:commit

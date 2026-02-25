@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { indexHandlers } from '../../lib/ipc-client';
+import { indexHandlers, appHandlers } from '../../lib/ipc-client';
 import './NovelSelector.css';
 
 /**
  * NovelSelector Component
- * Manages novel creation and selection
+ * Manages novel creation and opening
  */
-export function NovelSelector({ onNovelCreated }) {
-  const [showDialog, setShowDialog] = useState(false);
+export function NovelSelector({ onNovelCreated, onNovelOpened }) {
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [novelName, setNovelName] = useState('');
   const [error, setError] = useState(null);
+  const [openError, setOpenError] = useState(null);
   const [loading, setLoading] = useState(false);
 
   // Validate novel name (only lowercase alphanumeric, hyphen, underscore)
@@ -30,10 +31,10 @@ export function NovelSelector({ onNovelCreated }) {
     setLoading(true);
     try {
       const result = await indexHandlers.createNovel(novelName);
-      setShowDialog(false);
+      setShowCreateDialog(false);
       setNovelName('');
       
-      // Close dialog and notify parent
+      // Notify parent
       if (onNovelCreated) {
         onNovelCreated(result.novelPath);
       }
@@ -45,17 +46,60 @@ export function NovelSelector({ onNovelCreated }) {
     }
   };
 
+  const handleOpenNovel = async () => {
+    setOpenError(null);
+    setLoading(true);
+    try {
+      const { novelPath } = await appHandlers.selectNovelDirectory();
+      
+      // Validate the selected directory
+      const validation = await indexHandlers.validateNovel(novelPath);
+      
+      if (validation.isValid) {
+        // Get index to confirm it's a valid novel
+        await indexHandlers.getIndex(novelPath);
+        
+        // Notify parent
+        if (onNovelOpened) {
+          onNovelOpened(novelPath);
+        }
+      }
+    } catch (err) {
+      if (err && err.code === 'DIALOG_CANCELED') {
+        // User canceled the folder picker; this is expected behavior, not an error.
+        console.info('Open novel dialog was canceled by the user.');
+      } else {
+        setOpenError(err.message || 'Failed to open novel');
+        console.error('Error opening novel:', err);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="novel-selector">
       <button
         className="novel-selector-btn"
-        onClick={() => setShowDialog(true)}
+        onClick={() => setShowCreateDialog(true)}
+        disabled={loading}
       >
         + New Novel
       </button>
+      <button
+        className="novel-selector-btn"
+        onClick={handleOpenNovel}
+        disabled={loading}
+      >
+        Open Novel
+      </button>
 
-      {showDialog && (
-        <div className="modal-overlay" onClick={() => setShowDialog(false)}>
+      {openError && (
+        <p className="open-error-message">{openError}</p>
+      )}
+
+      {showCreateDialog && (
+        <div className="modal-overlay" onClick={() => !loading && setShowCreateDialog(false)}>
           <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
             <h2>Create a New Novel</h2>
             <form onSubmit={handleCreateNovel}>
@@ -74,7 +118,7 @@ export function NovelSelector({ onNovelCreated }) {
               <div className="dialog-buttons">
                 <button
                   type="button"
-                  onClick={() => setShowDialog(false)}
+                  onClick={() => !loading && setShowCreateDialog(false)}
                   disabled={loading}
                 >
                   Cancel
