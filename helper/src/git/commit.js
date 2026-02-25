@@ -60,7 +60,7 @@ export async function commitChapter(novelPath, filename, content) {
 
     // Create commit with timestamp
     const timestamp = new Date().toISOString();
-    const commitMessage = `autosave: ${filename} at ${timestamp}`;
+    const commitMessage = `autosave: ${filename}`;
 
     try {
       execSync(`git commit -m "${commitMessage}"`, { cwd: novelPath, stdio: 'ignore' });
