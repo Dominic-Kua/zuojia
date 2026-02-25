@@ -54,6 +54,25 @@ export async function writeChapter(novelPath, filename, content) {
       return createError('ENOENT', `Novel directory not found: ${novelPath}`);
     }
 
+    // Validate filename - prevent path traversal and absolute paths
+    // Check for absolute paths
+    if (path.isAbsolute(filename)) {
+      return createError('INVALID_PATH', 'Absolute paths not allowed');
+    }
+    
+    // Check for directory traversal sequences
+    if (filename.includes('..')) {
+      return createError('INVALID_PATH', 'Path traversal sequences not allowed');
+    }
+    
+    // Also validate via resolved path as backup
+    const resolvedPath = path.resolve(manuscriptPath, filename);
+    const resolvedManuscript = path.resolve(manuscriptPath);
+    
+    if (!resolvedPath.startsWith(resolvedManuscript + path.sep) && resolvedPath !== path.join(resolvedManuscript, filename)) {
+      return createError('INVALID_PATH', 'Path escapes manuscript directory');
+    }
+
     const chapterPath = path.join(manuscriptPath, filename);
 
     // Write content atomically (write to temp file, then rename)

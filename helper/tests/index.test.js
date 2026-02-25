@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import { mkdir, rm, readFile, writeFile } from 'fs/promises';
 import { createNovel, getIndex, validateNovel, rebuildIndex, readChapter, writeChapter } from '../src/index/index.js';
+import { commitChapter } from '../src/git/commit.js';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -464,6 +465,74 @@ describe('Index Operations', () => {
       expect(absoluteResult.status).toEqual('error');
       expect(absoluteResult.error).toBeDefined();
       expect(fs.existsSync(absoluteFilename)).toBe(false);
+    });
+  });
+
+  describe('commitChapter', () => {
+    it('should commit chapter changes to git with timestamp', async () => {
+      // Create a novel first
+      const novelName = 'test-commit-novel';
+      const novelPath = path.join(TEST_HOME, novelName);
+      await createNovel(novelName, TEST_HOME);
+
+      // commitChapter writes content to disk before staging - no need to call writeChapter first
+      const filename = 'chapter-01.md';
+      const content = '# Chapter 1\n\nSome content';
+      const result = await commitChapter(novelPath, filename, content);
+
+      expect(result.status).toEqual('ok');
+      expect(result.data).toBeDefined();
+      expect(result.data.filename).toEqual(filename);
+      expect(result.data.message).toEqual(`autosave: ${filename}`);
+      expect(result.timestamp).toBeDefined();
+    });
+
+    it('should return error if novel path is invalid', async () => {
+      const result = await commitChapter('/nonexistent/path', 'chapter-01.md', 'content');
+
+      expect(result.status).toEqual('error');
+      expect(result.error).toBeDefined();
+      expect(result.error.code).toEqual('INVALID_NOVEL_PATH');
+    });
+
+    it('should return error if filename is missing', async () => {
+      const novelName = 'test-commit-no-filename';
+      const novelPath = path.join(TEST_HOME, novelName);
+      await createNovel(novelName, TEST_HOME);
+
+      const result = await commitChapter(novelPath, '', 'content');
+
+      expect(result.status).toEqual('error');
+      expect(result.error).toBeDefined();
+      expect(result.error.code).toEqual('INVALID_FILENAME');
+    });
+
+    it('should handle subdirectory paths', async () => {
+      const novelName = 'test-commit-subdir';
+      const novelPath = path.join(TEST_HOME, novelName);
+      await createNovel(novelName, TEST_HOME);
+
+      // Try to access parent directory (path traversal)
+      const result = await commitChapter(novelPath, '../evil.md', 'malicious');
+
+      expect(result.status).toEqual('error');
+      expect(result.error).toBeDefined();
+      expect(result.error.code).toBe('INVALID_PATH_TRAVERSAL');
+    });
+
+    it('should handle basic git configuration', async () => {
+      const novelName = 'test-commit-author';
+      const novelPath = path.join(TEST_HOME, novelName);
+      await createNovel(novelName, TEST_HOME);
+
+      // commitChapter writes content to disk, no need to call writeChapter first
+      const filename = 'chapter-02.md';
+      const content = '# Chapter 2\n\nAuthor info test';
+      const result = await commitChapter(novelPath, filename, content);
+
+      expect(result.status).toEqual('ok');
+      expect(result.data).toBeDefined();
+      expect(result.data.author).toBeDefined();
     });
   });
 });

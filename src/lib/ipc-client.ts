@@ -58,8 +58,8 @@ export const appHandlers = {
 };
 
 export const gitHandlers = {
-  commit: (novelPath, message, files) =>
-    invokeHandler('helper:git:commit', { novelPath, message, files }),
+  commit: (novelPath, filename, content) =>
+    invokeHandler('helper:git:commit', { novelPath, filename, content }),
   pull: (novelPath) => invokeHandler('helper:git:pull', { novelPath }),
   push: (novelPath) => invokeHandler('helper:git:push', { novelPath }),
   history: (novelPath, limit) => invokeHandler('helper:git:history', { novelPath, limit }),
