@@ -79,7 +79,7 @@ describe('Wiki CRUD Integration Flow', () => {
     const list2 = await listWikiPages(testNovelPath);
     expect(list2.data.pages).toHaveLength(2);
 
-    // 6. DELETE: Remove  a page
+    // 6. DELETE: Remove a page
     const deleteResult = await deleteWikiPage(testNovelPath, 'alice-the-protagonist');
     expect(deleteResult.status).toBe('ok');
 
