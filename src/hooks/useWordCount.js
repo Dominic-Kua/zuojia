@@ -23,12 +23,16 @@ export function useWordCount(novelPath, currentChapter, content) {
   const [error, setError] = useState(null);
 
   const debounceTimerRef = useRef(null);
+  const todayCountIntervalRef = useRef(null);
+  const manuscriptCountIntervalRef = useRef(null);
   const lastManuscriptFetchRef = useRef(0);
 
   // Debounce delay for content changes (ms)
   const DEBOUNCE_DELAY = 300;
-  // Cache manuscript count for this long (ms)
-  const MANUSCRIPT_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  // Cache manuscript count for this long (ms) - reduced for more frequent updates
+  const MANUSCRIPT_CACHE_DURATION = 1 * 60 * 1000; // 1 minute
+  // Refresh today count every 30 seconds (ms)
+  const TODAY_COUNT_REFRESH_INTERVAL = 30 * 1000;
 
   /**
    * Load chapter word count
@@ -57,13 +61,15 @@ export function useWordCount(novelPath, currentChapter, content) {
 
     try {
       const result = await statsHandlers.manuscriptCount(novelPath);
-      setManuscriptCount(result.wordCount);
+      // Ensure manuscript count is at least as large as current chapter count
+      const count = Math.max(result.wordCount, chapterCount);
+      setManuscriptCount(count);
       lastManuscriptFetchRef.current = now;
     } catch (err) {
       console.error('Error loading manuscript count:', err);
       setError(err);
     }
-  }, [novelPath]);
+  }, [novelPath, chapterCount]);
 
   /**
    * Load today's word count
@@ -123,6 +129,29 @@ export function useWordCount(novelPath, currentChapter, content) {
   }, [currentChapter, novelPath, loadChapterCount, loadManuscriptCount, loadTodayCount]);
 
   /**
+   * Periodically refresh today's word count (based on git history)
+   */
+  useEffect(() => {
+    if (!novelPath) {
+      return;
+    }
+
+    // Refresh immediately on mount
+    loadTodayCount();
+
+    // Set up periodic refresh
+    todayCountIntervalRef.current = setInterval(() => {
+      loadTodayCount();
+    }, TODAY_COUNT_REFRESH_INTERVAL);
+
+    return () => {
+      if (todayCountIntervalRef.current) {
+        clearInterval(todayCountIntervalRef.current);
+      }
+    };
+  }, [novelPath, loadTodayCount]);
+
+  /**
    * Update chapter count when content changes (debounced)
    */
   useEffect(() => {
@@ -147,6 +176,20 @@ export function useWordCount(novelPath, currentChapter, content) {
       }
     };
   }, [content, loading, loadChapterCount]);
+
+  /**
+   * Cleanup timers on unmount
+   */
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      if (todayCountIntervalRef.current) {
+        clearInterval(todayCountIntervalRef.current);
+      }
+    };
+  }, []);
 
   return {
     manuscriptCount,

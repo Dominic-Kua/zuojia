@@ -3,151 +3,122 @@
  * @module git/history
  */
 
-import { execSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { calculateWordCount } from '../stats/word-count.js';
 
 /**
- * Get words written today by analyzing git diffs since midnight
- * Compares current state with state at midnight (start of day)
- * Only counts manuscript/ files, excludes wiki/
+ * Get words written today by comparing current manuscript state to today's baseline
+ * Stores a baseline at the start of each day to calculate the day's progress
  * 
  * @param {string} novelPath - Path to novel root directory
- * @returns {Promise<number>} Net words added today (added words only, not subtracting deleted)
+ * @returns {Promise<number>} Net words added since midnight (or since baseline was set)
  */
 export async function getWordsWrittenToday(novelPath) {
-  // Check if git repo exists
-  const gitPath = path.join(novelPath, '.git');
-  if (!fs.existsSync(gitPath)) {
-    return 0;
-  }
-
   try {
-    // Get midnight timestamp (start of today)
-    const now = new Date();
-    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const midnightISO = midnight.toISOString();
+    const manuscriptDir = path.join(novelPath, 'manuscript');
 
-    // Check if there are any commits
-    let hasCommits = false;
+    // Check if manuscript directory exists
+    if (!fs.existsSync(manuscriptDir)) {
+      return 0;
+    }
+
+    // Get current word count of all files in manuscript/
+    const currentWordCount = getDirectoryWordCount(manuscriptDir);
+
+    // Get or initialize baseline
+    const metaDir = path.join(novelPath, 'meta');
+    const baselineFile = path.join(metaDir, 'today-baseline.json');
+
+    let baseline = {
+      date: createDateString(new Date()),
+      wordCount: 0,
+    };
+
     try {
-      execSync('git rev-parse HEAD', {
-        cwd: novelPath,
-        stdio: 'pipe',
-      });
-      hasCommits = true;
-    } catch (err) {
-      // No commits yet
-      return 0;
-    }
+      if (fs.existsSync(baselineFile)) {
+        const data = fs.readFileSync(baselineFile, 'utf-8');
+        baseline = JSON.parse(data);
 
-    if (!hasCommits) {
-      return 0;
-    }
-
-    // Check if there are commits since midnight
-    let commitsSinceMidnight = false;
-    try {
-      const logResult = execSync(
-        `git log --since="${midnightISO}" --oneline`,
-        {
-          cwd: novelPath,
-          encoding: 'utf-8',
-          stdio: 'pipe',
-        }
-      );
-      commitsSinceMidnight = logResult.trim().length > 0;
-    } catch (err) {
-      // Error getting log
-      return 0;
-    }
-
-    if (!commitsSinceMidnight) {
-      return 0;
-    }
-
-    // Get diff of manuscript files since midnight
-    // We'll compare against the state at midnight
-    let diffOutput = '';
-    try {
-      diffOutput = execSync(
-        `git diff --unified=0 --since="${midnightISO}" HEAD -- manuscript/`,
-        {
-          cwd: novelPath,
-          encoding: 'utf-8',
-          stdio: 'pipe',
-        }
-      );
-    } catch (err) {
-      // If diff fails, try getting diff from first commit today to HEAD
-      try {
-        const firstCommitToday = execSync(
-          `git log --reverse --since="${midnightISO}" --format=%H --max-count=1`,
-          {
-            cwd: novelPath,
-            encoding: 'utf-8',
-            stdio: 'pipe',
+        // Check if baseline is from today
+        const today = createDateString(new Date());
+        if (baseline.date !== today) {
+          // It's a new day, update baseline to current count
+          baseline = {
+            date: today,
+            wordCount: currentWordCount,
+          };
+          // Save new baseline
+          if (!fs.existsSync(metaDir)) {
+            fs.mkdirSync(metaDir, { recursive: true });
           }
-        ).trim();
-
-        if (firstCommitToday) {
-          // Get the commit before first commit today
-          try {
-            const commitBefore = execSync(
-              `git rev-parse ${firstCommitToday}^`,
-              {
-                cwd: novelPath,
-                encoding: 'utf-8',
-                stdio: 'pipe',
-              }
-            ).trim();
-
-            diffOutput = execSync(
-              `git diff --unified=0 ${commitBefore}..HEAD -- manuscript/`,
-              {
-                cwd: novelPath,
-                encoding: 'utf-8',
-                stdio: 'pipe',
-              }
-            );
-          } catch (err) {
-            // First commit might be initial commit (no parent)
-            // In this case, show all content as added
-            diffOutput = execSync(
-              `git diff --unified=0 4b825dc642cb6eb9a060e54bf8d69288fbee4904..HEAD -- manuscript/`,
-              {
-                cwd: novelPath,
-                encoding: 'utf-8',
-                stdio: 'pipe',
-              }
-            );
-          }
+          fs.writeFileSync(baselineFile, JSON.stringify(baseline, null, 2), 'utf-8');
+          return 0;
         }
-      } catch (err) {
+      } else {
+        // No baseline file exists, create one with current count
+        baseline = {
+          date: createDateString(new Date()),
+          wordCount: currentWordCount,
+        };
+        if (!fs.existsSync(metaDir)) {
+          fs.mkdirSync(metaDir, { recursive: true });
+        }
+        fs.writeFileSync(baselineFile, JSON.stringify(baseline, null, 2), 'utf-8');
         return 0;
       }
+    } catch (err) {
+      console.error('Error managing baseline file:', err);
+      // If we can't manage the file, assume baseline is 0
+      baseline.wordCount = 0;
     }
 
-    // Parse diff to count added words
-    let addedWords = 0;
-    
-    // Split diff into lines
-    const lines = diffOutput.split('\n');
-
-    for (const line of lines) {
-      // Added lines start with +
-      if (line.startsWith('+') && !line.startsWith('+++')) {
-        // Remove the + prefix
-        const content = line.substring(1);
-        const wordCount = calculateWordCount(content);
-        addedWords += wordCount;
-      }
-    }
-
-    return addedWords;
+    // Return the difference (current - baseline)
+    const todayWordCount = Math.max(0, currentWordCount - baseline.wordCount);
+    return todayWordCount;
   } catch (err) {
-    console.error('Error analyzing git history:', err);
+    console.error('Error calculating today word count:', err);
     return 0;
   }
+}
+
+/**
+ * Create a date string in YYYY-MM-DD format
+ * @param {Date} date - Date object
+ * @returns {string} Date string
+ */
+function createDateString(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Calculate total word count for all markdown files in a directory
+ * @param {string} dirPath - Path to directory
+ * @returns {number} Total word count
+ */
+function getDirectoryWordCount(dirPath) {
+  let totalCount = 0;
+
+  try {
+    const files = fs.readdirSync(dirPath);
+
+    for (const file of files) {
+      if (file.endsWith('.md')) {
+        const filePath = path.join(dirPath, file);
+        const stats = fs.statSync(filePath);
+
+        if (stats.isFile()) {
+          const content = fs.readFileSync(filePath, 'utf-8');
+          totalCount += calculateWordCount(content);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error reading directory word count:', err);
+  }
+
+  return totalCount;
 }
