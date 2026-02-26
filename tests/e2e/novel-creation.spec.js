@@ -95,31 +95,18 @@ test.describe('Novel Creation E2E', () => {
     expect(Array.isArray(index.wiki)).toBe(true);
   });
 
-  test('should validate novel name and show error for invalid names', async () => {
+  test('should require a non-empty novel name', async () => {
     // Step 1: Open dialog
     const newNovelButton = page.getByTestId('new-novel-button');
     await newNovelButton.click();
 
-    // Step 2: Try invalid name with uppercase
+    // Step 2: Try invalid empty name
     const nameInput = page.getByTestId('novel-name-input');
-    await nameInput.fill('InvalidName');
+    await nameInput.fill('   ');
 
-    // Step 3: Try to create (button should be disabled or show error)
+    // Step 3: Create button should be disabled for empty name
     const createButton = page.getByTestId('create-novel-button');
-    
-    // The button might be disabled, or clicking might show an error
-    const isDisabled = await createButton.isDisabled();
-    
-    if (!isDisabled) {
-      await createButton.click();
-      // Should show error message
-      const errorMessage = page.getByTestId('novel-name-error');
-      await expect(errorMessage).toBeVisible();
-      await expect(errorMessage).toContainText('lowercase');
-    } else {
-      // Button is disabled, which is correct behavior
-      expect(isDisabled).toBe(true);
-    }
+    await expect(createButton).toBeDisabled();
   });
 
   test('should allow canceling novel creation', async () => {

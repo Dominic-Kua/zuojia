@@ -36,9 +36,28 @@ body{margin:0;font-family:Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 
 .wiki-editor-header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
 .wiki-editor-header h4{margin:0;font-size:13px;color:var(--text-secondary)}
 .wiki-editor-actions{display:flex;align-items:center;gap:8px}
+.wiki-view-toggle{display:flex;gap:6px}
+.wiki-view-toggle .btn.ghost{border:1px solid var(--muted-accent);padding:6px 10px;font-size:12px}
+.wiki-view-toggle .btn.ghost.active{background:var(--accent);color:white;border-color:var(--accent)}
 .wiki-editor-status{font-size:11px;color:var(--text-secondary)}
 .wiki-editor-textarea{width:100%;min-height:160px;border-radius:8px;border:1px solid var(--divider);padding:10px;font-family:'Merriweather', Georgia, serif;font-size:13px;line-height:1.5;resize:vertical;background:white}
 .wiki-editor-textarea:disabled{background:#f5f5f5;color:#9aa0a6}
+.wiki-preview{margin-top:12px;padding:10px;border-radius:8px;background:white;border:1px solid var(--divider)}
+.wiki-preview-header{font-size:12px;color:var(--text-secondary);margin-bottom:8px}
+.wiki-preview-body{font-size:13px;line-height:1.5;color:var(--text-primary)}
+.wiki-preview-body p{margin:0 0 8px 0}
+.wiki-preview-body p:last-child{margin-bottom:0}
+.wiki-preview-body h1,.wiki-preview-body h2,.wiki-preview-body h3,.wiki-preview-body h4,.wiki-preview-body h5,.wiki-preview-body h6{margin:12px 0 6px 0;font-family:'Merriweather', Georgia, serif}
+.wiki-preview-body ul,.wiki-preview-body ol{padding-left:20px;margin:6px 0}
+.wiki-preview-body blockquote{margin:8px 0;padding-left:12px;border-left:3px solid var(--muted-accent);color:var(--text-secondary)}
+.wiki-preview-body code{background:#f0f2f1;padding:2px 4px;border-radius:4px;font-family:'SFMono-Regular', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;font-size:12px}
+.wiki-preview-body pre{background:#f0f2f1;padding:10px;border-radius:8px;overflow:auto}
+.wiki-preview-body pre code{background:transparent;padding:0}
+.wiki-preview-body a{color:var(--accent)}
+.wiki-link{color:var(--accent);text-decoration:underline;cursor:pointer}
+.wiki-embed{margin:10px 0;display:flex;flex-direction:column;gap:6px}
+.wiki-embed img{max-width:100%;border-radius:8px;border:1px solid var(--divider)}
+.wiki-embed-caption{font-size:12px;color:var(--text-secondary)}
 .wiki-list{list-style:none;padding:0;margin:0;color:var(--text-secondary)}
 .muted{opacity:0.95;color:var(--text-secondary)}
 .conflict-note{margin-top:6px;color:var(--accent)}
