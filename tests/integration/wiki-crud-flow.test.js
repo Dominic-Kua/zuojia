@@ -24,7 +24,7 @@ describe('Wiki CRUD Integration Flow', () => {
   afterEach(async () => {
     // Clean up test directory
     if (testNovelPath) {
-      await fs.rm(testNovelPath, {recursive: true, force: true });
+      await fs.rm(testNovelPath, { recursive: true, force: true });
     }
   });
 
