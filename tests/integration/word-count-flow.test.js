@@ -41,7 +41,7 @@ describe('Word Count Integration Flow', () => {
     // Create multiple chapter files
     await fs.writeFile(
       path.join(manuscriptPath, 'chapter-1.md'),
-      'This is chapter one with exactly ten words here.'
+      'This is chapter one with exactly nine words here.'
     );
     await fs.writeFile(
       path.join(manuscriptPath, 'chapter-2.md'),
