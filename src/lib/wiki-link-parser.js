@@ -4,9 +4,19 @@
  */
 
 /**
- * Parse wiki links from text
- * @param {string} text - Text to parse
- * @returns {Array} - Array of {start, end, pageName, displayText, fullMatch}
+ * A single wiki link match found in text.
+ * @typedef {Object} WikiLinkMatch
+ * @property {number} start - Start index of the match in the original text.
+ * @property {number} end - End index (exclusive) of the match in the original text.
+ * @property {string} pageName - The raw page name referenced by the link.
+ * @property {string} displayText - The display text for the link (may be the same as pageName).
+ * @property {string} fullMatch - The full matched wiki link string, including brackets.
+ */
+
+/**
+ * Parse wiki links from text.
+ * @param {string} text - Text content to scan for wiki link syntax.
+ * @returns {WikiLinkMatch[]} Array of wiki link match objects.
  */
 export function parseWikiLinks(text) {
   if (!text || typeof text !== 'string') {
