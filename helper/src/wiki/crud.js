@@ -4,6 +4,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { createError } from '../util/error.js';
 
 /**
  * Generate URL-safe slug from title
@@ -39,27 +40,13 @@ export async function createWikiPage(novelPath, title, content) {
   try {
     // Validate title
     if (!title || title.trim() === '') {
-      return {
-        status: 'error',
-        error: {
-          code: 'INVALID_TITLE',
-          message: 'Title cannot be empty'
-        },
-        timestamp: new Date().toISOString()
-      };
+      return createError('INVALID_TITLE', 'Title cannot be empty');
     }
 
     // Generate slug
     const slug = generateSlug(title);
     if (!slug) {
-      return {
-        status: 'error',
-        error: {
-          code: 'INVALID_TITLE',
-          message: 'Title must contain at least one alphanumeric character'
-        },
-        timestamp: new Date().toISOString()
-      };
+      return createError('INVALID_TITLE', 'Title must contain at least one alphanumeric character');
     }
 
     const wikiDir = path.join(novelPath, 'wiki');
@@ -69,27 +56,13 @@ export async function createWikiPage(novelPath, title, content) {
     try {
       await fs.access(wikiDir);
     } catch {
-      return {
-        status: 'error',
-        error: {
-          code: 'WIKI_DIR_NOT_FOUND',
-          message: 'Wiki directory does not exist'
-        },
-        timestamp: new Date().toISOString()
-      };
+      return createError('WIKI_DIR_NOT_FOUND', 'Wiki directory does not exist');
     }
 
     // Check if file already exists
     try {
       await fs.access(filePath);
-      return {
-        status: 'error',
-        error: {
-          code: 'WIKI_PAGE_EXISTS',
-          message: `Wiki page with slug "${slug}" already exists`
-        },
-        timestamp: new Date().toISOString()
-      };
+      return createError('WIKI_PAGE_EXISTS', `Wiki page with slug "${slug}" already exists`);
     } catch {
       // File doesn't exist, which is what we want
     }
@@ -103,14 +76,7 @@ export async function createWikiPage(novelPath, title, content) {
       timestamp: new Date().toISOString()
     };
   } catch (error) {
-    return {
-      status: 'error',
-      error: {
-        code: error.code || 'UNKNOWN_ERROR',
-        message: error.message
-      },
-      timestamp: new Date().toISOString()
-    };
+    return createError(error.code || 'UNKNOWN_ERROR', error.message);
   }
 }
 
@@ -124,14 +90,7 @@ export async function readWikiPage(novelPath, slug) {
   try {
     // Validate slug (prevent path traversal)
     if (!slug || slug.includes('/') || slug.includes('\\') || slug.includes('..')) {
-      return {
-        status: 'error',
-        error: {
-          code: 'INVALID_SLUG',
-          message: 'Invalid slug format'
-        },
-        timestamp: new Date().toISOString()
-      };
+      return createError('INVALID_SLUG', 'Invalid slug format');
     }
 
     const filePath = path.join(novelPath, 'wiki', `${slug}.md`);
@@ -140,14 +99,7 @@ export async function readWikiPage(novelPath, slug) {
     try {
       await fs.access(filePath);
     } catch {
-      return {
-        status: 'error',
-        error: {
-          code: 'WIKI_PAGE_NOT_FOUND',
-          message: `Wiki page "${slug}" not found`
-        },
-        timestamp: new Date().toISOString()
-      };
+      return createError('WIKI_PAGE_NOT_FOUND', `Wiki page "${slug}" not found`);
     }
 
     const content = await fs.readFile(filePath, 'utf-8');
@@ -158,14 +110,7 @@ export async function readWikiPage(novelPath, slug) {
       timestamp: new Date().toISOString()
     };
   } catch (error) {
-    return {
-      status: 'error',
-      error: {
-        code: error.code || 'UNKNOWN_ERROR',
-        message: error.message
-      },
-      timestamp: new Date().toISOString()
-    };
+    return createError(error.code || 'UNKNOWN_ERROR', error.message);
   }
 }
 
@@ -180,14 +125,7 @@ export async function updateWikiPage(novelPath, slug, content) {
   try {
     // Validate slug
     if (!slug || slug.includes('/') || slug.includes('\\') || slug.includes('..')) {
-      return {
-        status: 'error',
-        error: {
-          code: 'INVALID_SLUG',
-          message: 'Invalid slug format'
-        },
-        timestamp: new Date().toISOString()
-      };
+      return createError('INVALID_SLUG', 'Invalid slug format');
     }
 
     const filePath = path.join(novelPath, 'wiki', `${slug}.md`);
@@ -196,14 +134,7 @@ export async function updateWikiPage(novelPath, slug, content) {
     try {
       await fs.access(filePath);
     } catch {
-      return {
-        status: 'error',
-        error: {
-          code: 'WIKI_PAGE_NOT_FOUND',
-          message: `Wiki page "${slug}" not found`
-        },
-        timestamp: new Date().toISOString()
-      };
+      return createError('WIKI_PAGE_NOT_FOUND', `Wiki page "${slug}" not found`);
     }
 
     // Atomic write: write to temp file, then rename
@@ -217,14 +148,7 @@ export async function updateWikiPage(novelPath, slug, content) {
       timestamp: new Date().toISOString()
     };
   } catch (error) {
-    return {
-      status: 'error',
-      error: {
-        code: error.code || 'UNKNOWN_ERROR',
-        message: error.message
-      },
-      timestamp: new Date().toISOString()
-    };
+    return createError(error.code || 'UNKNOWN_ERROR', error.message);
   }
 }
 
@@ -238,14 +162,7 @@ export async function deleteWikiPage(novelPath, slug) {
   try {
     // Validate slug
     if (!slug || slug.includes('/') || slug.includes('\\') || slug.includes('..')) {
-      return {
-        status: 'error',
-        error: {
-          code: 'INVALID_SLUG',
-          message: 'Invalid slug format'
-        },
-        timestamp: new Date().toISOString()
-      };
+      return createError('INVALID_SLUG', 'Invalid slug format');
     }
 
     const filePath = path.join(novelPath, 'wiki', `${slug}.md`);
@@ -254,14 +171,7 @@ export async function deleteWikiPage(novelPath, slug) {
     try {
       await fs.access(filePath);
     } catch {
-      return {
-        status: 'error',
-        error: {
-          code: 'WIKI_PAGE_NOT_FOUND',
-          message: `Wiki page "${slug}" not found`
-        },
-        timestamp: new Date().toISOString()
-      };
+      return createError('WIKI_PAGE_NOT_FOUND', `Wiki page "${slug}" not found`);
     }
 
     await fs.unlink(filePath);
@@ -272,14 +182,7 @@ export async function deleteWikiPage(novelPath, slug) {
       timestamp: new Date().toISOString()
     };
   } catch (error) {
-    return {
-      status: 'error',
-      error: {
-        code: error.code || 'UNKNOWN_ERROR',
-        message: error.message
-      },
-      timestamp: new Date().toISOString()
-    };
+    return createError(error.code || 'UNKNOWN_ERROR', error.message);
   }
 }
 
@@ -294,26 +197,12 @@ export async function renameWikiPage(novelPath, oldSlug, newTitle) {
   try {
     // Validate old slug
     if (!oldSlug || oldSlug.includes('/') || oldSlug.includes('\\') || oldSlug.includes('..')) {
-      return {
-        status: 'error',
-        error: {
-          code: 'INVALID_SLUG',
-          message: 'Invalid slug format'
-        },
-        timestamp: new Date().toISOString()
-      };
+      return createError('INVALID_SLUG', 'Invalid slug format');
     }
 
     // Validate new title
     if (!newTitle || newTitle.trim() === '') {
-      return {
-        status: 'error',
-        error: {
-          code: 'INVALID_TITLE',
-          message: 'New title cannot be empty'
-        },
-        timestamp: new Date().toISOString()
-      };
+      return createError('INVALID_TITLE', 'New title cannot be empty');
     }
 
     const oldPath = path.join(novelPath, 'wiki', `${oldSlug}.md`);
@@ -322,27 +211,13 @@ export async function renameWikiPage(novelPath, oldSlug, newTitle) {
     try {
       await fs.access(oldPath);
     } catch {
-      return {
-        status: 'error',
-        error: {
-          code: 'WIKI_PAGE_NOT_FOUND',
-          message: `Wiki page "${oldSlug}" not found`
-        },
-        timestamp: new Date().toISOString()
-      };
+      return createError('WIKI_PAGE_NOT_FOUND', `Wiki page "${oldSlug}" not found`);
     }
 
     // Generate new slug
     const newSlug = generateSlug(newTitle);
     if (!newSlug) {
-      return {
-        status: 'error',
-        error: {
-          code: 'INVALID_TITLE',
-          message: 'New title must contain at least one alphanumeric character'
-        },
-        timestamp: new Date().toISOString()
-      };
+      return createError('INVALID_TITLE', 'New title must contain at least one alphanumeric character');
     }
 
     const newPath = path.join(novelPath, 'wiki', `${newSlug}.md`);
@@ -351,14 +226,7 @@ export async function renameWikiPage(novelPath, oldSlug, newTitle) {
     if (oldSlug !== newSlug) {
       try {
         await fs.access(newPath);
-        return {
-          status: 'error',
-          error: {
-            code: 'WIKI_PAGE_EXISTS',
-            message: `Wiki page with slug "${newSlug}" already exists`
-          },
-          timestamp: new Date().toISOString()
-        };
+        return createError('WIKI_PAGE_EXISTS', `Wiki page with slug "${newSlug}" already exists`);
       } catch {
         // File doesn't exist, which is what we want
       }
@@ -373,13 +241,6 @@ export async function renameWikiPage(novelPath, oldSlug, newTitle) {
       timestamp: new Date().toISOString()
     };
   } catch (error) {
-    return {
-      status: 'error',
-      error: {
-        code: error.code || 'UNKNOWN_ERROR',
-        message: error.message
-      },
-      timestamp: new Date().toISOString()
-    };
+    return createError(error.code || 'UNKNOWN_ERROR', error.message);
   }
 }
