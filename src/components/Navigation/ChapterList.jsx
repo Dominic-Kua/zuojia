@@ -7,6 +7,7 @@ export const ChapterList = ({
   onChapterSelect, 
   hasUnsavedChanges,
   onBeforeSwitch,
+  onCreateChapter,
   searchable = true 
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -57,10 +58,22 @@ export const ChapterList = ({
   return (
     <div className="chapter-list">
       <div className="chapter-list-header">
-        <label htmlFor="chapter-select">
-          Chapter
-          {hasUnsavedChanges && <span className="unsaved-indicator" title="Unsaved changes">*</span>}
-        </label>
+        <div className="chapter-list-title">
+          <label htmlFor="chapter-select">
+            Chapter
+            {hasUnsavedChanges && <span className="unsaved-indicator" title="Unsaved changes">*</span>}
+          </label>
+          <button
+            type="button"
+            className="chapter-add-btn"
+            onClick={onCreateChapter}
+            disabled={!onCreateChapter}
+            data-testid="chapter-add-button"
+            aria-label="Add chapter"
+          >
+            +
+          </button>
+        </div>
         {searchable && (
           <input
             type="text"

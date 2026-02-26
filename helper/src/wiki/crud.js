@@ -6,6 +6,73 @@ import fs from 'fs/promises';
 import path from 'path';
 import { createError } from '../util/error.js';
 
+const FRONTMATTER_BOUNDARY = '---';
+
+function normalizeTags(inputTags) {
+  if (!Array.isArray(inputTags)) {
+    return [];
+  }
+
+  const normalized = inputTags
+    .map((tag) => (typeof tag === 'string' ? tag.trim() : ''))
+    .filter((tag) => tag.length > 0);
+
+  return Array.from(new Set(normalized));
+}
+
+function stripFrontmatter(content) {
+  if (!content.startsWith(`${FRONTMATTER_BOUNDARY}\n`)) {
+    return content;
+  }
+
+  const endIndex = content.indexOf(`\n${FRONTMATTER_BOUNDARY}`, FRONTMATTER_BOUNDARY.length + 1);
+  if (endIndex === -1) {
+    return content;
+  }
+
+  return content.slice(endIndex + FRONTMATTER_BOUNDARY.length + 1).replace(/^\n+/, '');
+}
+
+function extractTagsFromFrontmatter(content) {
+  if (!content.startsWith(`${FRONTMATTER_BOUNDARY}\n`)) {
+    return [];
+  }
+
+  const endIndex = content.indexOf(`\n${FRONTMATTER_BOUNDARY}`, FRONTMATTER_BOUNDARY.length + 1);
+  if (endIndex === -1) {
+    return [];
+  }
+
+  const frontmatter = content.slice(FRONTMATTER_BOUNDARY.length + 1, endIndex).split('\n');
+  const tagsLine = frontmatter.find((line) => line.trim().toLowerCase().startsWith('tags:'));
+
+  if (!tagsLine) {
+    return [];
+  }
+
+  const rawValue = tagsLine.split(':').slice(1).join(':').trim();
+  if (!rawValue) {
+    return [];
+  }
+
+  if (rawValue.startsWith('[') && rawValue.endsWith(']')) {
+    const inner = rawValue.slice(1, -1);
+    return normalizeTags(inner.split(',').map((tag) => tag.replace(/^"|"$/g, '').trim()));
+  }
+
+  return normalizeTags(rawValue.split(',').map((tag) => tag.trim()));
+}
+
+function buildFrontmatter(tags) {
+  const normalized = normalizeTags(tags);
+  if (normalized.length === 0) {
+    return '';
+  }
+
+  const quoted = normalized.map((tag) => `"${tag.replace(/"/g, '\\"')}"`).join(', ');
+  return `${FRONTMATTER_BOUNDARY}\n` + `tags: [${quoted}]\n` + `${FRONTMATTER_BOUNDARY}\n\n`;
+}
+
 /**
  * Generate URL-safe slug from title
  * @param {string} title - Page title
@@ -36,7 +103,7 @@ export function generateSlug(title) {
  * @param {string} content - Page content
  * @returns {Promise<Object>} - {status, data: {slug}, error}
  */
-export async function createWikiPage(novelPath, title, content) {
+export async function createWikiPage(novelPath, title, content, tags = []) {
   try {
     // Validate title
     if (!title || title.trim() === '') {
@@ -67,8 +134,11 @@ export async function createWikiPage(novelPath, title, content) {
       // File doesn't exist, which is what we want
     }
 
+    const frontmatter = buildFrontmatter(tags);
+    const body = stripFrontmatter(content || '');
+
     // Write content to file
-    await fs.writeFile(filePath, content, 'utf-8');
+    await fs.writeFile(filePath, `${frontmatter}${body}`, 'utf-8');
 
     return {
       status: 'ok',
@@ -102,11 +172,13 @@ export async function readWikiPage(novelPath, slug) {
       return createError('WIKI_PAGE_NOT_FOUND', `Wiki page "${slug}" not found`);
     }
 
-    const content = await fs.readFile(filePath, 'utf-8');
+    const rawContent = await fs.readFile(filePath, 'utf-8');
+    const tags = extractTagsFromFrontmatter(rawContent);
+    const content = stripFrontmatter(rawContent);
 
     return {
       status: 'ok',
-      data: { content },
+      data: { content, tags },
       timestamp: new Date().toISOString()
     };
   } catch (error) {
@@ -121,7 +193,7 @@ export async function readWikiPage(novelPath, slug) {
  * @param {string} content - New content
  * @returns {Promise<Object>} - {status, error}
  */
-export async function updateWikiPage(novelPath, slug, content) {
+export async function updateWikiPage(novelPath, slug, content, tags = []) {
   try {
     // Validate slug
     if (!slug || slug.includes('/') || slug.includes('\\') || slug.includes('..')) {
@@ -137,9 +209,13 @@ export async function updateWikiPage(novelPath, slug, content) {
       return createError('WIKI_PAGE_NOT_FOUND', `Wiki page "${slug}" not found`);
     }
 
+    const frontmatter = buildFrontmatter(tags);
+    const body = stripFrontmatter(content || '');
+    const nextContent = `${frontmatter}${body}`;
+
     // Atomic write: write to temp file, then rename
     const tempPath = `${filePath}.tmp`;
-    await fs.writeFile(tempPath, content, 'utf-8');
+    await fs.writeFile(tempPath, nextContent, 'utf-8');
     try {
       await fs.rename(tempPath, filePath);
     } catch (renameError) {
