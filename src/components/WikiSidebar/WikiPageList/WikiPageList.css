@@ -151,7 +151,8 @@
   visibility: hidden;
 }
 
-.wiki-page-item:hover .wiki-delete-icon {
+.wiki-page-item:hover .wiki-delete-icon,
+.wiki-page-item:focus-within .wiki-delete-icon {
   opacity: 1;
   visibility: visible;
 }
