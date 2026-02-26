@@ -2,7 +2,7 @@
  * Tests for wiki page CRUD operations
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { 
   createWikiPage, 
   readWikiPage, 
@@ -132,6 +132,26 @@ describe('Wiki CRUD Operations', () => {
 
       expect(result.status).toBe('error');
       expect(result.error.code).toBe('WIKI_PAGE_NOT_FOUND');
+    });
+
+    it('cleans up temp file if rename fails', async () => {
+      await createWikiPage(testDir, 'Alice', '# Alice\n\nOriginal content.');
+
+      const renameSpy = vi.spyOn(fs, 'rename').mockRejectedValueOnce(new Error('rename failed'));
+
+      try {
+        const result = await updateWikiPage(testDir, 'alice', '# Alice\n\nNew content.');
+
+        expect(result.status).toBe('error');
+
+        // Verify temp file was cleaned up
+        const filePath = path.join(testDir, 'wiki', 'alice.md');
+        const tempPath = `${filePath}.tmp`;
+        const tempExists = await fs.access(tempPath).then(() => true).catch(() => false);
+        expect(tempExists).toBe(false);
+      } finally {
+        renameSpy.mockRestore();
+      }
     });
   });
 
