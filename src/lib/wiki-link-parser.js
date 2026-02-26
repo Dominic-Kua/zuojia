@@ -90,9 +90,9 @@ export function parseWikiLinks(text) {
 }
 
 /**
- * Convert page name to URL-safe slug
- * @param {string} pageName - Page name
- * @returns {string} - Slug
+ * Convert page name to URL-safe slug.
+ * @param {string} pageName - The page name to convert.
+ * @returns {string} URL-safe slug derived from the page name.
  */
 export function resolveSlug(pageName) {
   if (!pageName || typeof pageName !== 'string') {
@@ -113,9 +113,9 @@ export function resolveSlug(pageName) {
 }
 
 /**
- * Check if a string is a valid wiki link
- * @param {string} text - Text to check
- * @returns {boolean} - True if valid wiki link format
+ * Check if a string is a valid wiki link.
+ * @param {string} text - The string to validate as a wiki link.
+ * @returns {boolean} True if the string is a valid wiki link format, false otherwise.
  */
 export function isValidLink(text) {
   if (!text || typeof text !== 'string') {
