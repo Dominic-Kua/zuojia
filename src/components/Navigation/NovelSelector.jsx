@@ -81,6 +81,7 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
     <div className="novel-selector">
       <button
         className="novel-selector-btn"
+        data-testid="new-novel-button"
         onClick={() => setShowCreateDialog(true)}
         disabled={loading}
       >
@@ -88,6 +89,7 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
       </button>
       <button
         className="novel-selector-btn"
+        data-testid="open-novel-button"
         onClick={handleOpenNovel}
         disabled={loading}
       >
@@ -95,16 +97,17 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
       </button>
 
       {openError && (
-        <p className="open-error-message">{openError}</p>
+        <p className="open-error-message" data-testid="open-novel-error">{openError}</p>
       )}
 
       {showCreateDialog && (
         <div className="modal-overlay" onClick={() => !loading && setShowCreateDialog(false)}>
-          <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-dialog" data-testid="create-novel-dialog" onClick={(e) => e.stopPropagation()}>
             <h2>Create a New Novel</h2>
             <form onSubmit={handleCreateNovel}>
               <input
                 type="text"
+                data-testid="novel-name-input"
                 placeholder="Novel name (lowercase, alphanumeric, - and _)"
                 value={novelName}
                 onChange={(e) => {
@@ -114,10 +117,11 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
                 disabled={loading}
                 autoFocus
               />
-              {error && <p className="error-message">{error}</p>}
+              {error && <p className="error-message" data-testid="novel-name-error">{error}</p>}
               <div className="dialog-buttons">
                 <button
                   type="button"
+                  data-testid="cancel-novel-button"
                   onClick={() => !loading && setShowCreateDialog(false)}
                   disabled={loading}
                 >
@@ -125,6 +129,7 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
                 </button>
                 <button
                   type="submit"
+                  data-testid="create-novel-button"
                   disabled={!isValidNovelName(novelName) || loading}
                   className="primary"
                 >
