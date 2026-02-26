@@ -57,9 +57,7 @@ This checklist covers manual testing for features that are difficult or impossib
 - [ ] Empty manuscript shows "0 words"
 - [ ] Single word shows "1 word" (singular)
 - [ ] Very large numbers display correctly (e.g., 100,000+)
-- [
-
-] Count excludesmarkdown syntax (headings, links, bold)
+- [ ] Count excludes markdown syntax (headings, links, bold)
 - [ ] Count excludes wiki pages
 
 ### Notes:
