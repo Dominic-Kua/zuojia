@@ -58,7 +58,9 @@ export function parseWikiLinks(text) {
             // Split by pipe to separate page name and display text
             const parts = content.split('|');
             const pageName = parts[0].trim();
-            const displayText = parts.length > 1 ? parts.slice(1).join('|').trim() : pageName;
+            const rawDisplayText = parts.length > 1 ? parts.slice(1).join('|') : '';
+            const trimmedDisplayText = rawDisplayText.trim();
+            const displayText = trimmedDisplayText !== '' ? trimmedDisplayText : pageName;
 
             links.push({
               start,
