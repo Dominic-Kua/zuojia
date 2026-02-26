@@ -1,0 +1,126 @@
+/**
+ * Wiki Link Parser
+ * Parses [[page-name]] and [[page-name|display text]] syntax
+ */
+
+/**
+ * Parse wiki links from text
+ * @param {string} text - Text to parse
+ * @returns {Array} - Array of {start, end, pageName, displayText, fullMatch}
+ */
+export function parseWikiLinks(text) {
+  if (!text || typeof text !== 'string') {
+    return [];
+  }
+
+  const links = [];
+  let i = 0;
+
+  while (i < text.length) {
+    // Look for [[
+    if (text[i] === '[' && text[i + 1] === '[') {
+      // Check for triple bracket (not valid)
+      if (text[i + 2] === '[') {
+        i++;
+        continue;
+      }
+
+      const start = i;
+      i += 2;
+
+      // Find the closing ]]
+      let content = '';
+      let foundClosing = false;
+
+      while (i < text.length - 1) {
+        if (text[i] === ']' && text[i + 1] === ']') {
+          // Check for triple bracket at end (not valid)
+          if (text[i + 2] === ']') {
+            break;
+          }
+          foundClosing = true;
+          i += 2;
+          break;
+        }
+        content += text[i];
+        i++;
+      }
+
+      if (foundClosing && content.trim()) {
+        const fullMatch = text.substring(start, i);
+        const trimmedContent = content.trim();
+
+        // Split by pipe to separate page name and display text
+        const parts = trimmedContent.split('|');
+        const pageName = parts[0].trim();
+        const displayText = parts.length > 1 ? parts.slice(1).join('|').trim() : pageName;
+
+        links.push({
+          start,
+          end: i,
+          pageName,
+          displayText,
+          fullMatch,
+        });
+      }
+    } else {
+      i++;
+    }
+  }
+
+  return links;
+}
+
+/**
+ * Convert page name to URL-safe slug
+ * @param {string} pageName - Page name
+ * @returns {string} - Slug
+ */
+export function resolveSlug(pageName) {
+  if (!pageName || typeof pageName !== 'string') {
+    return '';
+  }
+
+  return pageName
+    .toLowerCase()
+    .trim()
+    // Replace spaces and underscores with hyphens
+    .replace(/[\s_]+/g, '-')
+    // Remove all non-alphanumeric characters except hyphens
+    .replace(/[^a-z0-9-]/g, '')
+    // Remove multiple consecutive hyphens
+    .replace(/-+/g, '-')
+    // Remove leading/trailing hyphens
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Check if a string is a valid wiki link
+ * @param {string} text - Text to check
+ * @returns {boolean} - True if valid wiki link format
+ */
+export function isValidLink(text) {
+  if (!text || typeof text !== 'string') {
+    return false;
+  }
+
+  // Must start with [[ and end with ]]
+  if (!text.startsWith('[[') || !text.endsWith(']]')) {
+    return false;
+  }
+
+  // Must not be triple brackets
+  if (text.startsWith('[[[') || text.endsWith(']]]')) {
+    return false;
+  }
+
+  // Extract content between brackets
+  const content = text.slice(2, -2).trim();
+
+  // Content must not be empty
+  if (!content) {
+    return false;
+  }
+
+  return true;
+}
