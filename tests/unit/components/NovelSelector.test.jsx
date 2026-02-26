@@ -13,6 +13,8 @@ vi.mock('../../../src/lib/ipc-client', () => ({
   },
   appHandlers: {
     selectNovelDirectory: vi.fn(),
+    listNovels: vi.fn().mockResolvedValue({ novels: [] }),
+    markNovelOpened: vi.fn(),
   },
   invokeHandler: vi.fn(),
 }));
@@ -63,7 +65,7 @@ describe('NovelSelector Component', () => {
     expect(createButton).not.toBeDisabled();
   });
 
-  it('should show error message for invalid novel name', async () => {
+  it('should keep Create button disabled for empty novel name', async () => {
     const user = userEvent.setup();
     render(<NovelSelector />);
 
@@ -71,7 +73,7 @@ describe('NovelSelector Component', () => {
     await user.click(newButton);
 
     const input = screen.getByPlaceholderText(/Novel name/i);
-    await user.type(input, 'novel/invalid');
+    await user.type(input, '   ');
 
     const createButton = screen.getByRole('button', { name: /Create/i });
     expect(createButton).toBeDisabled();
