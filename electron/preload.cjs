@@ -16,9 +16,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   /**
    * Listen for events from main process
    * @param {string} event - Event name
-   * @param {function} callback - Handler function
+   * @param {function} callback - Handler function, called with message arguments (event object excluded)
    */
-  on: (event, callback) => ipcRenderer.on(event, callback),
+  on: (event, callback) => ipcRenderer.on(event, (_, ...args) => callback(...args)),
 
   /**
    * Stop listening for events
