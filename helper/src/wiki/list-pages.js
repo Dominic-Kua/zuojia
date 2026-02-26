@@ -5,6 +5,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { calculateWordCount } from '../stats/word-count.js';
+import { createError } from '../util/error.js';
 
 /**
  * Extract title from markdown content (first H1)
@@ -88,13 +89,6 @@ export async function listWikiPages(novelPath) {
       timestamp: new Date().toISOString()
     };
   } catch (error) {
-    return {
-      status: 'error',
-      error: {
-        code: error.code || 'UNKNOWN_ERROR',
-        message: error.message
-      },
-      timestamp: new Date().toISOString()
-    };
+    return createError(error.code || 'UNKNOWN_ERROR', error.message);
   }
 }
