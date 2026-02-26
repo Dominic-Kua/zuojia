@@ -27,9 +27,9 @@ export function parseWikiLinks(text) {
 
       const start = i;
       i += 2;
+      const contentStart = i;
 
       // Find the closing ]]
-      let content = '';
       let foundClosing = false;
 
       while (i < text.length - 1) {
@@ -39,29 +39,32 @@ export function parseWikiLinks(text) {
             break;
           }
           foundClosing = true;
+          const content = text.substring(contentStart, i).trim();
           i += 2;
+          
+          if (content) {
+            const fullMatch = text.substring(start, i);
+
+            // Split by pipe to separate page name and display text
+            const parts = content.split('|');
+            const pageName = parts[0].trim();
+            const displayText = parts.length > 1 ? parts.slice(1).join('|').trim() : pageName;
+
+            links.push({
+              start,
+              end: i,
+              pageName,
+              displayText,
+              fullMatch,
+            });
+          }
           break;
         }
-        content += text[i];
         i++;
       }
-
-      if (foundClosing && content.trim()) {
-        const fullMatch = text.substring(start, i);
-        const trimmedContent = content.trim();
-
-        // Split by pipe to separate page name and display text
-        const parts = trimmedContent.split('|');
-        const pageName = parts[0].trim();
-        const displayText = parts.length > 1 ? parts.slice(1).join('|').trim() : pageName;
-
-        links.push({
-          start,
-          end: i,
-          pageName,
-          displayText,
-          fullMatch,
-        });
+      
+      if (!foundClosing) {
+        i = start + 1; // Skip past opening [[ if no closing found
       }
     } else {
       i++;
