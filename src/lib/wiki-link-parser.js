@@ -62,13 +62,16 @@ export function parseWikiLinks(text) {
             const trimmedDisplayText = rawDisplayText.trim();
             const displayText = trimmedDisplayText !== '' ? trimmedDisplayText : pageName;
 
-            links.push({
-              start,
-              end: i,
-              pageName,
-              displayText,
-              fullMatch,
-            });
+            // Only add link if pageName is non-empty after trimming
+            if (pageName) {
+              links.push({
+                start,
+                end: i,
+                pageName,
+                displayText,
+                fullMatch,
+              });
+            }
           }
           break;
         }
