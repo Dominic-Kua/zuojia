@@ -65,6 +65,7 @@ export const ChapterList = ({
           <input
             type="text"
             className="chapter-search"
+            data-testid="chapter-search"
             placeholder="Search chapters..."
             value={searchTerm}
             onChange={handleSearchChange}
@@ -76,6 +77,7 @@ export const ChapterList = ({
       <select 
         id="chapter-select"
         className="chapter-dropdown"
+        data-testid="chapter-select"
         value={currentChapter || ''}
         onChange={handleChapterChange}
         disabled={chapters.length === 0}
