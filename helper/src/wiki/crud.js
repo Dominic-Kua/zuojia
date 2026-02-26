@@ -140,7 +140,12 @@ export async function updateWikiPage(novelPath, slug, content) {
     // Atomic write: write to temp file, then rename
     const tempPath = `${filePath}.tmp`;
     await fs.writeFile(tempPath, content, 'utf-8');
-    await fs.rename(tempPath, filePath);
+    try {
+      await fs.rename(tempPath, filePath);
+    } catch (renameError) {
+      await fs.unlink(tempPath).catch(() => {});
+      throw renameError;
+    }
 
     return {
       status: 'ok',
