@@ -78,6 +78,12 @@ export const exportHandlers = {
 };
 
 export const wikiHandlers = {
+  create: (novelPath, title, content) => invokeHandler('helper:wiki:create', { novelPath, title, content }),
+  read: (novelPath, slug) => invokeHandler('helper:wiki:read', { novelPath, slug }),
+  update: (novelPath, slug, content) => invokeHandler('helper:wiki:update', { novelPath, slug, content }),
+  delete: (novelPath, slug) => invokeHandler('helper:wiki:delete', { novelPath, slug }),
+  rename: (novelPath, oldSlug, newTitle) => invokeHandler('helper:wiki:rename', { novelPath, oldSlug, newTitle }),
+  list: (novelPath) => invokeHandler('helper:wiki:list', { novelPath }),
   rebuildDict: (novelPath) => invokeHandler('helper:wiki:rebuildDict', { novelPath }),
 };
 

@@ -4,6 +4,8 @@ import { commitChapter } from '../helper/src/git/commit.js';
 import { calculateWordCount } from '../helper/src/stats/word-count.js';
 import { getManuscriptWordCount } from '../helper/src/stats/manuscript-count.js';
 import { getWordsWrittenToday } from '../helper/src/git/history.js';
+import { createWikiPage, readWikiPage, updateWikiPage, deleteWikiPage, renameWikiPage } from '../helper/src/wiki/crud.js';
+import { listWikiPages } from '../helper/src/wiki/list-pages.js';
 /**
  * Register all IPC handlers
  * Formats responses as structured envelopes
@@ -135,6 +137,49 @@ export function registerHandlers() {
           timestamp: new Date().toISOString(),
         };
       }
+    })
+  );
+
+  // Wiki handlers
+  ipcMain.handle(
+    'helper:wiki:create',
+    wrapHandler(async ({ novelPath, title, content }) => {
+      return await createWikiPage(novelPath, title, content);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:wiki:read',
+    wrapHandler(async ({ novelPath, slug }) => {
+      return await readWikiPage(novelPath, slug);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:wiki:update',
+    wrapHandler(async ({ novelPath, slug, content }) => {
+      return await updateWikiPage(novelPath, slug, content);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:wiki:delete',
+    wrapHandler(async ({ novelPath, slug }) => {
+      return await deleteWikiPage(novelPath, slug);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:wiki:rename',
+    wrapHandler(async ({ novelPath, oldSlug, newTitle }) => {
+      return await renameWikiPage(novelPath, oldSlug, newTitle);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:wiki:list',
+    wrapHandler(async ({ novelPath }) => {
+      return await listWikiPages(novelPath);
     })
   );
 
