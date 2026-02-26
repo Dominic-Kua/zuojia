@@ -80,6 +80,19 @@ describe('parseWikiLinks', () => {
     expect(links).toHaveLength(0);
   });
 
+  it('rejects link with empty page name but display text', () => {
+    const text = 'This [[|display]] is malformed.';
+    const links = parseWikiLinks(text);
+
+    expect(links).toHaveLength(0);
+  });
+
+  it('rejects link with whitespace-only page name but display text', () => {
+    const text = 'This [[  |display]] is also malformed.';
+    const links = parseWikiLinks(text);
+
+    expect(links).toHaveLength(0);
+  });
   it('handles nested brackets in page name', () => {
     const text = 'This [[page [with] brackets]] exists.';
     const links = parseWikiLinks(text);
