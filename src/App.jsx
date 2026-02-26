@@ -43,7 +43,7 @@ export default function App(){
       </header>
       <main className="main-grid">
         <section className="manuscript" data-testid="manuscript-section"><Manuscript /></section>
-        <aside className="sidebar" data-testid="sidebar-section"><Sidebar /></aside>
+        <aside className="sidebar" data-testid="sidebar-section"><Sidebar novelPath={novelPath} /></aside>
       </main>
     </div>
   )

@@ -105,15 +105,6 @@ function WikiPageList({
     );
   }
 
-  if (pages.length === 0) {
-    return (
-      <div className="wiki-page-list empty">
-        <p>No wiki pages yet</p>
-        <p className="empty-hint">Click the "+" button to create your first wiki page</p>
-      </div>
-    );
-  }
-
   return (
     <div className="wiki-page-list">
       <div className="wiki-search">
@@ -128,7 +119,12 @@ function WikiPageList({
         />
       </div>
 
-      {filteredPages.length === 0 ? (
+      {pages.length === 0 ? (
+        <div className="wiki-no-results wiki-empty">
+          <p>No wiki pages yet</p>
+          <p className="empty-hint">Click the "+" button to create your first wiki page</p>
+        </div>
+      ) : filteredPages.length === 0 ? (
         <div className="wiki-no-results">
           <p>No wiki pages match "{searchQuery}"</p>
         </div>
