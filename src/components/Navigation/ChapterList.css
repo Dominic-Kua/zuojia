@@ -11,13 +11,36 @@
   gap: 0.25rem;
 }
 
+.chapter-list-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
 .chapter-list-header label {
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--text-color, #333);
+  color: var(--text-primary, #1f2933);
   display: flex;
   align-items: center;
   gap: 0.25rem;
+}
+
+.chapter-add-btn {
+  border: 1px solid var(--border-color, #ccc);
+  background: white;
+  color: var(--text-color, #333);
+  border-radius: 6px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.chapter-add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .unsaved-indicator {

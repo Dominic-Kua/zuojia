@@ -146,8 +146,8 @@ export function registerHandlers() {
   // Wiki handlers
   ipcMain.handle(
     'helper:wiki:create',
-    wrapHandler(async ({ novelPath, title, content }) => {
-      return await createWikiPage(novelPath, title, content);
+    wrapHandler(async ({ novelPath, title, content, tags }) => {
+      return await createWikiPage(novelPath, title, content, tags);
     })
   );
 
@@ -160,8 +160,8 @@ export function registerHandlers() {
 
   ipcMain.handle(
     'helper:wiki:update',
-    wrapHandler(async ({ novelPath, slug, content }) => {
-      return await updateWikiPage(novelPath, slug, content);
+    wrapHandler(async ({ novelPath, slug, content, tags }) => {
+      return await updateWikiPage(novelPath, slug, content, tags);
     })
   );
 

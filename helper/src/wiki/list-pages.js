@@ -12,6 +12,48 @@ import { createError } from '../util/error.js';
  * @param {string} content - Markdown content
  * @returns {string|null} - Title or null if not found
  */
+function stripFrontmatter(content) {
+  if (!content.startsWith('---\n')) {
+    return content;
+  }
+
+  const endIndex = content.indexOf('\n---', 4);
+  if (endIndex === -1) {
+    return content;
+  }
+
+  return content.slice(endIndex + 4).replace(/^\n+/, '');
+}
+
+function extractTags(content) {
+  if (!content.startsWith('---\n')) {
+    return [];
+  }
+
+  const endIndex = content.indexOf('\n---', 4);
+  if (endIndex === -1) {
+    return [];
+  }
+
+  const frontmatter = content.slice(4, endIndex).split('\n');
+  const tagsLine = frontmatter.find((line) => line.trim().toLowerCase().startsWith('tags:'));
+  if (!tagsLine) {
+    return [];
+  }
+
+  const rawValue = tagsLine.split(':').slice(1).join(':').trim();
+  if (!rawValue) {
+    return [];
+  }
+
+  if (rawValue.startsWith('[') && rawValue.endsWith(']')) {
+    const inner = rawValue.slice(1, -1);
+    return inner.split(',').map((tag) => tag.replace(/^"|"$/g, '').trim()).filter(Boolean);
+  }
+
+  return rawValue.split(',').map((tag) => tag.trim()).filter(Boolean);
+}
+
 function extractTitle(content) {
   const lines = content.split('\n');
   for (const line of lines) {
@@ -59,7 +101,9 @@ export async function listWikiPages(novelPath) {
         const filePath = path.join(wikiDir, file);
 
         // Read content
-        const content = await fs.readFile(filePath, 'utf-8');
+        const rawContent = await fs.readFile(filePath, 'utf-8');
+        const tags = extractTags(rawContent);
+        const content = stripFrontmatter(rawContent);
 
         // Extract title
         const title = extractTitle(content) || slug;
@@ -75,7 +119,8 @@ export async function listWikiPages(novelPath) {
           slug,
           title,
           wordCount,
-          lastModified
+          lastModified,
+          tags
         };
       })
     );

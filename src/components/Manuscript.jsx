@@ -6,6 +6,7 @@ import { indexHandlers } from '../lib/ipc-client'
 
 const DEFAULT_CHAPTER_FILENAME = 'chapter-01.md'
 const DEFAULT_CHAPTER_CONTENT = '# Chapter 1\n\nStart writing here...'
+const CHAPTER_FILENAME_PATTERN = /^chapter-(\d+)\.md$/i
 
 export default function Manuscript({ novelPath }){
   const editorRef = useRef(null)
@@ -137,6 +138,43 @@ export default function Manuscript({ novelPath }){
     }
   }, [content, currentChapter, novelPath, saveChapter])
 
+  const handleCreateChapter = useCallback(async () => {
+    if (!novelPath) {
+      return
+    }
+
+    try {
+      await handleBeforeSwitch()
+
+      const existingNumbers = chapters
+        .map((chapter) => {
+          const match = chapter.filename.match(CHAPTER_FILENAME_PATTERN)
+          return match ? Number(match[1]) : null
+        })
+        .filter((value) => Number.isInteger(value))
+
+      const nextNumber = existingNumbers.length > 0
+        ? Math.max(...existingNumbers) + 1
+        : chapters.length + 1
+
+      const paddedNumber = String(nextNumber).padStart(2, '0')
+      const filename = `chapter-${paddedNumber}.md`
+      const chapterTitle = `# Chapter ${nextNumber}\n\nStart writing here...`
+
+      setIsLoadingChapter(true)
+      await saveChapter(filename, chapterTitle)
+      await indexHandlers.rebuildIndex(novelPath)
+      await refresh()
+      setCurrentChapter(filename)
+      setContent(chapterTitle)
+      applyEditorContent(chapterTitle)
+    } catch (err) {
+      console.error('Failed to create chapter:', err)
+    } finally {
+      setIsLoadingChapter(false)
+    }
+  }, [applyEditorContent, chapters, handleBeforeSwitch, novelPath, refresh, saveChapter, setCurrentChapter])
+
   return (
     <div className="manuscript-inner">
       <div className="manuscript-meta">
@@ -145,6 +183,7 @@ export default function Manuscript({ novelPath }){
           currentChapter={currentChapter}
           onChapterSelect={setCurrentChapter}
           onBeforeSwitch={handleBeforeSwitch}
+          onCreateChapter={handleCreateChapter}
           hasUnsavedChanges={false}
         />
         <div className="wordcounts">

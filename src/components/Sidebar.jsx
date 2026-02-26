@@ -16,7 +16,7 @@ const escapeHtml = (value) => {
 };
 
 export default function Sidebar({ novelPath }){
-  const { pages, loading, error, createPage, deletePage, search } = useWikiPages(novelPath);
+  const { pages, loading, error, createPage, deletePage, renamePage, search } = useWikiPages(novelPath);
   const [selectedSlug, setSelectedSlug] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -30,6 +30,12 @@ export default function Sidebar({ novelPath }){
   const [isDirty, setIsDirty] = useState(false);
   const autosaveTimerRef = useRef(null);
   const [isPreviewMode, setIsPreviewMode] = useState(true);
+  const [wikiTags, setWikiTags] = useState([]);
+  const [tagInput, setTagInput] = useState('');
+  const [wikiTitle, setWikiTitle] = useState('');
+  const [titleInput, setTitleInput] = useState('');
+  const [isRenamingPage, setIsRenamingPage] = useState(false);
+  const renameTimerRef = useRef(null);
 
   const buildAssetUrl = useCallback((fileName) => {
     const trimmed = fileName.trim();
@@ -91,9 +97,19 @@ export default function Sidebar({ novelPath }){
   }, [buildAssetUrl]);
 
   const handleSelectPage = useCallback((slug) => {
+    // Flush any pending autosave before switching pages
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      // Save immediately with current state
+      if (novelPath && selectedSlug && isDirty) {
+        wikiHandlers.update(novelPath, selectedSlug, wikiContent, wikiTags).catch((err) => {
+          console.error('Failed to autosave before page switch:', err);
+        });
+      }
+    }
     setSelectedSlug(slug);
     setIsPreviewMode(true);
-  }, []);
+  }, [novelPath, selectedSlug, isDirty, wikiContent, wikiTags]);
 
   const handleDeletePage = useCallback(async (slug) => {
     try {
@@ -142,6 +158,8 @@ export default function Sidebar({ novelPath }){
     const loadWikiContent = async () => {
       if (!selectedSlug || !novelPath) {
         setWikiContent('');
+        setWikiTitle('');
+        setTitleInput('');
         setWikiLoadError(null);
         setIsDirty(false);
         return;
@@ -152,7 +170,17 @@ export default function Sidebar({ novelPath }){
         setWikiLoadError(null);
         const result = await wikiHandlers.read(novelPath, selectedSlug);
         const content = result?.content || '';
+        const tags = result?.tags || [];
+        
+        // Find page title from pages list
+        const pageInfo = pages.find((p) => p.slug === selectedSlug);
+        const title = pageInfo?.title || selectedSlug;
+        
         setWikiContent(content);
+        setWikiTags(tags);
+        setTagInput(tags.join(', '));
+        setWikiTitle(title);
+        setTitleInput(title);
         setIsDirty(false);
       } catch (err) {
         setWikiLoadError(err.message || 'Failed to load wiki page');
@@ -163,7 +191,7 @@ export default function Sidebar({ novelPath }){
     };
 
     loadWikiContent();
-  }, [novelPath, selectedSlug]);
+  }, [novelPath, selectedSlug, pages]);
 
   useEffect(() => {
     if (!selectedSlug || !novelPath) {
@@ -181,7 +209,7 @@ export default function Sidebar({ novelPath }){
     autosaveTimerRef.current = setTimeout(async () => {
       try {
         setIsSavingWiki(true);
-        await wikiHandlers.update(novelPath, selectedSlug, wikiContent);
+        await wikiHandlers.update(novelPath, selectedSlug, wikiContent, wikiTags);
         setIsDirty(false);
         setLastSavedAt(new Date());
       } catch (err) {
@@ -196,11 +224,62 @@ export default function Sidebar({ novelPath }){
         clearTimeout(autosaveTimerRef.current);
       }
     };
-  }, [isDirty, novelPath, selectedSlug, wikiContent]);
+  }, [isDirty, novelPath, selectedSlug, wikiContent, wikiTags]);
+
+  useEffect(() => {
+    return () => {
+      if (renameTimerRef.current) {
+        clearTimeout(renameTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleWikiContentChange = (e) => {
     setWikiContent(e.target.value);
     setIsDirty(true);
+  };
+
+  const handleTagsChange = (e) => {
+    const value = e.target.value;
+    setTagInput(value);
+    const tags = value
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter((tag) => tag.length > 0);
+    setWikiTags(Array.from(new Set(tags)));
+    setIsDirty(true);
+  };
+
+  const handleTitleChange = (e) => {
+    const value = e.target.value;
+    setTitleInput(value);
+    
+    // Only rename if title is different from current title and not empty
+    if (value.trim() && value.trim() !== wikiTitle && selectedSlug && novelPath) {
+      if (renameTimerRef.current) {
+        clearTimeout(renameTimerRef.current);
+      }
+
+      renameTimerRef.current = setTimeout(async () => {
+        try {
+          setIsRenamingPage(true);
+          const result = await renamePage(selectedSlug, value.trim());
+          const newSlug = result?.newSlug;
+          
+          // Update selected slug if it changed
+          if (newSlug && newSlug !== selectedSlug) {
+            setSelectedSlug(newSlug);
+          }
+          setWikiTitle(value.trim());
+        } catch (err) {
+          setWikiLoadError(err.message || 'Failed to rename wiki page');
+          // Revert input to current title on error
+          setTitleInput(wikiTitle);
+        } finally {
+          setIsRenamingPage(false);
+        }
+      }, 800);
+    }
   };
 
   const handleSaveWiki = async () => {
@@ -211,7 +290,7 @@ export default function Sidebar({ novelPath }){
     try {
       setIsSavingWiki(true);
       setWikiLoadError(null);
-      await wikiHandlers.update(novelPath, selectedSlug, wikiContent);
+      await wikiHandlers.update(novelPath, selectedSlug, wikiContent, wikiTags);
       setIsDirty(false);
       setLastSavedAt(new Date());
     } catch (err) {
@@ -328,6 +407,38 @@ export default function Sidebar({ novelPath }){
             </div>
           </div>
           {wikiLoadError && <div className="error-message">{wikiLoadError}</div>}
+          <div className="wiki-title-row">
+            <label htmlFor="wiki-title">Title</label>
+            <input
+              id="wiki-title"
+              type="text"
+              className="wiki-title-input"
+              placeholder="Page title"
+              value={titleInput}
+              onChange={handleTitleChange}
+              disabled={!selectedSlug || isLoadingWiki || isRenamingPage}
+            />
+            {isRenamingPage && <span className="wiki-editor-status">Renaming...</span>}
+          </div>
+          <div className="wiki-tag-row">
+            <label htmlFor="wiki-tags">Tags</label>
+            <input
+              id="wiki-tags"
+              type="text"
+              className="wiki-tag-input"
+              placeholder="e.g. character, protagonist"
+              value={tagInput}
+              onChange={handleTagsChange}
+              disabled={!selectedSlug || isLoadingWiki}
+            />
+          </div>
+          {wikiTags.length > 0 && (
+            <div className="wiki-tag-list">
+              {wikiTags.map((tag) => (
+                <span key={tag} className="wiki-tag-chip">{tag}</span>
+              ))}
+            </div>
+          )}
           {!isPreviewMode && (
             <textarea
               className="wiki-editor-textarea"
