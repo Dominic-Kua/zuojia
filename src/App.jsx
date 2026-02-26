@@ -14,6 +14,10 @@ export default function App(){
     setNovelPath(path);
   };
 
+  const handleCloseNovel = () => {
+    setNovelPath(null);
+  };
+
   // Show novel selector if no novel is loaded
   if (!novelPath) {
     return (
@@ -37,12 +41,13 @@ export default function App(){
       <header className="topbar" data-testid="topbar">
         <div className="brand">Netwriter</div>
         <div className="top-actions">
+          <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>
           <button className="btn ghost" data-testid="snapshot-button">Snapshot</button>
           <button className="btn primary" data-testid="push-button">Push</button>
         </div>
       </header>
       <main className="main-grid">
-        <section className="manuscript" data-testid="manuscript-section"><Manuscript /></section>
+        <section className="manuscript" data-testid="manuscript-section"><Manuscript novelPath={novelPath} /></section>
         <aside className="sidebar" data-testid="sidebar-section"><Sidebar novelPath={novelPath} /></aside>
       </main>
     </div>

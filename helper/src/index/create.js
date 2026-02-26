@@ -5,7 +5,7 @@ import { createError } from '../util/error.js'
 
 /**
  * Create a new novel directory structure
- * @param {string} novelName - Name of the novel (will be used as directory name)
+ * @param {string} novelName - Name of the novel (pretty name with spaces, capitals, unicode allowed)
  * @param {string} novelRootPath - Base path where novels are stored (defaults to ~/.netwriter)
  * @returns {Promise<{status, data, timestamp}>} Response envelope
  */
@@ -16,15 +16,24 @@ export async function createNovel(novelName, novelRootPath = path.join(process.e
       return createError('INVALID_NOVEL_NAME', 'Novel name cannot be empty');
     }
 
-    // Check for invalid characters (path traversal, special chars)
-    if (!/^[a-z0-9_\-]+$/.test(novelName)) {
+    // Convert novel name to safe directory slug
+    // Remove leading/trailing whitespace, convert to lowercase, replace spaces with hyphens,
+    // and remove any characters that aren't alphanumeric, hyphens, or underscores
+    const slug = novelName
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-')           // spaces to hyphens
+      .replace(/[^a-z0-9_\-]/g, '');  // remove invalid chars
+
+    // After sanitization, check if we have a valid slug
+    if (!slug || slug.length === 0) {
       return createError(
         'INVALID_NOVEL_NAME',
-        'Novel name must contain only lowercase letters, numbers, hyphens, and underscores'
+        'Novel name must contain at least one alphanumeric character'
       );
     }
 
-    const novelPath = path.join(novelRootPath, novelName);
+    const novelPath = path.join(novelRootPath, slug);
 
     // Check if novel already exists
     if (fs.existsSync(novelPath)) {

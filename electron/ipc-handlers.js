@@ -1,4 +1,7 @@
-import { ipcMain, dialog } from 'electron'
+import { app, ipcMain, dialog } from 'electron'
+import fs from 'fs'
+import { readdir, readFile, stat, writeFile } from 'fs/promises'
+import path from 'path'
 import { createNovel, getIndex, validateNovel, rebuildIndex, readChapter, writeChapter } from '../helper/src/index/index.js'
 import { commitChapter } from '../helper/src/git/commit.js';
 import { calculateWordCount } from '../helper/src/stats/word-count.js';
@@ -183,12 +186,116 @@ export function registerHandlers() {
     })
   );
 
+  ipcMain.handle('app:listNovels', async () => {
+    try {
+      const novelsRoot = path.join(app.getPath('home'), '.netwriter');
+
+      if (!fs.existsSync(novelsRoot)) {
+        return {
+          status: 'ok',
+          data: { novels: [] },
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      const entries = await readdir(novelsRoot, { withFileTypes: true });
+      const novels = await Promise.all(
+        entries
+          .filter((entry) => entry.isDirectory())
+          .map(async (entry) => {
+            const novelPath = path.join(novelsRoot, entry.name);
+            const metaPath = path.join(novelPath, 'meta', 'last-accessed.json');
+            let lastAccessed = null;
+
+            try {
+              const content = await readFile(metaPath, 'utf-8');
+              const parsed = JSON.parse(content);
+              lastAccessed = parsed.lastAccessed || null;
+            } catch {
+              try {
+                const stats = await stat(novelPath);
+                lastAccessed = stats.mtime.toISOString();
+              } catch {
+                lastAccessed = null;
+              }
+            }
+
+            return {
+              slug: entry.name,
+              displayName: entry.name.replace(/[-_]+/g, ' '),
+              novelPath,
+              lastAccessed,
+            };
+          })
+      );
+
+      novels.sort((a, b) => {
+        const aTime = a.lastAccessed ? Date.parse(a.lastAccessed) : 0;
+        const bTime = b.lastAccessed ? Date.parse(b.lastAccessed) : 0;
+        return bTime - aTime;
+      });
+
+      return {
+        status: 'ok',
+        data: { novels },
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        status: 'error',
+        error: {
+          code: 'LIST_NOVELS_FAILED',
+          message: error.message,
+        },
+        timestamp: new Date().toISOString(),
+      };
+    }
+  });
+
+  ipcMain.handle('app:markNovelOpened', async (event, { novelPath }) => {
+    try {
+      const metaDir = path.join(novelPath, 'meta');
+      const metaPath = path.join(metaDir, 'last-accessed.json');
+
+      if (!fs.existsSync(metaDir)) {
+        return {
+          status: 'error',
+          error: {
+            code: 'META_DIR_MISSING',
+            message: 'Novel meta directory not found',
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      const payload = { lastAccessed: new Date().toISOString() };
+      await writeFile(metaPath, JSON.stringify(payload, null, 2));
+
+      return {
+        status: 'ok',
+        data: payload,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        status: 'error',
+        error: {
+          code: 'MARK_NOVEL_OPENED_FAILED',
+          message: error.message,
+        },
+        timestamp: new Date().toISOString(),
+      };
+    }
+  });
+
   // Dialog handler
   ipcMain.handle('app:selectNovelDirectory', async (event) => {
+    const defaultPath = path.join(app.getPath('home'), '.netwriter');
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory'],
       title: 'Open Novel Directory',
       message: 'Select a novel directory',
+      defaultPath,
     });
 
     if (result.canceled || result.filePaths.length === 0) {

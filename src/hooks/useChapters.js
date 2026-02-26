@@ -7,30 +7,30 @@ export const useChapters = (novelPath) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Load chapters from index
-  useEffect(() => {
+  const loadChapters = useCallback(async () => {
     if (!novelPath) {
       setLoading(false);
       return;
     }
 
-    const loadChapters = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const index = await indexHandlers.getIndex(novelPath);
-        setChapters(index.chapters || []);
-      } catch (err) {
-        console.error('Failed to load chapters:', err);
-        setError(err.message || 'Failed to load chapters');
-        setChapters([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadChapters();
+    try {
+      setLoading(true);
+      setError(null);
+      const index = await indexHandlers.getIndex(novelPath);
+      setChapters(index.chapters || []);
+    } catch (err) {
+      console.error('Failed to load chapters:', err);
+      setError(err.message || 'Failed to load chapters');
+      setChapters([]);
+    } finally {
+      setLoading(false);
+    }
   }, [novelPath]);
+
+  // Load chapters from index
+  useEffect(() => {
+    loadChapters();
+  }, [loadChapters]);
 
   // Load chapter content from disk
   const loadChapter = useCallback(async (filename) => {
@@ -68,6 +68,7 @@ export const useChapters = (novelPath) => {
     loading,
     error,
     loadChapter,
-    saveChapter
+    saveChapter,
+    refresh: loadChapters
   };
 };

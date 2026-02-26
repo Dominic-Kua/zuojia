@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { indexHandlers, appHandlers } from '../../lib/ipc-client';
 import './NovelSelector.css';
 
@@ -12,11 +12,59 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
   const [error, setError] = useState(null);
   const [openError, setOpenError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [novels, setNovels] = useState([]);
+  const [isLoadingNovels, setIsLoadingNovels] = useState(false);
 
-  // Validate novel name (only lowercase alphanumeric, hyphen, underscore)
+  // Validate novel name (accept spaces, capitals, unicode, but not just whitespace)
   const isValidNovelName = (name) => {
-    if (!name || name.trim() === '') return false;
-    return /^[a-z0-9_\-]+$/.test(name);
+    if (!name || name.trim() === '') {
+      console.log('Novel name validation: empty');
+      return false;
+    }
+    // Just check that it's not empty after trimming
+    const isValid = name.trim().length > 0;
+    console.log('Novel name validation:', name, '→', isValid);
+    return isValid;
+  };
+
+  const loadNovels = async () => {
+    setIsLoadingNovels(true);
+    try {
+      const result = await appHandlers.listNovels();
+      setNovels(result.novels || []);
+    } catch (err) {
+      console.error('Failed to load novels list:', err);
+      setNovels([]);
+    } finally {
+      setIsLoadingNovels(false);
+    }
+  };
+
+  useEffect(() => {
+    loadNovels();
+  }, []);
+
+  const openNovelFromPath = async (novelPath) => {
+    setOpenError(null);
+    setLoading(true);
+    try {
+      const validation = await indexHandlers.validateNovel(novelPath);
+
+      if (validation.isValid) {
+        await indexHandlers.getIndex(novelPath);
+
+        await appHandlers.markNovelOpened(novelPath);
+
+        if (onNovelOpened) {
+          onNovelOpened(novelPath);
+        }
+      }
+    } catch (err) {
+      setOpenError(err.message || 'Failed to open novel');
+      console.error('Error opening novel:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCreateNovel = async (e) => {
@@ -30,17 +78,22 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
 
     setLoading(true);
     try {
+      console.log('Creating novel with name:', novelName);
       const result = await indexHandlers.createNovel(novelName);
+      console.log('Novel created successfully:', result);
       setShowCreateDialog(false);
       setNovelName('');
+
+      await loadNovels();
       
       // Notify parent
       if (onNovelCreated) {
         onNovelCreated(result.novelPath);
       }
     } catch (err) {
-      setError(err.message || 'Failed to create novel');
-      console.error('Error creating novel:', err);
+      const errorMsg = err.message || 'Failed to create novel';
+      setError(errorMsg);
+      console.error('Error creating novel:', err, errorMsg);
     } finally {
       setLoading(false);
     }
@@ -51,22 +104,9 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
     setLoading(true);
     try {
       const { novelPath } = await appHandlers.selectNovelDirectory();
-      
-      // Validate the selected directory
-      const validation = await indexHandlers.validateNovel(novelPath);
-      
-      if (validation.isValid) {
-        // Get index to confirm it's a valid novel
-        await indexHandlers.getIndex(novelPath);
-        
-        // Notify parent
-        if (onNovelOpened) {
-          onNovelOpened(novelPath);
-        }
-      }
+      await openNovelFromPath(novelPath);
     } catch (err) {
       if (err && err.code === 'DIALOG_CANCELED') {
-        // User canceled the folder picker; this is expected behavior, not an error.
         console.info('Open novel dialog was canceled by the user.');
       } else {
         setOpenError(err.message || 'Failed to open novel');
@@ -100,6 +140,43 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
         <p className="open-error-message" data-testid="open-novel-error">{openError}</p>
       )}
 
+      <div className="novel-list" data-testid="novel-list">
+        <div className="novel-list-header">
+          <h3>Recent novels</h3>
+          <button
+            type="button"
+            className="novel-list-refresh"
+            onClick={loadNovels}
+            disabled={isLoadingNovels || loading}
+          >
+            Refresh
+          </button>
+        </div>
+        {isLoadingNovels ? (
+          <div className="novel-list-empty">Loading novels...</div>
+        ) : novels.length === 0 ? (
+          <div className="novel-list-empty">No novels found in ~/.netwriter</div>
+        ) : (
+          <ul className="novel-list-items">
+            {novels.map((novel) => (
+              <li key={novel.novelPath} className="novel-list-item">
+                <div className="novel-list-info">
+                  <div className="novel-list-title">{novel.displayName}</div>
+                  <div className="novel-list-path">{novel.novelPath}</div>
+                </div>
+                <button
+                  className="novel-list-open"
+                  onClick={() => openNovelFromPath(novel.novelPath)}
+                  disabled={loading}
+                >
+                  Open
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       {showCreateDialog && (
         <div className="modal-overlay" onClick={() => !loading && setShowCreateDialog(false)}>
           <div className="modal-dialog" data-testid="create-novel-dialog" onClick={(e) => e.stopPropagation()}>
@@ -108,15 +185,22 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
               <input
                 type="text"
                 data-testid="novel-name-input"
-                placeholder="Novel name (lowercase, alphanumeric, - and _)"
+                placeholder="Novel name (e.g., The Winds of Chance)"
                 value={novelName}
                 onChange={(e) => {
-                  setNovelName(e.target.value);
+                  const newValue = e.target.value;
+                  console.log('Input changed:', newValue);
+                  setNovelName(newValue);
                   setError(null);
                 }}
                 disabled={loading}
                 autoFocus
               />
+              {novelName && !error && (
+                <p className="slug-preview" data-testid="slug-preview">
+                  Directory: {novelName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_\-]/g, '')}
+                </p>
+              )}
               {error && <p className="error-message" data-testid="novel-name-error">{error}</p>}
               <div className="dialog-buttons">
                 <button
