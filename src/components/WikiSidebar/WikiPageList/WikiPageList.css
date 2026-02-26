@@ -1,0 +1,257 @@
+/**
+ * WikiPageList styles
+ */
+
+.wiki-page-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+
+.wiki-page-list.loading,
+.wiki-page-list.empty {
+  justify-content: center;
+  align-items: center;
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--color-text-secondary, #888);
+}
+
+.wiki-page-list.empty {
+  font-size: 0.9rem;
+}
+
+.wiki-page-list.empty .empty-hint {
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  color: var(--color-text-tertiary, #aaa);
+}
+
+.wiki-search {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--color-border, #e0e0e0);
+  background: var(--color-bg-secondary, #f5f5f5);
+}
+
+.wiki-search-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  background: var(--color-bg-primary, #fff);
+  color: var(--color-text-primary, #333);
+}
+
+.wiki-search-input:focus {
+  outline: none;
+  border-color: var(--color-accent, #0066cc);
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+}
+
+.wiki-search-input::placeholder {
+  color: var(--color-text-tertiary, #aaa);
+}
+
+.wiki-pages-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.wiki-page-item {
+  position: relative;
+  margin: 0;
+  border-bottom: 1px solid var(--color-border, #e0e0e0);
+  transition: background-color 0.15s ease;
+}
+
+.wiki-page-item:hover {
+  background-color: var(--color-bg-hover, #f9f9f9);
+}
+
+.wiki-page-item.selected {
+  background-color: var(--color-accent-light, #f0f7ff);
+  border-left: 3px solid var(--color-accent, #0066cc);
+}
+
+.wiki-page-button {
+  width: 100%;
+  padding: 0.75rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.9rem;
+  color: var(--color-text-primary, #333);
+  transition: background-color 0.15s ease;
+}
+
+.wiki-page-button:hover {
+  background-color: var(--color-bg-hover, #f9f9f9);
+}
+
+.wiki-page-button:focus {
+  outline: 2px solid var(--color-accent, #0066cc);
+  outline-offset: -2px;
+}
+
+.wiki-page-item.selected .wiki-page-button:focus {
+  outline: none;
+}
+
+.wiki-page-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.wiki-page-title {
+  font-weight: 500;
+  color: var(--color-text-primary, #333);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wiki-page-meta {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary, #888);
+}
+
+.wiki-page-wordcount::before {
+  content: '📝 ';
+}
+
+.wiki-page-modified::before {
+  content: '⏱ ';
+}
+
+.wiki-delete-icon {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.25rem 0.5rem;
+  border: none;
+  background: var(--color-danger-light, #ffe6e6);
+  color: var(--color-danger, #d32f2f);
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 1rem;
+  line-height: 1;
+  transition: all 0.15s ease;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.wiki-page-item:hover .wiki-delete-icon,
+.wiki-page-item:focus-within .wiki-delete-icon {
+  opacity: 1;
+  visibility: visible;
+}
+
+.wiki-delete-icon:hover {
+  background: var(--color-danger, #d32f2f);
+  color: white;
+}
+
+.wiki-delete-icon:focus {
+  outline: 2px solid var(--color-danger, #d32f2f);
+  outline-offset: -2px;
+}
+
+.wiki-delete-confirm {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--color-danger-light, #ffe6e6);
+  border-radius: 4px;
+  z-index: 10;
+}
+
+.wiki-delete-confirm p {
+  margin: 0;
+  font-size: 0.85rem;
+  text-align: center;
+  color: var(--color-text-primary, #333);
+  font-weight: 500;
+}
+
+.wiki-confirm-buttons {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.wiki-confirm-btn {
+  flex: 1;
+  padding: 0.35rem 0.5rem;
+  border: none;
+  border-radius: 3px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.wiki-confirm-btn.wiki-cancel {
+  background: var(--color-bg-secondary, #f5f5f5);
+  color: var(--color-text-primary, #333);
+  border: 1px solid var(--color-border, #e0e0e0);
+}
+
+.wiki-confirm-btn.wiki-cancel:hover {
+  background: var(--color-bg-primary, #fff);
+  border-color: var(--color-text-secondary, #888);
+}
+
+.wiki-confirm-btn.wiki-delete {
+  background: var(--color-danger, #d32f2f);
+  color: white;
+}
+
+.wiki-confirm-btn.wiki-delete:hover {
+  background: var(--color-danger-dark, #b71c1c);
+}
+
+.wiki-confirm-btn:focus {
+  outline: 2px solid var(--color-accent, #0066cc);
+  outline-offset: -2px;
+}
+
+.wiki-no-results {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--color-text-secondary, #888);
+  font-size: 0.9rem;
+}
+
+.spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 2px solid var(--color-border, #e0e0e0);
+  border-top-color: var(--color-accent, #0066cc);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
