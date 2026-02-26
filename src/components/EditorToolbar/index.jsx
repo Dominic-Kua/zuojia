@@ -17,10 +17,10 @@ export const EditorToolbar = ({
   };
 
   return (
-    <div className="editor-toolbar">
+    <div className="editor-toolbar" data-testid="editor-toolbar">
       <div className="toolbar-section">
-        {loading && <span className="toolbar-status">Loading chapters...</span>}
-        {error && <span className="toolbar-error">{error}</span>}
+        {loading && <span className="toolbar-status" data-testid="toolbar-loading">Loading chapters...</span>}
+        {error && <span className="toolbar-error" data-testid="toolbar-error">{error}</span>}
         {!loading && !error && (
           <ChapterList
             chapters={chapters}

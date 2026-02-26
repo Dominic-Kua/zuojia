@@ -123,6 +123,7 @@ function WikiPageList({
           value={searchQuery}
           onChange={handleSearchChange}
           className="wiki-search-input"
+          data-testid="wiki-search-input"
           aria-label="Search wiki pages"
         />
       </div>
@@ -132,15 +133,17 @@ function WikiPageList({
           <p>No wiki pages match "{searchQuery}"</p>
         </div>
       ) : (
-        <ul className="wiki-pages-list" role="list">
+        <ul className="wiki-pages-list" data-testid="wiki-pages-list" role="list">
           {filteredPages.map((page) => (
             <li
               key={page.slug}
               className={`wiki-page-item ${selectedSlug === page.slug ? 'selected' : ''}`}
+              data-testid={`wiki-page-item-${page.slug}`}
               role="listitem"
             >
               <button
                 className="wiki-page-button"
+                data-testid={`wiki-page-button-${page.slug}`}
                 onClick={() => handleSelectPage(page.slug)}
                 aria-label={`Select ${page.title}`}
               >
@@ -156,6 +159,7 @@ function WikiPageList({
               {deleteConfirm !== page.slug && (
                 <button
                   className="wiki-delete-icon"
+                  data-testid={`wiki-delete-button-${page.slug}`}
                   onClick={(e) => handleDeleteClick(page.slug, e)}
                   aria-label={`Delete ${page.title}`}
                   title="Delete page"
@@ -175,6 +179,7 @@ function WikiPageList({
                   <div className="wiki-confirm-buttons">
                     <button
                       className="wiki-confirm-btn wiki-cancel"
+                      data-testid={`wiki-cancel-delete-${page.slug}`}
                       onClick={handleCancelDelete}
                       aria-label="Cancel delete"
                     >
@@ -182,6 +187,7 @@ function WikiPageList({
                     </button>
                     <button
                       className="wiki-confirm-btn wiki-delete"
+                      data-testid={`wiki-confirm-delete-${page.slug}`}
                       onClick={(e) => handleConfirmDelete(page.slug, e)}
                       aria-label="Confirm delete"
                     >
