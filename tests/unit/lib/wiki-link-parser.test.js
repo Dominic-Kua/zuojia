@@ -88,7 +88,7 @@ describe('parseWikiLinks', () => {
     expect(links[0].pageName).toBe('page [with] brackets');
   });
 
-  it('handles pipe in page name without display text', () => {
+  it('handles link with pipe separator and display text', () => {
     const text = 'See [[page|name]].';
     const links = parseWikiLinks(text);
 
