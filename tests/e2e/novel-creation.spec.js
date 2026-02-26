@@ -158,7 +158,7 @@ test.describe('Novel Creation E2E', () => {
     await nameInput.fill(testNovelName);
 
     // Step 3: Click create and check for loading state
-    const createButton = page.locator('.modal-dialog button.primary');
+    const createButton = page.locator('.modal-dialog button.primary:has-text("Create")');
     await createButton.click();
 
     // Might briefly show "Creating..." text
