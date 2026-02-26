@@ -17,8 +17,8 @@ export default function App(){
   // Show novel selector if no novel is loaded
   if (!novelPath) {
     return (
-      <div className="app-shell">
-        <header className="topbar">
+      <div className="app-shell" data-testid="app-shell">
+        <header className="topbar" data-testid="topbar">
           <div className="brand">Netwriter</div>
         </header>
         <main className="main-grid" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -33,17 +33,17 @@ export default function App(){
 
   // Show main editor interface when novel is loaded
   return (
-    <div className="app-shell">
-      <header className="topbar">
+    <div className="app-shell" data-testid="app-shell">
+      <header className="topbar" data-testid="topbar">
         <div className="brand">Netwriter</div>
         <div className="top-actions">
-          <button className="btn ghost">Snapshot</button>
-          <button className="btn primary">Push</button>
+          <button className="btn ghost" data-testid="snapshot-button">Snapshot</button>
+          <button className="btn primary" data-testid="push-button">Push</button>
         </div>
       </header>
       <main className="main-grid">
-        <section className="manuscript"><Manuscript /></section>
-        <aside className="sidebar"><Sidebar /></aside>
+        <section className="manuscript" data-testid="manuscript-section"><Manuscript /></section>
+        <aside className="sidebar" data-testid="sidebar-section"><Sidebar /></aside>
       </main>
     </div>
   )
