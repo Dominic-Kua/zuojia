@@ -97,6 +97,14 @@ describe('parseWikiLinks', () => {
     expect(links[0].displayText).toBe('name');
   });
 
+  it('handles empty display text after pipe', () => {
+    const text = 'See [[page|]].';
+    const links = parseWikiLinks(text);
+
+    expect(links).toHaveLength(1);
+    expect(links[0].pageName).toBe('page');
+    expect(links[0].displayText).toBe('page');
+  });
   it('handles multiple pipes (uses first as separator)', () => {
     const text = '[[page|display|extra]].';
     const links = parseWikiLinks(text);
