@@ -1,7 +1,21 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 
 export default function Manuscript(){
   const [text, setText] = useState('<h1>Chapter 1 — The Quiet House</h1><p>Start writing here…</p>')
+  const editorRef = useRef(null)
+  const [isInitialized, setIsInitialized] = useState(false)
+
+  // Initialize content once on mount
+  useEffect(() => {
+    if (editorRef.current && !isInitialized) {
+      editorRef.current.innerHTML = text
+      setIsInitialized(true)
+    }
+  }, [])
+
+  const handleInput = (e) => {
+    setText(e.currentTarget.innerHTML)
+  }
 
   return (
     <div className="manuscript-inner">
@@ -13,7 +27,7 @@ export default function Manuscript(){
           <span>Today: 1,257</span>
         </div>
       </div>
-      <article className="editor" contentEditable onInput={e=>setText(e.currentTarget.innerHTML)} dangerouslySetInnerHTML={{__html:text}} />
+      <article className="editor" ref={editorRef} contentEditable onInput={handleInput} />
     </div>
   )
 }
