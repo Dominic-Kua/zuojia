@@ -26,7 +26,6 @@ function WikiPageList({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [hoveredSlug, setHoveredSlug] = useState(null);
 
   // Filter pages based on search query
   const filteredPages = useMemo(() => {
@@ -138,8 +137,6 @@ function WikiPageList({
             <li
               key={page.slug}
               className={`wiki-page-item ${selectedSlug === page.slug ? 'selected' : ''}`}
-              onMouseEnter={() => setHoveredSlug(page.slug)}
-              onMouseLeave={() => setHoveredSlug(null)}
               role="listitem"
             >
               <button
@@ -156,7 +153,7 @@ function WikiPageList({
                 </div>
               </button>
 
-              {hoveredSlug === page.slug && !deleteConfirm && (
+              {deleteConfirm !== page.slug && (
                 <button
                   className="wiki-delete-icon"
                   onClick={(e) => handleDeleteClick(page.slug, e)}
