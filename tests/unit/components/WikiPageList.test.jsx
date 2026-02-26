@@ -84,7 +84,7 @@ describe('WikiPageList', () => {
       const user = userEvent.setup();
       render(<WikiPageList {...mockProps} />);
 
-      const pageButton = screen.getByRole('button', { name: /alice/i });
+      const pageButton = screen.getByRole('button', { name: /select alice/i });
       await user.click(pageButton);
 
       expect(mockProps.onSelectPage).toHaveBeenCalledWith('alice');
@@ -93,37 +93,58 @@ describe('WikiPageList', () => {
     it('highlights selected page', () => {
       render(<WikiPageList {...mockProps} selectedSlug="alice" />);
 
-      const selectedPage = screen.getByRole('button', { name: /alice/i }).closest('li');
+      const selectedPage = screen.getByRole('button', { name: /select alice/i }).closest('li');
       expect(selectedPage).toHaveClass('selected');
     });
 
     it('does not highlight unselected pages', () => {
       render(<WikiPageList {...mockProps} selectedSlug="alice" />);
 
-      const unselectedPage = screen.getByRole('button', { name: /bob/i }).closest('li');
+      const unselectedPage = screen.getByRole('button', { name: /select bob/i }).closest('li');
       expect(unselectedPage).not.toHaveClass('selected');
     });
   });
 
   describe('page deletion', () => {
-    it('has delete functionality', () => {
-      // Delete buttons are shown on hover via CSS
-      // This test just verifies component renders without error
+    it('renders delete buttons in the DOM for all pages', () => {
       render(<WikiPageList {...mockProps} />);
-      expect(screen.getByRole('list')).toBeInTheDocument();
+      const deleteButtons = screen.getAllByRole('button', { name: /delete/i });
+      // One delete button per page (the ✕ icon buttons)
+      expect(deleteButtons.length).toBe(mockPages.length);
     });
 
     it('shows confirmation when delete button is clicked', async () => {
       const user = userEvent.setup();
       render(<WikiPageList {...mockProps} />);
 
-      // Find the delete button (✕) for the first page
-      const buttons = screen.queryAllByText('✕');
-      if (buttons.length > 0) {
-        await user.click(buttons[0]);
-        // Confirmation text should appear
-        expect(screen.queryByText(/Delete "/)).toBeInTheDocument();
-      }
+      const deleteButton = screen.getByRole('button', { name: /delete alice/i });
+      await user.click(deleteButton);
+
+      expect(screen.getByText(/Delete "Alice the Protagonist"/)).toBeInTheDocument();
+    });
+
+    it('calls onDeletePage after confirmation', async () => {
+      const user = userEvent.setup();
+      render(<WikiPageList {...mockProps} />);
+
+      const deleteButton = screen.getByRole('button', { name: /delete alice/i });
+      await user.click(deleteButton);
+      const confirmButton = screen.getByRole('button', { name: /confirm delete/i });
+      await user.click(confirmButton);
+
+      expect(mockProps.onDeletePage).toHaveBeenCalledWith('alice');
+    });
+
+    it('delete button is reachable and responds to keyboard activation', async () => {
+      const user = userEvent.setup();
+      render(<WikiPageList {...mockProps} />);
+
+      const deleteButton = screen.getByRole('button', { name: /delete alice/i });
+      deleteButton.focus();
+      expect(deleteButton).toHaveFocus();
+
+      await user.keyboard('{Enter}');
+      expect(screen.getByText(/Delete "Alice the Protagonist"/)).toBeInTheDocument();
     });
   });
 
@@ -162,7 +183,7 @@ describe('WikiPageList', () => {
     it('sorts pages alphabetically by title', () => {
       render(<WikiPageList {...mockProps} />);
 
-      const items = screen.getAllByRole('button', { name: /alice|bob|story/i });
+      const items = screen.getAllByRole('button', { name: /^select (?:alice|bob|story)/i });
       expect(items[0]).toHaveTextContent('Alice');
       expect(items[1]).toHaveTextContent('Bob');
       expect(items[2]).toHaveTextContent('Story');
@@ -182,7 +203,7 @@ describe('WikiPageList', () => {
       const user = userEvent.setup();
       render(<WikiPageList {...mockProps} />);
 
-      const firstPageButton = screen.getByRole('button', { name: /alice/i });
+      const firstPageButton = screen.getByRole('button', { name: /select alice/i });
       firstPageButton.focus();
 
       expect(firstPageButton).toHaveFocus();
