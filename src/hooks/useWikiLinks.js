@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { extractWikiLinks, resolveWikiLink } from '../lib/wiki-link.js';
+import { extractWikiLinks, normalizeSlug, resolveWikiLink } from '../lib/wiki-link.js';
 import { wikiHandlers } from '../lib/ipc-client.ts';
 
 /**
@@ -24,8 +24,24 @@ export function useWikiLinks(novelPath, content = '', wikiPages = []) {
 
   // Handle clicking a wiki link
   const handleLinkClick = useCallback(
-    (target, display) => {
-      const resolution = resolveWikiLink(target, wikiPages);
+    async (target, display) => {
+      const normalizedTarget = normalizeSlug(target || '');
+      if (!normalizedTarget) {
+        return { action: 'none' };
+      }
+
+      let pagesToSearch = wikiPages;
+      let resolution = resolveWikiLink(normalizedTarget, pagesToSearch);
+
+      if (!resolution.found && resolution.matches.length === 0 && novelPath) {
+        try {
+          const latest = await wikiHandlers.list(novelPath);
+          pagesToSearch = latest?.pages || [];
+          resolution = resolveWikiLink(normalizedTarget, pagesToSearch);
+        } catch (err) {
+          console.error('Failed to refresh wiki pages for link resolution:', err);
+        }
+      }
 
       if (resolution.found) {
         // Open the exact match
@@ -33,7 +49,7 @@ export function useWikiLinks(novelPath, content = '', wikiPages = []) {
         return { action: 'open', page: resolution.matches[0] };
       } else if (resolution.matches.length > 1) {
         // Show disambiguation menu
-        setSelectedLink({ target, display });
+        setSelectedLink({ target: normalizedTarget, display });
         setShowDisambiguation(true);
         return { action: 'disambiguate', options: resolution.matches };
       } else if (resolution.matches.length === 1) {
@@ -42,12 +58,12 @@ export function useWikiLinks(novelPath, content = '', wikiPages = []) {
         return { action: 'open', page: resolution.matches[0] };
       } else {
         // No match - show create dialog
-        setSelectedLink({ target, display });
+        setSelectedLink({ target: normalizedTarget, display });
         setShowCreateDialog(true);
-        return { action: 'create', target, display };
+        return { action: 'create', target: normalizedTarget, display };
       }
     },
-    [wikiPages]
+    [novelPath, wikiPages]
   );
 
   // Handle hovering over a wiki link
