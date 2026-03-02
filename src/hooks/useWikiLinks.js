@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import { extractWikiLinks, resolveWikiLink } from '../lib/wiki-link';
-import { wikiHandlers } from '../lib/ipc-client';
+import { extractWikiLinks, resolveWikiLink } from '../lib/wiki-link.js';
+import { wikiHandlers } from '../lib/ipc-client.ts';
 
 /**
  * Hook for handling wiki link interactions in the manuscript editor

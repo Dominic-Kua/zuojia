@@ -3,6 +3,7 @@
 **Story ID:** 3.2  
 **Story Points:** 4  
 **Branch:** `story/3.2-wiki-link-syntax`
+**Status:** 🔄 In Progress - Core Logic Complete, Integration Pending
 
 ## Story Description
 
@@ -12,42 +13,106 @@ As an author, I want to reference wiki pages inline in my manuscript using a lin
 
 ## Acceptance Criteria
 
-- [ ] CodeMirror extension detects `[[...]]` syntax
-- [ ] Links highlighted distinctly (color, underline)
-- [ ] On click (or Cmd+Click), resolve slug and open wiki page in sidebar
-- [ ] If page doesn't exist, offer "Create?" dialog
-- [ ] Link preview on hover (first 100 chars of page)
-- [ ] Ambiguous slugs handled gracefully (show disambiguation if multiple matches)
+- [x] CodeMirror extension  detects `[[...]]` syntax
+- [x] Links highlighted distinctly (color, underline) - stylesheet ready
+- [ ] On click (or Cmd+Click), resolve slug and open wiki page in sidebar - logic ready, needs Manuscript integration
+- [x] If page doesn't exist, offer "Create?" dialog - component ready
+- [x] Link preview on hover (first 100 chars of page) - component ready
+- [x] Ambiguous slugs handled gracefully (show disambiguation if multiple matches) - logic ready
 
-## Implementation Plan
+## Implementation Status
 
-### Task 1: Wiki Link Parser
-**Files to create:**
-- `src/lib/wiki-link-parser.js`
+### ✅ Completed
 
-**Subtasks:**
-1. Create parser function to extract wiki links from text
-   - Match pattern: `[[page-name]]` or `[[page-name|display text]]`
-   - Return array of: `{start, end, pageName, displayText, fullMatch}`
-2. Create slug resolution function
-   - Convert page name to slug (normalize, lowercase, hyphenate)
-   - Handle ambiguous cases
-3. Add validation for link syntax
+#### Task 1: Wiki Link Parser Core Logic
+- [x] `src/lib/wiki-link.js` - Complete implementation
+  - [x] `parseWikiLink(text)` - Parse single wiki link
+  - [x] `extractWikiLinks(content)` - Extract all links from content  
+  - [x] `normalizeSlug(title)` - Convert title to slug
+  - [x] `resolveWikiLink(target, wikiPages)` - Resolve link with exact/fuzzy matching
+  - [x] `findAmbiguousMatches(target, wikiPages)` - Find disambiguation options
+  - [x] `createWikiLink(slug, displayText)` - Create wiki link syntax
+  
+- [x] Test: `tests/unit/lib/wiki-link.test.js` - **17/17 passing**
+  - Covers parsing, extraction, normalization, resolution, disambiguation
 
-**Tests:**
-- `tests/unit/lib/wiki-link-parser.test.js`
-- Test single bracket detection
-- Test double bracket detection with various content
-- Test display text extraction
-- Test edge cases (nested brackets, escape sequences)
-- Test slug generation from page names
-- Estimated: 15 tests
+#### Task 2: React Hook & UI Components
+- [x] `src/hooks/useWikiLinks.js` - Wiki link interaction hook
+  - Manages link state and event handlers
+  - Integrates with IPC for creating new wiki pages
+  
+- [x] `src/components/WikiLinkPopover.jsx` / `.css` - UI for interactions
+  - Preview popover
+  - Disambiguation menu
+  - Create page dialog
 
----
+- [x] `src/lib/codemirror-wiki-link.js` - CodeMirror extension (ready for integration)
 
-### Task 2: CodeMirror Wiki Link Extension
-**Files to create:**
-- `src/lib/codemirror-extensions/wiki-links.js`
+### ⏳ Pending
+
+#### Manuscript Component Integration
+- [ ] Update `src/components/Manuscript/CodeMirrorEditor.jsx`
+  - Add `useWikiLinks` hook
+  - Detect clicks/hovers on wiki link elements
+  - Render `WikiLinkPopover` based on state
+  - Handle link resolution callbacks
+
+- [ ] E2E Tests - `tests/e2e/wiki-link-syntax.spec.js`  
+  - Currently skipped, will pass once Manuscript is integrated
+  - 6 test scenarios ready
+
+## Test Results
+
+### Unit Tests ✅
+**File:** `tests/unit/lib/wiki-link.test.js`
+**Status:** 17/17 passing
+
+```
+✓ Wiki Link Utilities (17)
+  ✓ parseWikiLink (4)
+    ✓ parses simple wiki link
+    ✓ parses wiki link with custom display text
+    ✓ returns null for invalid syntax
+    ✓ handles whitespace gracefully
+  ✓ extractWikiLinks (3)
+    ✓ extracts all wiki links from content
+    ✓ returns empty array for content with no wiki links
+    ✓ handles nested brackets
+  ✓ normalizeSlug (4)
+    ✓ converts title to slug
+    ✓ handles multiple spaces and special characters
+    ✓ lowercases and preserves unicode characters
+    ✓ handles already-normalized slugs
+  ✓ resolveWikiLink (4)
+    ✓ resolves exact slug match
+    ✓ returns not found for non-existent slug
+    ✓ returns found when exact slug exists
+    ✓ finds partial matches for disambiguation when no exact match exists
+  ✓ findAmbiguousMatches (2)
+    ✓ finds all pages with similar title/slug
+    ✓ returns empty array when no matches
+```
+
+### E2E Tests ⏳
+**File:** `tests/e2e/wiki-link-syntax.spec.js`
+**Status:** 6 tests skipped (pending Manuscript integration)
+- should detect and highlight wiki links in manuscript
+- should open wiki page when clicking a wiki link
+- should show link preview on hover
+- should show create dialog for non-existent wiki page
+- should handle ambiguous wiki links
+- should support [[page|display text]] syntax
+
+## Files Changed
+
+### New Files
+- ✅ `src/lib/wiki-link.js` - Core parsing and resolution
+- ✅ `src/hooks/useWikiLinks.js` - React hook for interactions
+- ✅ `src/components/WikiLinkPopover.jsx` - UI popover component
+- ✅ `src/components/WikiLinkPopover.css` - Styling
+- ✅ `src/lib/codemirror-wiki-link.js` - CodeMirror extension
+- ✅ `tests/unit/lib/wiki-link.test.js` - Unit tests (17 passing)
+- ✅ `tests/e2e/wiki-link-syntax.spec.js` - E2E tests (skipped, ready to enable)
 
 **Subtasks:**
 1. Create StateField to track wiki link ranges
