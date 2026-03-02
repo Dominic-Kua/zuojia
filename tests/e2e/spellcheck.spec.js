@@ -2,9 +2,7 @@
  * E2E tests for spellcheck dictionary workflow
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { test } from '@playwright/test';
-
+import { test, expect } from '@playwright/test';
 test.describe('Spellcheck Dictionary E2E', () => {
   let novelPath;
 
