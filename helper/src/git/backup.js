@@ -21,15 +21,15 @@ function ensureGitRepo(novelPath) {
 }
 
 function getChangedFiles(novelPath) {
-  const output = execFileSync('git', ['status', '--porcelain'], { cwd: novelPath, encoding: 'utf-8' }).trim();
-  if (!output) {
+  const output = execFileSync('git', ['status', '--porcelain'], { cwd: novelPath, encoding: 'utf-8' });
+  if (!output || output.trim() === '') {
     return [];
   }
 
   return output
     .split('\n')
-    .map((line) => line.slice(3).trim())
-    .filter(Boolean);
+    .filter(line => line.trim())
+    .map((line) => line.slice(3).trim());
 }
 
 function buildCommitMessage(files) {
