@@ -69,7 +69,8 @@ export function useWikiLinks(novelPath, content = '', wikiPages = []) {
   // Handle hovering over a wiki link
   const handleLinkHover = useCallback(
     (target) => {
-      const resolution = resolveWikiLink(target, wikiPages);
+      const normalizedTarget = normalizeSlug(target);
+      const resolution = resolveWikiLink(normalizedTarget, wikiPages);
       if (resolution.found) {
         const page = resolution.matches[0];
         // Return first 100 chars for preview
