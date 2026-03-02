@@ -75,11 +75,8 @@ export function normalizeSlug(title) {
   return title
     .toLowerCase()
     .trim()
-    // Remove accents
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    // Replace special chars and spaces with hyphens
-    .replace(/[^\w\s-]/g, '')
+    // Remove non-letter, non-number chars (preserve unicode letters/numbers, spaces, hyphens)
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
     .replace(/[-\s]+/g, '-')
     // Remove leading/trailing hyphens
     .replace(/^-+|-+$/g, '');

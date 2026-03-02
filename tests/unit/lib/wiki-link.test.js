@@ -82,7 +82,7 @@ describe('Wiki Link Utilities', () => {
     });
 
     it('lowercases and preserves unicode characters', () => {
-      expect(normalizeSlug('Café Lumière')).toBe('cafe-lumiere');
+      expect(normalizeSlug('Café Lumière')).toBe('café-lumière');
     });
 
     it('handles already-normalized slugs', () => {
