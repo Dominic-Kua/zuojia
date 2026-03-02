@@ -6,13 +6,16 @@ import {
   MatchDecorator,
   PluginValue,
 } from '@codemirror/view';
-import { Range } from '@codemirror/state';
+import { Range, StateEffect } from '@codemirror/state';
 import { extractWikiLinks, resolveWikiLink } from './wiki-link';
 
 /**
  * CodeMirror extension for wiki link syntax highlighting and interaction
  * Syntax: [[page-name]] or [[page-name|display text]]
  */
+
+// StateEffect for updating wiki pages in the plugin
+export const setWikiPages = StateEffect.define();
 
 // Decoration for wiki links
 const wikiLinkMark = Decoration.mark({
@@ -39,7 +42,16 @@ class WikiLinkHighlighter extends PluginValue {
   }
 
   update(update) {
-    if (update.docChanged || update.viewportChanged) {
+    let recompute = update.docChanged || update.viewportChanged;
+    for (const tr of update.transactions) {
+      for (const effect of tr.effects) {
+        if (effect.is(setWikiPages)) {
+          this.wikiPages = effect.value;
+          recompute = true;
+        }
+      }
+    }
+    if (recompute) {
       this.computeDecorations(update.view);
     }
   }
@@ -172,9 +184,5 @@ export function wikiLinkExtension(wikiPages = [], handlers = {}) {
  * @param {Array} newWikiPages - Updated wiki pages
  */
 export function updateWikiPages(view, newWikiPages) {
-  const plugin = view.plugin(wikiLinkExtension);
-  if (plugin) {
-    plugin.wikiPages = newWikiPages;
-    plugin.computeDecorations(view);
-  }
+  view.dispatch({ effects: setWikiPages.of(newWikiPages) });
 }
