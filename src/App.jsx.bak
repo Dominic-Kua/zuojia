@@ -1,18 +1,12 @@
-import React, { useState, useRef, useCallback } from 'react'
+import React, { useState } from 'react'
 import Manuscript from './components/Manuscript'
 import Sidebar from './components/Sidebar'
 import { NovelSelector } from './components/Navigation/NovelSelector'
 import { gitHandlers } from './lib/ipc-client'
-import { useWikiPages } from './hooks/useWikiPages'
 
 export default function App(){
   const [novelPath, setNovelPath] = useState(null);
   const [isBackingUp, setIsBackingUp] = useState(false);
-  const [wikiPageToOpen, setWikiPageToOpen] = useState(null);
-  const sidebarRef = useRef(null);
-
-  // Get wiki pages for the manuscript component
-  const { pages: wikiPages } = useWikiPages(novelPath);
 
   const handleNovelCreated = (path) => {
     setNovelPath(path);
@@ -41,13 +35,6 @@ export default function App(){
       setIsBackingUp(false);
     }
   };
-
-  // Handle opening a wiki page from the manuscript
-  const handleOpenWikiPage = useCallback((slug) => {
-    setWikiPageToOpen(slug);
-    // Reset after a brief moment to allow Sidebar to detect the change
-    setTimeout(() => setWikiPageToOpen(null), 100);
-  }, []);
 
   // Show novel selector if no novel is loaded
   if (!novelPath) {
@@ -79,20 +66,8 @@ export default function App(){
         </div>
       </header>
       <main className="main-grid">
-        <section className="manuscript" data-testid="manuscript-section">
-          <Manuscript 
-            novelPath={novelPath} 
-            wikiPages={wikiPages} 
-            onOpenWikiPage={handleOpenWikiPage}
-          />
-        </section>
-        <aside className="sidebar" data-testid="sidebar-section">
-          <Sidebar 
-            ref={sidebarRef}
-            novelPath={novelPath} 
-            openPageSlug={wikiPageToOpen}
-          />
-        </aside>
+        <section className="manuscript" data-testid="manuscript-section"><Manuscript novelPath={novelPath} /></section>
+        <aside className="sidebar" data-testid="sidebar-section"><Sidebar novelPath={novelPath} /></aside>
       </main>
     </div>
   )
