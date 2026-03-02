@@ -13,10 +13,13 @@ import { createError } from '../util/error.js';
  * @returns {string} Sanitized label safe for filesystem
  */
 function sanitizeLabel(label) {
-  if (!label) return '';
+  if (!label || !label.trim()) return '';
   return label
+    .trim()
+    .replace(/\.\./g, '') // Remove path traversal patterns
     .replace(/[/\\:*?"<>|]/g, '-') // Replace invalid chars
     .replace(/\s+/g, '_') // Replace spaces with underscores
+    .replace(/^-+|-+$/g, '') // Remove leading/trailing dashes
     .substring(0, 50); // Limit length
 }
 
@@ -102,7 +105,7 @@ export async function createSnapshot(novelPath, label = null) {
     
     // Generate timestamp and backup directory name
     const timestamp = Date.now();
-    const sanitized = label ? sanitizeLabel(label) : '';
+    const sanitized = sanitizeLabel(label);
     const backupDirName = sanitized 
       ? `${timestamp}-${sanitized}` 
       : `${timestamp}`;
@@ -156,20 +159,21 @@ export async function createSnapshot(novelPath, label = null) {
       }
     }
     
+    // Get backup size before creating manifest (for caching)
+    const size = await getDirectorySize(backupPath);
+    
     // Create snapshot manifest
     const manifest = {
       timestamp,
       label: label || null,
       novelPath,
       files: totalFiles,
+      size, // Cache size in manifest
       created: new Date(timestamp).toISOString(),
     };
     
     const manifestPath = path.join(backupPath, 'snapshot-manifest.json');
     await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
-    
-    // Get backup size
-    const size = await getDirectorySize(backupPath);
     
     return {
       status: 'ok',
@@ -240,8 +244,8 @@ export async function listSnapshots(novelPath) {
         const manifestContent = await fs.readFile(manifestPath, 'utf-8');
         const manifest = JSON.parse(manifestContent);
         
-        // Get directory size
-        const size = await getDirectorySize(backupPath);
+        // Use cached size from manifest if available, otherwise calculate
+        const size = manifest.size || await getDirectorySize(backupPath);
         
         snapshots.push({
           timestamp: manifest.timestamp,
