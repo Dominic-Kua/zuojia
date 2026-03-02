@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react'
+import React, { useState, useRef, useCallback, useEffect } from 'react'
 import Manuscript from './components/Manuscript'
 import Sidebar from './components/Sidebar'
 import { NovelSelector } from './components/Navigation/NovelSelector'
@@ -10,6 +10,15 @@ export default function App(){
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [wikiPageToOpen, setWikiPageToOpen] = useState(null);
   const sidebarRef = useRef(null);
+  const wikiPageTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (wikiPageTimeoutRef.current !== null) {
+        clearTimeout(wikiPageTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Get wiki pages for the manuscript component
   const { pages: wikiPages } = useWikiPages(novelPath);
@@ -44,9 +53,15 @@ export default function App(){
 
   // Handle opening a wiki page from the manuscript
   const handleOpenWikiPage = useCallback((slug) => {
+    if (wikiPageTimeoutRef.current !== null) {
+      clearTimeout(wikiPageTimeoutRef.current);
+    }
     setWikiPageToOpen(slug);
     // Reset after a brief moment to allow Sidebar to detect the change
-    setTimeout(() => setWikiPageToOpen(null), 100);
+    wikiPageTimeoutRef.current = setTimeout(() => {
+      setWikiPageToOpen(null);
+      wikiPageTimeoutRef.current = null;
+    }, 100);
   }, []);
 
   // Show novel selector if no novel is loaded
