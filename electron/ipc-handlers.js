@@ -4,6 +4,7 @@ import { readdir, readFile, stat, writeFile } from 'fs/promises'
 import path from 'path'
 import { createNovel, getIndex, validateNovel, rebuildIndex, readChapter, writeChapter } from '../helper/src/index/index.js'
 import { commitChapter } from '../helper/src/git/commit.js';
+import { backupAndPush } from '../helper/src/git/backup.js';
 import { calculateWordCount } from '../helper/src/stats/word-count.js';
 import { getManuscriptWordCount } from '../helper/src/stats/manuscript-count.js';
 import { getWordsWrittenToday } from '../helper/src/git/history.js';
@@ -70,6 +71,13 @@ export function registerHandlers() {
     'helper:git:commit',
     wrapHandler(async ({ novelPath, filename, content }) => {
       return await commitChapter(novelPath, filename, content);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:git:push',
+    wrapHandler(async ({ novelPath }) => {
+      return await backupAndPush(novelPath);
     })
   );
 
