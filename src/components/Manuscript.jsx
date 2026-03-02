@@ -279,20 +279,27 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
   }, [content, currentChapter, novelPath, saveChapter])
 
   const handleInput = (e) => {
-    // Extract content from contentEditable, preserving wiki link markers
+    // Extract content from contentEditable, preserving wiki link markers and line breaks
     const editor = e.currentTarget
     let plainContent = ''
+
+    const BLOCK_TAGS = new Set(['DIV', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE'])
 
     const traverse = (node) => {
       if (node.nodeType === Node.TEXT_NODE) {
         plainContent += node.textContent
       } else if (node.nodeType === Node.ELEMENT_NODE) {
-        if (node.classList.contains('wiki-link')) {
+        if (node.tagName === 'BR') {
+          plainContent += '\n'
+        } else if (node.classList.contains('wiki-link')) {
           const target = node.getAttribute('data-wiki-target')
           const display = node.getAttribute('data-wiki-display')
           plainContent += target === display ? `[[${target}]]` : `[[${target}|${display}]]`
         } else {
-          // Traverse children of other elements (like divs or spans without wiki-link class)
+          // Insert newline before block-level elements (except at the very start)
+          if (BLOCK_TAGS.has(node.tagName) && plainContent.length > 0 && !plainContent.endsWith('\n')) {
+            plainContent += '\n'
+          }
           for (const child of node.childNodes) {
             traverse(child)
           }
