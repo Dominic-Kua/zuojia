@@ -38,24 +38,43 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
 
   const wikiLinkHandlers = useWikiLinks(novelPath, content, wikiPages)
 
-  // Highlight wiki links in content
+  // Highlight wiki links in content using DOM construction to avoid XSS
   const highlightWikiLinks = useCallback((text) => {
-    if (!text) return ''
-    
-    // Replace [[page]] or [[page|display]] with clickable spans
-    return text.replace(
-      /\[\[([^\]|]+)(\|([^\]]+))?\]\]/g,
-      (match, target, _, display) => {
-        const displayText = display || target
-        return `<span class="wiki-link" data-wiki-target="${target.trim()}" data-wiki-display="${displayText.trim()}">${displayText.trim()}</span>`
+    const fragment = document.createDocumentFragment()
+    if (!text) return fragment
+
+    const regex = /\[\[([^\]|]+)(\|([^\]]+))?\]\]/g
+    let lastIndex = 0
+    let match
+
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)))
       }
-    )
+
+      const target = match[1].trim()
+      const displayText = (match[3] || match[1]).trim()
+
+      const span = document.createElement('span')
+      span.className = 'wiki-link'
+      span.setAttribute('data-wiki-target', target)
+      span.setAttribute('data-wiki-display', displayText)
+      span.textContent = displayText
+      fragment.appendChild(span)
+
+      lastIndex = match.index + match[0].length
+    }
+
+    if (lastIndex < text.length) {
+      fragment.appendChild(document.createTextNode(text.slice(lastIndex)))
+    }
+
+    return fragment
   }, [])
 
   const applyEditorContent = useCallback((nextContent) => {
     if (editorRef.current) {
-      const htmlContent = highlightWikiLinks(nextContent || '')
-      editorRef.current.innerHTML = htmlContent
+      editorRef.current.replaceChildren(highlightWikiLinks(nextContent || ''))
     }
   }, [highlightWikiLinks])
 
