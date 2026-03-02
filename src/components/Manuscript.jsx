@@ -59,40 +59,93 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
     }
   }, [highlightWikiLinks])
 
-  // Handle clicks on wiki links  
+  const findRawWikiLinkFromSelection = useCallback(() => {
+    const editor = editorRef.current
+    if (!editor) {
+      return null
+    }
+
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) {
+      return null
+    }
+
+    const range = selection.getRangeAt(0)
+    if (!editor.contains(range.startContainer)) {
+      return null
+    }
+
+    const prefixRange = document.createRange()
+    prefixRange.setStart(editor, 0)
+    prefixRange.setEnd(range.startContainer, range.startOffset)
+    const cursorOffset = prefixRange.toString().length
+
+    const rawText = editor.textContent || ''
+    const regex = /\[\[([^\]|]+)(\|([^\]]+))?\]\]/g
+    let match
+
+    while ((match = regex.exec(rawText)) !== null) {
+      const start = match.index
+      const end = match.index + match[0].length
+      if (cursorOffset >= start && cursorOffset <= end) {
+        return {
+          target: match[1].trim(),
+          display: (match[3] || match[1]).trim(),
+          rect: range.getBoundingClientRect(),
+        }
+      }
+    }
+
+    return null
+  }, [])
+
+  // Handle clicks on wiki links
   useEffect(() => {
     const editor = editorRef.current
     if (!editor) return
 
     const handleClick = async (e) => {
-      const wikiLink = e.target.closest('.wiki-link')
-      if (!wikiLink) return
+      const targetElement = e.target instanceof Element ? e.target : e.target?.parentElement
+      const wikiLink = targetElement?.closest('.wiki-link')
+
+      let target = null
+      let display = null
+      let rect = null
+
+      if (wikiLink) {
+        target = wikiLink.getAttribute('data-wiki-target')
+        display = wikiLink.getAttribute('data-wiki-display')
+        rect = wikiLink.getBoundingClientRect()
+      } else {
+        const rawLink = findRawWikiLinkFromSelection()
+        if (!rawLink) {
+          return
+        }
+        target = rawLink.target
+        display = rawLink.display
+        rect = rawLink.rect
+      }
 
       e.preventDefault()
       e.stopPropagation()
 
-      const target = wikiLink.getAttribute('data-wiki-target')
-      const display = wikiLink.getAttribute('data-wiki-display')
-
-      const result = wikiLinkHandlers.handleLinkClick(target, display)
+      const result = await wikiLinkHandlers.handleLinkClick(target, display)
+      if (!result || result.action === 'none') {
+        return
+      }
 
       if (result.action === 'open' && result.page) {
-        // Open the wiki page in sidebar
         if (onOpenWikiPage) {
           onOpenWikiPage(result.page.slug)
         }
         setPopoverState(null)
       } else if (result.action === 'disambiguate') {
-        // Show disambiguation popover
-        const rect = wikiLink.getBoundingClientRect()
         setPopoverState({
           type: 'disambiguation',
           position: { x: rect.left, y: rect.bottom + 5 },
           data: { options: result.options }
         })
       } else if (result.action === 'create') {
-        // Show create dialog
-        const rect = wikiLink.getBoundingClientRect()
         setPopoverState({
           type: 'create',
           position: { x: rect.left, y: rect.bottom + 5 },
@@ -103,7 +156,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
 
     editor.addEventListener('click', handleClick)
     return () => editor.removeEventListener('click', handleClick)
-  }, [wikiLinkHandlers, onOpenWikiPage])
+  }, [findRawWikiLinkFromSelection, wikiLinkHandlers, onOpenWikiPage])
 
   // Handle popover actions
   const handleSelectPage = useCallback((page) => {
@@ -303,6 +356,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
         ref={editorRef}
         contentEditable
         onInput={handleInput}
+        onBlur={() => applyEditorContent(content)}
         aria-busy={loading || isLoadingChapter}
       />
     </div>
