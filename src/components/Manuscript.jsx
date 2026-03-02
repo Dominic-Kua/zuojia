@@ -279,15 +279,31 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
   }, [content, currentChapter, novelPath, saveChapter])
 
   const handleInput = (e) => {
-    // Extract plain text from HTML, preserving wiki link markers
-    const htmlContent = e.currentTarget.innerHTML
-    // Simple extraction - convert <span class="wiki-link">text</span> back to [[text]]
-    const plainContent = htmlContent.replace(
-      /<span class="wiki-link" data-wiki-target="([^"]*)" data-wiki-display="([^"]*)">[^<]*<\/span>/g,
-      (match, target, display) => {
-        return target === display ? `[[${target}]]` : `[[${target}|${display}]]`
+    // Extract content from contentEditable, preserving wiki link markers
+    const editor = e.currentTarget
+    let plainContent = ''
+
+    const traverse = (node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        plainContent += node.textContent
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        if (node.classList.contains('wiki-link')) {
+          const target = node.getAttribute('data-wiki-target')
+          const display = node.getAttribute('data-wiki-display')
+          plainContent += target === display ? `[[${target}]]` : `[[${target}|${display}]]`
+        } else {
+          // Traverse children of other elements (like divs or spans without wiki-link class)
+          for (const child of node.childNodes) {
+            traverse(child)
+          }
+        }
       }
-    )
+    }
+
+    for (const node of editor.childNodes) {
+      traverse(node)
+    }
+
     setContent(plainContent)
   }
 
