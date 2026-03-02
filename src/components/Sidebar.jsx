@@ -15,7 +15,7 @@ const escapeHtml = (value) => {
     .replace(/'/g, '&#39;')
 };
 
-export default function Sidebar({ novelPath }){
+export default function Sidebar({ novelPath, openPageSlug }){
   const { pages, loading, error, createPage, deletePage, renamePage, search } = useWikiPages(novelPath);
   const [selectedSlug, setSelectedSlug] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -110,6 +110,13 @@ export default function Sidebar({ novelPath }){
     setSelectedSlug(slug);
     setIsPreviewMode(true);
   }, [novelPath, selectedSlug, isDirty, wikiContent, wikiTags]);
+  // Open page when requested from wiki link clicks in manuscript
+  useEffect(() => {
+    if (openPageSlug && openPageSlug !== selectedSlug) {
+      handleSelectPage(openPageSlug);
+    }
+  }, [openPageSlug, selectedSlug, handleSelectPage]);
+
 
   const handleDeletePage = useCallback(async (slug) => {
     try {

@@ -2,19 +2,22 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { ChapterList } from './Navigation/ChapterList'
 import { useChapters } from '../hooks/useChapters'
 import { useWordCount } from '../hooks/useWordCount'
+import { useWikiLinks } from '../hooks/useWikiLinks'
+import { WikiLinkPopover } from './WikiLinkPopover'
 import { indexHandlers } from '../lib/ipc-client'
 
 const DEFAULT_CHAPTER_FILENAME = 'chapter-01.md'
 const DEFAULT_CHAPTER_CONTENT = '# Chapter 1\n\nStart writing here...'
 const CHAPTER_FILENAME_PATTERN = /^chapter-(\d+)\.md$/i
 
-export default function Manuscript({ novelPath }){
+export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }){
   const editorRef = useRef(null)
   const saveTimerRef = useRef(null)
   const createdDefaultRef = useRef(false)
 
   const [content, setContent] = useState('')
   const [isLoadingChapter, setIsLoadingChapter] = useState(false)
+  const [popoverState, setPopoverState] = useState(null)
 
   const {
     chapters,
@@ -33,10 +36,165 @@ export default function Manuscript({ novelPath }){
     content
   )
 
+  const wikiLinkHandlers = useWikiLinks(novelPath, content, wikiPages)
+
+  // Highlight wiki links in content using DOM construction to avoid XSS
+  const highlightWikiLinks = useCallback((text) => {
+    const fragment = document.createDocumentFragment()
+    if (!text) return fragment
+
+    const regex = /\[\[([^\]|]+)(\|([^\]]+))?\]\]/g
+    let lastIndex = 0
+    let match
+
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)))
+      }
+
+      const target = match[1].trim()
+      const displayText = (match[3] || match[1]).trim()
+
+      const span = document.createElement('span')
+      span.className = 'wiki-link'
+      span.setAttribute('data-wiki-target', target)
+      span.setAttribute('data-wiki-display', displayText)
+      span.textContent = displayText
+      fragment.appendChild(span)
+
+      lastIndex = match.index + match[0].length
+    }
+
+    if (lastIndex < text.length) {
+      fragment.appendChild(document.createTextNode(text.slice(lastIndex)))
+    }
+
+    return fragment
+  }, [])
+
   const applyEditorContent = useCallback((nextContent) => {
     if (editorRef.current) {
-      editorRef.current.innerHTML = nextContent || ''
+      editorRef.current.replaceChildren(highlightWikiLinks(nextContent || ''))
     }
+  }, [highlightWikiLinks])
+
+  const findRawWikiLinkFromSelection = useCallback(() => {
+    const editor = editorRef.current
+    if (!editor) {
+      return null
+    }
+
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) {
+      return null
+    }
+
+    const range = selection.getRangeAt(0)
+    if (!editor.contains(range.startContainer)) {
+      return null
+    }
+
+    const prefixRange = document.createRange()
+    prefixRange.setStart(editor, 0)
+    prefixRange.setEnd(range.startContainer, range.startOffset)
+    const cursorOffset = prefixRange.toString().length
+
+    const rawText = editor.textContent || ''
+    const regex = /\[\[([^\]|]+)(\|([^\]]+))?\]\]/g
+    let match
+
+    while ((match = regex.exec(rawText)) !== null) {
+      const start = match.index
+      const end = match.index + match[0].length
+      if (cursorOffset >= start && cursorOffset <= end) {
+        return {
+          target: match[1].trim(),
+          display: (match[3] || match[1]).trim(),
+          rect: range.getBoundingClientRect(),
+        }
+      }
+    }
+
+    return null
+  }, [])
+
+  // Handle clicks on wiki links
+  useEffect(() => {
+    const editor = editorRef.current
+    if (!editor) return
+
+    const handleClick = async (e) => {
+      const targetElement = e.target instanceof Element ? e.target : e.target?.parentElement
+      const wikiLink = targetElement?.closest('.wiki-link')
+
+      let target = null
+      let display = null
+      let rect = null
+
+      if (wikiLink) {
+        target = wikiLink.getAttribute('data-wiki-target')
+        display = wikiLink.getAttribute('data-wiki-display')
+        rect = wikiLink.getBoundingClientRect()
+      } else {
+        const rawLink = findRawWikiLinkFromSelection()
+        if (!rawLink) {
+          return
+        }
+        target = rawLink.target
+        display = rawLink.display
+        rect = rawLink.rect
+      }
+
+      e.preventDefault()
+      e.stopPropagation()
+
+      const result = await wikiLinkHandlers.handleLinkClick(target, display)
+      if (!result || result.action === 'none') {
+        return
+      }
+
+      if (result.action === 'open' && result.page) {
+        if (onOpenWikiPage) {
+          onOpenWikiPage(result.page.slug)
+        }
+        setPopoverState(null)
+      } else if (result.action === 'disambiguate') {
+        setPopoverState({
+          type: 'disambiguation',
+          position: { x: rect.left, y: rect.bottom + 5 },
+          data: { options: result.options }
+        })
+      } else if (result.action === 'create') {
+        setPopoverState({
+          type: 'create',
+          position: { x: rect.left, y: rect.bottom + 5 },
+          data: { target: result.target }
+        })
+      }
+    }
+
+    editor.addEventListener('click', handleClick)
+    return () => editor.removeEventListener('click', handleClick)
+  }, [findRawWikiLinkFromSelection, wikiLinkHandlers, onOpenWikiPage])
+
+  // Handle popover actions
+  const handleSelectPage = useCallback((page) => {
+    if (onOpenWikiPage) {
+      onOpenWikiPage(page.slug)
+    }
+    setPopoverState(null)
+  }, [onOpenWikiPage])
+
+  const handleCreatePage = useCallback(async (title) => {
+    const result = await wikiLinkHandlers.handleCreatePageFromLink(title)
+    if (result && result.slug && onOpenWikiPage) {
+      onOpenWikiPage(result.slug)
+    }
+    setPopoverState(null)
+  }, [wikiLinkHandlers, onOpenWikiPage])
+
+  const handleClosePopover = useCallback(() => {
+    setPopoverState(null)
   }, [])
 
   // Create a default chapter if none exist
@@ -121,7 +279,16 @@ export default function Manuscript({ novelPath }){
   }, [content, currentChapter, novelPath, saveChapter])
 
   const handleInput = (e) => {
-    setContent(e.currentTarget.innerHTML)
+    // Extract plain text from HTML, preserving wiki link markers
+    const htmlContent = e.currentTarget.innerHTML
+    // Simple extraction - convert <span class="wiki-link">text</span> back to [[text]]
+    const plainContent = htmlContent.replace(
+      /<span class="wiki-link" data-wiki-target="([^"]*)" data-wiki-display="([^"]*)">[^<]*<\/span>/g,
+      (match, target, display) => {
+        return target === display ? `[[${target}]]` : `[[${target}|${display}]]`
+      }
+    )
+    setContent(plainContent)
   }
 
   const handleBeforeSwitch = useCallback(async () => {
@@ -177,6 +344,16 @@ export default function Manuscript({ novelPath }){
 
   return (
     <div className="manuscript-inner">
+      {popoverState && (
+        <WikiLinkPopover
+          type={popoverState.type}
+          position={popoverState.position}
+          data={popoverState.data}
+          onSelectPage={handleSelectPage}
+          onCreatePage={handleCreatePage}
+          onClose={handleClosePopover}
+        />
+      )}
       <div className="manuscript-meta">
         <ChapterList
           chapters={chapters}
@@ -198,6 +375,7 @@ export default function Manuscript({ novelPath }){
         ref={editorRef}
         contentEditable
         onInput={handleInput}
+        onBlur={() => applyEditorContent(content)}
         aria-busy={loading || isLoadingChapter}
       />
     </div>

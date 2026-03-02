@@ -1,0 +1,114 @@
+.wiki-link-popover {
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+  max-width: 300px;
+  animation: slideIn 0.15s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.popover-content {
+  padding: 8px;
+}
+
+.popover-header {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+/* Preview type */
+.popover-content.preview {
+  padding: 12px;
+}
+
+.preview-title {
+  font-weight: 600;
+  color: #0066cc;
+  margin-bottom: 4px;
+}
+
+.preview-text {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.4;
+  max-height: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Disambiguation type */
+.disambiguation-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.disambiguation-list li {
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 13px;
+  transition: background-color 0.15s;
+}
+
+.disambiguation-list li:hover {
+  background-color: #f0f0f0;
+}
+
+.disambiguation-list li:active {
+  background-color: #e6f2ff;
+}
+
+/* Create type */
+.popover-content.create {
+  padding: 12px;
+}
+
+.popover-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.popover-actions button {
+  flex: 1;
+  padding: 6px 12px;
+  font-size: 12px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-primary {
+  background-color: #0066cc;
+  color: white;
+  border-color: #0052a3;
+}
+
+.btn-primary:hover {
+  background-color: #0052a3;
+}
+
+.btn-secondary {
+  background-color: white;
+  color: #333;
+}
+
+.btn-secondary:hover {
+  background-color: #f5f5f5;
+}
