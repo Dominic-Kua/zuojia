@@ -279,15 +279,38 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
   }, [content, currentChapter, novelPath, saveChapter])
 
   const handleInput = (e) => {
-    // Extract plain text from HTML, preserving wiki link markers
-    const htmlContent = e.currentTarget.innerHTML
-    // Simple extraction - convert <span class="wiki-link">text</span> back to [[text]]
-    const plainContent = htmlContent.replace(
-      /<span class="wiki-link" data-wiki-target="([^"]*)" data-wiki-display="([^"]*)">[^<]*<\/span>/g,
-      (match, target, display) => {
-        return target === display ? `[[${target}]]` : `[[${target}|${display}]]`
+    // Extract content from contentEditable, preserving wiki link markers and line breaks
+    const editor = e.currentTarget
+    let plainContent = ''
+
+    const BLOCK_TAGS = new Set(['DIV', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE'])
+
+    const traverse = (node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        plainContent += node.textContent
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        if (node.tagName === 'BR') {
+          plainContent += '\n'
+        } else if (node.classList.contains('wiki-link')) {
+          const target = node.getAttribute('data-wiki-target')
+          const display = node.getAttribute('data-wiki-display')
+          plainContent += target === display ? `[[${target}]]` : `[[${target}|${display}]]`
+        } else {
+          // Insert newline before block-level elements (except at the very start)
+          if (BLOCK_TAGS.has(node.tagName) && plainContent.length > 0 && !plainContent.endsWith('\n')) {
+            plainContent += '\n'
+          }
+          for (const child of node.childNodes) {
+            traverse(child)
+          }
+        }
       }
-    )
+    }
+
+    for (const node of editor.childNodes) {
+      traverse(node)
+    }
+
     setContent(plainContent)
   }
 
