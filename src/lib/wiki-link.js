@@ -48,6 +48,11 @@ export function extractWikiLinks(content) {
 
   while ((match = WIKI_LINK_REGEX.exec(content)) !== null) {
     const target = normalizeSlug(match[1]);
+
+    // Skip links with empty targets to match parseWikiLink behavior
+    if (!target) {
+      continue;
+    }
     const display = match[2]?.trim() || match[1].trim();
 
     links.push({
