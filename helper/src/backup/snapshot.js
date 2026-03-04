@@ -317,11 +317,13 @@ export async function deleteSnapshot(novelPath, timestamp) {
     const entries = await fs.readdir(backupsDir, { withFileTypes: true });
     let backupDir = null;
     
+    const timestampStr = timestamp.toString();
+    
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       
-      // Check if directory name starts with the timestamp
-      if (entry.name.startsWith(timestamp.toString())) {
+      // Match directory name exactly to the timestamp, or with a hyphen separator
+      if (entry.name === timestampStr || entry.name.startsWith(`${timestampStr}-`)) {
         backupDir = path.join(backupsDir, entry.name);
         break;
       }
