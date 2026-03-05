@@ -400,6 +400,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
         onInput={handleInput}
         onBlur={() => applyEditorContent(content)}
         aria-busy={loading || isLoadingChapter}
+        data-testid="manuscript-editor"
       />
     </div>
   )
