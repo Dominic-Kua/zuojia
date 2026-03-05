@@ -10,6 +10,7 @@ import { getManuscriptWordCount } from '../helper/src/stats/manuscript-count.js'
 import { getWordsWrittenToday } from '../helper/src/git/history.js';
 import { createWikiPage, readWikiPage, updateWikiPage, deleteWikiPage, renameWikiPage } from '../helper/src/wiki/crud.js';
 import { listWikiPages } from '../helper/src/wiki/list-pages.js';
+import { createSnapshot, listSnapshots, deleteSnapshot, restoreSnapshot } from '../helper/src/backup/snapshot.js';
 /**
  * Register all IPC handlers
  * Formats responses as structured envelopes
@@ -194,6 +195,35 @@ export function registerHandlers() {
     })
   );
 
+  // Snapshot (local backup) handlers
+  ipcMain.handle(
+    'helper:backup:createSnapshot',
+    wrapHandler(async ({ novelPath, label }) => {
+      return await createSnapshot(novelPath, label || null);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:backup:listSnapshots',
+    wrapHandler(async ({ novelPath }) => {
+      return await listSnapshots(novelPath);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:backup:deleteSnapshot',
+    wrapHandler(async ({ novelPath, timestamp }) => {
+      return await deleteSnapshot(novelPath, timestamp);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:backup:restore',
+    wrapHandler(async ({ novelPath, snapshotId }) => {
+      return await restoreSnapshot(novelPath, snapshotId);
+    })
+  );
+
   ipcMain.handle('app:listNovels', async () => {
     try {
       const novelsRoot = path.join(app.getPath('home'), '.netwriter');
@@ -332,7 +362,4 @@ export function registerHandlers() {
   // - helper:export:pdf
   // - helper:export:validateDeps
   // - helper:wiki:rebuildDict
-  // - helper:backup:createSnapshot
-  // - helper:backup:listSnapshots
-  // - helper:backup:restore
 }

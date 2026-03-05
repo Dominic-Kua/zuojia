@@ -7,6 +7,9 @@ import fs from 'fs/promises';
 import path from 'path';
 import { createError } from '../util/error.js';
 
+/** Directories containing novel content that are included in every snapshot. */
+const CONTENT_DIRECTORIES = ['manuscript', 'wiki'];
+
 /**
  * Sanitize a label for use in directory names
  * @param {string} label - User-provided label
@@ -276,6 +279,121 @@ export async function listSnapshots(novelPath) {
       'SNAPSHOT_LIST_FAILED',
       'Failed to list snapshots',
       'Check file permissions',
+      { error: err.message }
+    );
+  }
+}
+
+/**
+ * Restore a snapshot, replacing the novel's current content with the snapshot state.
+ * The meta/backups directory is preserved and not overwritten.
+ * @param {string} novelPath - Path to the novel directory
+ * @param {number} timestamp - Timestamp of the snapshot to restore
+ * @returns {Promise<{status: string, data?: object, error?: object}>}
+ */
+export async function restoreSnapshot(novelPath, timestamp) {
+  try {
+    // Validate novel path
+    try {
+      await fs.access(novelPath);
+    } catch {
+      return createError(
+        'INVALID_NOVEL_PATH',
+        'Novel path does not exist',
+        `Ensure the path "${novelPath}" exists and is a valid novel directory`
+      );
+    }
+
+    const backupsDir = path.join(novelPath, 'meta', 'backups');
+
+    // Check if backups directory exists
+    try {
+      await fs.access(backupsDir);
+    } catch {
+      return createError(
+        'SNAPSHOT_NOT_FOUND',
+        'Snapshot not found',
+        `No snapshot with timestamp ${timestamp} exists`
+      );
+    }
+
+    // Find the backup directory matching the timestamp
+    const entries = await fs.readdir(backupsDir, { withFileTypes: true });
+    let backupPath = null;
+    const tsStr = timestamp.toString();
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+
+      // Match exact timestamp or timestamp followed by a hyphen (labelled snapshot)
+      if (entry.name === tsStr || entry.name.startsWith(`${tsStr}-`)) {
+        backupPath = path.join(backupsDir, entry.name);
+        break;
+      }
+    }
+
+    if (!backupPath) {
+      return createError(
+        'SNAPSHOT_NOT_FOUND',
+        'Snapshot not found',
+        `No snapshot with timestamp ${timestamp} exists`
+      );
+    }
+
+    // Restore manuscript and wiki directories in full
+    for (const dir of CONTENT_DIRECTORIES) {
+      const novelDir = path.join(novelPath, dir);
+      const snapshotDir = path.join(backupPath, dir);
+
+      try {
+        await fs.access(snapshotDir);
+      } catch {
+        continue; // Snapshot doesn't have this dir; skip
+      }
+
+      // Remove the current directory and replace with snapshot copy
+      await fs.rm(novelDir, { recursive: true, force: true });
+      await copyDirectory(snapshotDir, novelDir);
+    }
+
+    // Restore meta files, preserving the backups subdirectory
+    const novelMetaDir = path.join(novelPath, 'meta');
+    const snapshotMetaDir = path.join(backupPath, 'meta');
+
+    try {
+      await fs.access(snapshotMetaDir);
+      const metaEntries = await fs.readdir(snapshotMetaDir, { withFileTypes: true });
+
+      for (const entry of metaEntries) {
+        if (entry.name === 'backups') continue; // Never overwrite backups
+
+        const src = path.join(snapshotMetaDir, entry.name);
+        const dest = path.join(novelMetaDir, entry.name);
+
+        if (entry.isDirectory()) {
+          await fs.rm(dest, { recursive: true, force: true });
+          await copyDirectory(src, dest);
+        } else {
+          await fs.copyFile(src, dest);
+        }
+      }
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err;
+    }
+
+    return {
+      status: 'ok',
+      data: {
+        timestamp,
+        restored: true,
+      },
+    };
+  } catch (err) {
+    console.error('Failed to restore snapshot:', err);
+    return createError(
+      'SNAPSHOT_RESTORE_FAILED',
+      'Failed to restore snapshot',
+      'Check file permissions and ensure the snapshot is valid',
       { error: err.message }
     );
   }
