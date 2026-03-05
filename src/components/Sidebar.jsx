@@ -346,7 +346,7 @@ export default function Sidebar({ novelPath, openPageSlug }){
           </button>
         </div>
         {showCreateForm && (
-          <form className="wiki-create-form" onSubmit={handleCreateSubmit}>
+          <form className="wiki-create-form" data-testid="create-wiki-dialog" onSubmit={handleCreateSubmit}>
             <input
               type="text"
               className="wiki-create-input"
@@ -358,11 +358,12 @@ export default function Sidebar({ novelPath, openPageSlug }){
               }}
               disabled={isCreating}
               aria-label="New wiki page title"
+              data-testid="wiki-title-input"
             />
             {createError && <div className="error-message">{createError}</div>}
             <div className="wiki-create-actions">
-              <button type="button" className="btn" onClick={handleCreateToggle} disabled={isCreating}>Cancel</button>
-              <button type="submit" className="btn primary" disabled={isCreating || !newTitle.trim()}>
+              <button type="button" className="btn" onClick={handleCreateToggle} disabled={isCreating} data-testid="cancel-create-wiki-button">Cancel</button>
+              <button type="submit" className="btn primary" disabled={isCreating || !newTitle.trim()} data-testid="confirm-create-wiki-button">
                 {isCreating ? 'Creating...' : 'Create'}
               </button>
             </div>
