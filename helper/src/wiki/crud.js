@@ -2,6 +2,7 @@
  * Wiki page CRUD operations
  */
 
+import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { createError } from '../util/error.js';
@@ -83,7 +84,7 @@ export function generateSlug(title) {
     return '';
   }
 
-  return title
+  const slug = title
     .toLowerCase()
     .trim()
     // Replace spaces and underscores with hyphens
@@ -94,6 +95,13 @@ export function generateSlug(title) {
     .replace(/-+/g, '-')
     // Remove leading/trailing hyphens
     .replace(/^-+|-+$/g, '');
+
+  // If slug is empty after sanitization, generate a UUID
+  if (!slug) {
+    return crypto.randomUUID();
+  }
+
+  return slug;
 }
 
 /**
