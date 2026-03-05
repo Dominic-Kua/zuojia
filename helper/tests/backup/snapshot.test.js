@@ -36,7 +36,7 @@ describe('createSnapshot', () => {
     expect(result.data).toBeDefined();
     expect(result.data.label).toBe('End of Chapter 5');
     expect(result.data.timestamp).toBeDefined();
-    expect(result.data.path).toContain('meta/backups');
+    expect(result.data.path).toContain(path.join('meta', 'backups'));
     expect(result.data.size).toBeGreaterThan(0);
   });
 
