@@ -25,18 +25,17 @@ export function WikiLinkPopover({
   };
 
   return (
-    <div className="wiki-link-popover" style={style} data-type={type}>
-      {type === 'preview' && (
-        <div className="popover-content preview">
+    <div className="wiki-link-popover" style={style} data-type={type} data-testid="wiki-link-popover">      {type === 'preview' && (
+        <div className="popover-content preview" data-testid="wiki-link-preview">
           <div className="preview-title">{data.title}</div>
           <div className="preview-text">{data.preview}</div>
         </div>
       )}
 
       {type === 'disambiguation' && (
-        <div className="popover-content disambiguation">
+        <div className="popover-content disambiguation" data-testid="wiki-link-disambiguation">
           <div className="popover-header">Which page?</div>
-          <ul className="disambiguation-list">
+          <ul className="disambiguation-list" data-testid="disambiguation-list">
             {data.options.map((page) => (
               <li key={page.slug} onClick={() => onSelectPage(page)}>
                 {page.title}
@@ -47,13 +46,13 @@ export function WikiLinkPopover({
       )}
 
       {type === 'create' && (
-        <div className="popover-content create">
+        <div className="popover-content create" data-testid="wiki-link-create-dialog">
           <div className="popover-header">Create "{data.target}"?</div>
           <div className="popover-actions">
-            <button className="btn-primary" onClick={() => onCreatePage(data.target)}>
+            <button className="btn-primary" onClick={() => onCreatePage(data.target)} data-testid="create-wiki-button">
               Create
             </button>
-            <button className="btn-secondary" onClick={onClose}>
+            <button className="btn-secondary" onClick={onClose} data-testid="cancel-create-button">
               Cancel
             </button>
           </div>

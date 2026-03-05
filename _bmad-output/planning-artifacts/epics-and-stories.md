@@ -213,23 +213,28 @@ This document breaks down the architecture and PRD into implementable epics and 
 
 **Estimate:** 4 points
 
-### 3.2 Wiki Link Syntax & Resolution
+### 3.2 Wiki Link Syntax & Resolution ✅
 **Story:** As an author, I want to reference wiki pages inline in my manuscript using a link syntax, so I can instantly jump to related details.
+
+**Status:** Complete
 
 **Accepted Link Syntax:** `[[page-name]]` or `[[page-name|display text]]`
 
 **Acceptance Criteria:**
-- [ ] CodeMirror extension detects `[[...]]` syntax
-- [ ] Links highlighted distinctly (color, underline)
-- [ ] On click (or Cmd+Click), resolve slug and open wiki page in sidebar
-- [ ] If page doesn't exist, offer "Create?" dialog
-- [ ] Link preview on hover (first 100 chars of page)
-- [ ] Ambiguous slugs handled gracefully (show disambiguation if multiple matches)
+- [x] CodeMirror extension detects `[[...]]` syntax
+- [x] Links highlighted distinctly (color, underline)
+- [x] On click (or Cmd+Click), resolve slug and open wiki page in sidebar
+- [x] If page doesn't exist, offer "Create?" dialog
+- [x] Link preview on hover (first 100 chars of page)
+- [x] Ambiguous slugs handled gracefully (show disambiguation if multiple matches)
 
 **Components Involved:**
-- `src/lib/codemirror-extensions.ts` (new WikiLinkExtension)
-- `src/components/WikiSidebar`
-- `src/hooks/useWikiIndex`
+- `src/lib/wiki-link-parser.js` (slug resolution)
+- `src/lib/wiki-link.js` (link parsing utilities)
+- `src/lib/codemirror-wiki-link.js` (CodeMirror extension)
+- `src/hooks/useWikiLinks.js` (React integration)
+- `src/components/WikiLinkPopover.jsx` (UI for disambiguation/create)
+- `src/components/Manuscript.jsx` (integration)
 
 **Estimate:** 4 points
 

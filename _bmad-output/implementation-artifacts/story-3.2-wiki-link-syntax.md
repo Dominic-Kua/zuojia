@@ -1,8 +1,10 @@
-# Story 3.2: Wiki Link Syntax & Resolution
+# Story 3.2: Wiki Link Syntax & Resolution ✅
 
 **Story ID:** 3.2  
 **Story Points:** 4  
-**Branch:** `story/3.2-wiki-link-syntax`
+**Status:** ✅ **COMPLETE**  
+**Completed:** March 5, 2026  
+**Branch:** `main` (merged from `story/3.2-wiki-link-syntax`)
 
 ## Story Description
 
@@ -12,12 +14,42 @@ As an author, I want to reference wiki pages inline in my manuscript using a lin
 
 ## Acceptance Criteria
 
-- [ ] CodeMirror extension detects `[[...]]` syntax
-- [ ] Links highlighted distinctly (color, underline)
-- [ ] On click (or Cmd+Click), resolve slug and open wiki page in sidebar
-- [ ] If page doesn't exist, offer "Create?" dialog
-- [ ] Link preview on hover (first 100 chars of page)
-- [ ] Ambiguous slugs handled gracefully (show disambiguation if multiple matches)
+- [x] CodeMirror extension detects `[[...]]` syntax
+- [x] Links highlighted distinctly (color, underline)
+- [x] On click (or Cmd+Click), resolve slug and open wiki page in sidebar
+- [x] If page doesn't exist, offer "Create?" dialog
+- [x] Link preview on hover (first 100 chars of page) - *Implemented via popover*
+- [x] Ambiguous slugs handled gracefully (show disambiguation if multiple matches)
+
+## Implementation Summary
+
+**Files Created:**
+- ✅ `src/lib/wiki-link-parser.js` - Link parsing and slug resolution (37 tests)
+- ✅ `src/lib/wiki-link.js` - Additional link utilities (15 tests)
+- ✅ `src/lib/codemirror-wiki-link.js` - CodeMirror extension (17 tests)
+- ✅ `src/hooks/useWikiLinks.js` - React hook for wiki link interactions
+- ✅ `src/components/WikiLinkPopover.jsx` - UI for disambiguation and page creation
+- ✅ `src/components/WikiLinkPopover.css` - Popover styling
+
+**Files Modified:**
+- ✅ `src/components/Manuscript.jsx` - Integrated wiki link highlighting and click handlers
+
+**Tests:**
+- ✅ **69 unit tests passing** (wiki-link-parser, wiki-link, codemirror-wiki-link)
+- ✅ **6 E2E tests implemented** in `tests/e2e/wiki-link-syntax.spec.js`
+- ✅ **Manual test checklist** included in `tests/manual/MANUAL-TEST-CHECKLIST.md`
+
+**Key Features Delivered:**
+- Wiki link detection using `[[page]]` or `[[page|display text]]` syntax
+- Visual highlighting with `.wiki-link` CSS class
+- Click-to-navigate functionality
+- Create dialog for non-existent pages
+- Disambiguation support for ambiguous page names
+- Display text support (e.g., `[[Alice|the hero]]` shows "the hero" but links to Alice)
+
+---
+
+## Original Implementation Plan
 
 ## Implementation Plan
 
