@@ -87,7 +87,6 @@ async function startVite() {
   
   viteProcess = spawn('npm', ['run', 'dev:vite'], {
     stdio: ['ignore', 'pipe', 'pipe'],
-    shell: true,
   });
   
   viteProcess.stdout.on('data', (data) => {
