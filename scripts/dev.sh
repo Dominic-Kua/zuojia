@@ -24,6 +24,7 @@ ELECTRON_PID=""
 
 # Cleanup function
 cleanup() {
+    local EXIT_STATUS=$?
     echo -e "${YELLOW}Shutting down processes...${NC}"
     
     if [ ! -z "$ELECTRON_PID" ]; then
@@ -39,7 +40,7 @@ cleanup() {
     fi
     
     echo -e "${GREEN}All processes stopped${NC}"
-    exit 0
+    exit $EXIT_STATUS
 }
 
 # Set up trap for cleanup
