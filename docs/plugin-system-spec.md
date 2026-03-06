@@ -928,7 +928,7 @@ If Netwriter version incompatible:
 
 ### Appendix A: Complete Example Plugin
 
-See: `examples/complete-plugin/` directory for fully-documented reference implementation.
+A fully-documented reference implementation will be added under the `examples/complete-plugin/` directory in a future revision of this spec.
 
 ### Appendix B: Security Audit Checklist
 
