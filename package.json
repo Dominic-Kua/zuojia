@@ -5,7 +5,7 @@
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
-    "dev": "./scripts/dev.sh",
+    "dev": "bash scripts/dev.sh",
     "dev:node": "node scripts/dev-launcher.js",
     "dev:old": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "dev:vite": "vite",
