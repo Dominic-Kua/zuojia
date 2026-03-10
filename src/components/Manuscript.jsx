@@ -187,8 +187,8 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
 
   const handleCreatePage = useCallback(async (title) => {
     const result = await wikiLinkHandlers.handleCreatePageFromLink(title)
-    if (result && result.slug && onOpenWikiPage) {
-      onOpenWikiPage(result.slug)
+    if (result && result.data && result.data.slug && onOpenWikiPage) {
+      onOpenWikiPage(result.data.slug)
     }
     setPopoverState(null)
   }, [wikiLinkHandlers, onOpenWikiPage])
@@ -312,6 +312,14 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
     }
 
     setContent(plainContent)
+    
+    // Re-apply highlighting after a brief delay to show wiki links
+    // This needs to be done carefully to avoid disrupting typing
+    setTimeout(() => {
+      if (editorRef.current && editorRef.current.textContent === plainContent) {
+        applyEditorContent(plainContent)
+      }
+    }, 500)
   }
 
   const handleBeforeSwitch = useCallback(async () => {

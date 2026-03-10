@@ -151,7 +151,7 @@ export default function Sidebar({ novelPath, openPageSlug }){
       setShowCreateForm(false);
       if (createdSlug) {
         setSelectedSlug(createdSlug);
-        setIsPreviewMode(true);
+        setIsPreviewMode(false); // Start in edit mode for new pages
       }
     } catch (err) {
       setCreateError(err.message || 'Failed to create wiki page');
