@@ -187,8 +187,8 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
 
   const handleCreatePage = useCallback(async (title) => {
     const result = await wikiLinkHandlers.handleCreatePageFromLink(title)
-    if (result && result.data && result.data.slug && onOpenWikiPage) {
-      onOpenWikiPage(result.data.slug)
+    if (result && result.slug && onOpenWikiPage) {
+      onOpenWikiPage(result.slug)
     }
     setPopoverState(null)
   }, [wikiLinkHandlers, onOpenWikiPage])
