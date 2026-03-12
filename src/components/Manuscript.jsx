@@ -312,6 +312,14 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
     }
 
     setContent(plainContent)
+    
+    // Re-apply highlighting after a brief delay to show wiki links
+    // This needs to be done carefully to avoid disrupting typing
+    setTimeout(() => {
+      if (editorRef.current && editorRef.current.textContent === plainContent) {
+        applyEditorContent(plainContent)
+      }
+    }, 500)
   }
 
   const handleBeforeSwitch = useCallback(async () => {

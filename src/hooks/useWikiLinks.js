@@ -60,7 +60,7 @@ export function useWikiLinks(novelPath, content = '', wikiPages = []) {
         // No match - show create dialog
         setSelectedLink({ target: normalizedTarget, display });
         setShowCreateDialog(true);
-        return { action: 'create', target: normalizedTarget, display };
+        return { action: 'create', target: target, display }; // Use original target, not normalized
       }
     },
     [novelPath, wikiPages]
