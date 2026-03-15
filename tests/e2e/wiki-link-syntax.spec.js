@@ -191,14 +191,18 @@ test.describe('Wiki Link Syntax & Resolution E2E', () => {
     // Wait for dialog to close and wiki page to open
     await expect(createDialog).not.toBeVisible({ timeout: 5000 });
 
-    // Verify the wiki editor now shows the new page
+    // Verify the created page is opened in the sidebar editor (preview/edit mode may vary)
+    const titleInput = page.locator('#wiki-title');
+    await expect(titleInput).toBeVisible({ timeout: 5000 });
+    await expect(titleInput).toHaveValue('darklord');
+
+    // Switch to edit mode and verify editor content is accessible
+    const editModeButton = page.getByRole('button', { name: 'Edit' });
+    await editModeButton.click();
     const wikiEditor = page.getByTestId('wiki-editor');
     await expect(wikiEditor).toBeVisible({ timeout: 5000 });
-    
-    // The new page should be empty or have default content
     const content = await wikiEditor.inputValue();
-    // Just verify we can access it (content will be empty for new pages)
-    expect(typeof content).toBe('string');
+    expect(content).toContain('Start documenting this wiki page');
   });
 
   test('should support [[page|display text]] syntax', async () => {

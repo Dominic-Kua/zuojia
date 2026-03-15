@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { createError } from '../util/error.js';
+import { rebuildSpellcheckDict } from './rebuild-dict.js';
 
 const FRONTMATTER_BOUNDARY = '---';
 
@@ -143,10 +144,12 @@ export async function createWikiPage(novelPath, title, content, tags = []) {
     }
 
     const frontmatter = buildFrontmatter(tags);
-    const body = stripFrontmatter(content || '');
+    const rawBody = stripFrontmatter(content || '');
+    const body = rawBody.trim() ? rawBody : `# ${title}\n\n`;
 
     // Write content to file
     await fs.writeFile(filePath, `${frontmatter}${body}`, 'utf-8');
+    await rebuildSpellcheckDict(novelPath);
 
     return {
       status: 'ok',
@@ -264,6 +267,7 @@ export async function deleteWikiPage(novelPath, slug) {
     }
 
     await fs.unlink(filePath);
+    await rebuildSpellcheckDict(novelPath);
 
     return {
       status: 'ok',
@@ -323,6 +327,19 @@ export async function renameWikiPage(novelPath, oldSlug, newTitle) {
 
     // Rename file (atomic operation on most filesystems)
     await fs.rename(oldPath, newPath);
+
+    // Update the H1 title heading inside the file to match the new title
+    try {
+      const existingContent = await fs.readFile(newPath, 'utf-8');
+      const updatedContent = existingContent.replace(/^# .+$/m, `# ${newTitle}`);
+      if (updatedContent !== existingContent) {
+        await fs.writeFile(newPath, updatedContent, 'utf-8');
+      }
+    } catch {
+      // Non-fatal: dictionary rebuild still uses the new file
+    }
+
+    await rebuildSpellcheckDict(novelPath);
 
     return {
       status: 'ok',
