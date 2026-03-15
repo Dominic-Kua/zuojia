@@ -43,6 +43,18 @@ describe('SnapshotButton', () => {
     expect(screen.getByTestId('snapshot-cancel-button')).toBeInTheDocument();
   });
 
+  it('opens manager and closes snapshot dialog if dialog was open', async () => {
+    const user = userEvent.setup();
+    render(<SnapshotButton novelPath={novelPath} onToast={vi.fn()} />);
+
+    await user.click(screen.getByTestId('snapshot-button'));
+    expect(screen.getByTestId('snapshot-dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('snapshot-manage-button'));
+    expect(screen.queryByTestId('snapshot-dialog')).not.toBeInTheDocument();
+    expect(screen.getByTestId('snapshot-manager')).toBeInTheDocument();
+  });
+
   it('closes the dialog when cancel is clicked', async () => {
     const user = userEvent.setup();
     render(<SnapshotButton novelPath={novelPath} onToast={vi.fn()} />);

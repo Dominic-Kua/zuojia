@@ -109,12 +109,13 @@ App.jsx (owns toast state, passes onToast callback)
 - Self-review follow-up fixes:
       - Extracted dialog to `SnapshotDialog` component.
       - Added delete-success/delete-error toast handling in `SnapshotManager`.
+      - Prevented simultaneous snapshot dialog and manager modal in `SnapshotButton`.
       - Replaced non-ASCII characters in new files.
 
 ### Completion Notes
 - Snapshot UI feature complete for Story 4.1 with toolbar integration, optional label dialog, snapshot manager list, restore and delete actions, and toast notifications.
 - Test results:
-      - `npx vitest run tests/unit/hooks/useSnapshot.test.js tests/unit/components/SnapshotButton.test.jsx tests/unit/components/SnapshotManager.test.jsx`: 27 passed
+      - `npx vitest run tests/unit/hooks/useSnapshot.test.js tests/unit/components/SnapshotButton.test.jsx tests/unit/components/SnapshotManager.test.jsx`: 28 passed
       - `npx vitest run`: 210 passed, 1 skipped
       - `npx playwright test tests/e2e/snapshot.spec.js`: 17 passed
       - Full E2E regression run across listed specs: 42 passed

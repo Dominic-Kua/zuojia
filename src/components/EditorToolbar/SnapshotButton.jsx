@@ -17,8 +17,14 @@ export function SnapshotButton({ novelPath, onToast }) {
   const { createSnapshot } = useSnapshot(novelPath);
 
   const openDialog = useCallback(() => {
+    setManagerOpen(false);
     setLabel('');
     setDialogOpen(true);
+  }, []);
+
+  const openManager = useCallback(() => {
+    setDialogOpen(false);
+    setManagerOpen(true);
   }, []);
 
   const closeDialog = useCallback(() => {
@@ -63,7 +69,7 @@ export function SnapshotButton({ novelPath, onToast }) {
       <button
         className="btn ghost snapshot-manage-btn"
         data-testid="snapshot-manage-button"
-        onClick={() => setManagerOpen(true)}
+        onClick={openManager}
         title="View and restore snapshots"
         type="button"
       >
