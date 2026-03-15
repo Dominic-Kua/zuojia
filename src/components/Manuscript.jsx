@@ -7,12 +7,13 @@ import { useWikiLinks } from '../hooks/useWikiLinks'
 import { WikiLinkPopover } from './WikiLinkPopover'
 import { findMisspelledWords } from '../lib/spellcheck.js'
 import { indexHandlers } from '../lib/ipc-client'
+import { SnapshotButton } from './EditorToolbar/SnapshotButton'
 
 const DEFAULT_CHAPTER_FILENAME = 'chapter-01.md'
 const DEFAULT_CHAPTER_CONTENT = '# Chapter 1\n\nStart writing here...'
 const CHAPTER_FILENAME_PATTERN = /^chapter-(\d+)\.md$/i
 
-export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }){
+export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, onToast }){
   const editorRef = useRef(null)
   const saveTimerRef = useRef(null)
   const highlightTimerRef = useRef(null)
@@ -567,6 +568,9 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
           onCreateChapter={handleCreateChapter}
           hasUnsavedChanges={false}
         />
+        {novelPath && onToast && (
+          <SnapshotButton novelPath={novelPath} onToast={onToast} />
+        )}
         <div className="wordcounts">
           <span>Manuscript: {manuscriptCount.toLocaleString()}</span>
           <span>Open chapter: {chapterCount.toLocaleString()}</span>

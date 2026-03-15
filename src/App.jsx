@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react'
 import Manuscript from './components/Manuscript'
 import Sidebar from './components/Sidebar'
 import { NovelSelector } from './components/Navigation/NovelSelector'
+import { Toast } from './components/Toast'
 import { gitHandlers } from './lib/ipc-client'
 import { useWikiPages } from './hooks/useWikiPages'
 
@@ -9,6 +10,7 @@ export default function App(){
   const [novelPath, setNovelPath] = useState(null);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [wikiPageToOpen, setWikiPageToOpen] = useState(null);
+  const [activeToast, setActiveToast] = useState(null);
   const sidebarRef = useRef(null);
   const wikiPageTimeoutRef = useRef(null);
 
@@ -51,6 +53,10 @@ export default function App(){
     }
   };
 
+  const handleToast = useCallback((toast) => {
+    setActiveToast(toast);
+  }, []);
+
   // Handle opening a wiki page from the manuscript
   const handleOpenWikiPage = useCallback((slug) => {
     if (wikiPageTimeoutRef.current !== null) {
@@ -84,6 +90,7 @@ export default function App(){
   // Show main editor interface when novel is loaded
   return (
     <div className="app-shell" data-testid="app-shell">
+      <Toast toast={activeToast} onDismiss={() => setActiveToast(null)} />
       <header className="topbar" data-testid="topbar">
         <div className="brand">Netwriter</div>
         <div className="top-actions">
@@ -99,6 +106,7 @@ export default function App(){
             novelPath={novelPath} 
             wikiPages={wikiPages} 
             onOpenWikiPage={handleOpenWikiPage}
+            onToast={handleToast}
           />
         </section>
         <aside className="sidebar" data-testid="sidebar-section">

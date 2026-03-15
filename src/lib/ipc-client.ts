@@ -93,6 +93,8 @@ export const backupHandlers = {
   createSnapshot: (novelPath, label) =>
     invokeHandler('helper:backup:createSnapshot', { novelPath, label }),
   listSnapshots: (novelPath) => invokeHandler('helper:backup:listSnapshots', { novelPath }),
+  deleteSnapshot: (novelPath, timestamp) =>
+    invokeHandler('helper:backup:deleteSnapshot', { novelPath, timestamp }),
   restore: (novelPath, snapshotId) =>
     invokeHandler('helper:backup:restore', { novelPath, snapshotId }),
 };

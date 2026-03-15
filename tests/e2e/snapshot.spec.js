@@ -280,3 +280,122 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
   });
 });
 
+test.describe('Story 4.1: Snapshot UI', () => {
+  let app, page;
+  let testNovelName;
+  let testNovelPath;
+
+  test.beforeEach(async () => {
+    ({ app, page } = await launchElectronApp());
+
+    testNovelName = `test-snapshot-ui-${Date.now()}`;
+    testNovelPath = path.join(os.homedir(), '.netwriter', testNovelName);
+
+    const newNovelButton = page.getByTestId('new-novel-button');
+    await expect(newNovelButton).toBeVisible({ timeout: 10000 });
+    await newNovelButton.click();
+
+    const dialog = page.getByTestId('create-novel-dialog');
+    await expect(dialog).toBeVisible({ timeout: 5000 });
+
+    const nameInput = page.getByTestId('novel-name-input');
+    await nameInput.fill(testNovelName);
+
+    await page.getByTestId('create-novel-button').click();
+    await expect(dialog).not.toBeVisible({ timeout: 5000 });
+  });
+
+  test.afterEach(async () => {
+    if (app) await closeElectronApp(app);
+    try {
+      await fs.rm(testNovelPath, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
+  });
+
+  test('snapshot button is visible in the manuscript toolbar', async () => {
+    await expect(page.getByTestId('snapshot-button')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('clicking snapshot button opens the dialog', async () => {
+    await page.getByTestId('snapshot-button').click();
+    await expect(page.getByTestId('snapshot-dialog')).toBeVisible({ timeout: 3000 });
+  });
+
+  test('dialog has a label input, submit, and cancel buttons', async () => {
+    await page.getByTestId('snapshot-button').click();
+    await expect(page.getByTestId('snapshot-label-input')).toBeVisible();
+    await expect(page.getByTestId('snapshot-submit-button')).toBeVisible();
+    await expect(page.getByTestId('snapshot-cancel-button')).toBeVisible();
+  });
+
+  test('cancel button closes the dialog without creating a snapshot', async () => {
+    await page.getByTestId('snapshot-button').click();
+    await page.getByTestId('snapshot-cancel-button').click();
+    await expect(page.getByTestId('snapshot-dialog')).not.toBeVisible({ timeout: 3000 });
+
+    const list = await page.evaluate(
+      async ({ novelPath }) => window.electronAPI.invoke('helper:backup:listSnapshots', { novelPath }),
+      { novelPath: testNovelPath }
+    );
+    expect(list.data.snapshots).toHaveLength(0);
+  });
+
+  test('submitting dialog with a label creates a snapshot and shows toast', async () => {
+    await page.getByTestId('snapshot-button').click();
+    await page.getByTestId('snapshot-label-input').fill('UI Test Snapshot');
+    await page.getByTestId('snapshot-submit-button').click();
+
+    // Dialog should close and toast appear
+    await expect(page.getByTestId('snapshot-dialog')).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('toast')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('toast-message')).toContainText('UI Test Snapshot');
+
+    // Snapshot must exist on disk
+    const list = await page.evaluate(
+      async ({ novelPath }) => window.electronAPI.invoke('helper:backup:listSnapshots', { novelPath }),
+      { novelPath: testNovelPath }
+    );
+    expect(list.data.snapshots).toHaveLength(1);
+    expect(list.data.snapshots[0].label).toBe('UI Test Snapshot');
+  });
+
+  test('submitting dialog without a label creates a snapshot and shows toast', async () => {
+    await page.getByTestId('snapshot-button').click();
+    // No label filled in
+    await page.getByTestId('snapshot-submit-button').click();
+
+    await expect(page.getByTestId('snapshot-dialog')).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('toast')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('toast-message')).toContainText('Snapshot created');
+  });
+
+  test('manage button opens the snapshot manager panel', async () => {
+    await page.getByTestId('snapshot-manage-button').click();
+    await expect(page.getByTestId('snapshot-manager')).toBeVisible({ timeout: 3000 });
+  });
+
+  test('snapshot manager lists existing snapshots', async () => {
+    // Create a snapshot via IPC first
+    await page.evaluate(
+      async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'Manager test' }),
+      { novelPath: testNovelPath }
+    );
+
+    await page.getByTestId('snapshot-manage-button').click();
+    await expect(page.getByTestId('snapshot-manager')).toBeVisible({ timeout: 3000 });
+
+    // Wait for at least one entry
+    await expect(page.locator('[data-testid^="snapshot-entry-"]').first()).toBeVisible({ timeout: 5000 });
+  });
+
+  test('snapshot manager close button closes the panel', async () => {
+    await page.getByTestId('snapshot-manage-button').click();
+    await expect(page.getByTestId('snapshot-manager')).toBeVisible({ timeout: 3000 });
+
+    await page.getByTestId('snapshot-manager-close').click();
+    await expect(page.getByTestId('snapshot-manager')).not.toBeVisible({ timeout: 3000 });
+  });
+});
+
