@@ -56,4 +56,31 @@ describe('spellcheck helpers', () => {
 
     expect(misspelled).toEqual(['Alise']);
   });
+
+  it('returns suggestions for misspelled words', async () => {
+    const { findSpellingIssues } = await import('../../../src/lib/spellcheck.js');
+    const issues = await findSpellingIssues('Alise will acheive victory.', []);
+
+    expect(issues).toEqual([
+      expect.objectContaining({
+        word: 'acheive',
+        suggestions: expect.arrayContaining(['achieve']),
+      }),
+      expect.objectContaining({
+        word: 'Alise',
+        suggestions: expect.arrayContaining(['Alice']),
+      }),
+    ]);
+  });
+
+  it('replaces whole-word misspellings without touching partial matches', async () => {
+    const { replaceMisspelledWord } = await import('../../../src/lib/spellcheck.js');
+    const updated = replaceMisspelledWord(
+      'Alise met another Alise, but Malisen stayed behind.',
+      'Alise',
+      'Alice'
+    );
+
+    expect(updated).toBe('Alice met another Alice, but Malisen stayed behind.');
+  });
 });
