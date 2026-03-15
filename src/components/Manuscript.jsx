@@ -15,6 +15,7 @@ const CHAPTER_FILENAME_PATTERN = /^chapter-(\d+)\.md$/i
 export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }){
   const editorRef = useRef(null)
   const saveTimerRef = useRef(null)
+  const highlightTimerRef = useRef(null)
   const createdDefaultRef = useRef(false)
 
   const [content, setContent] = useState('')
@@ -78,10 +79,86 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
   }, [])
 
   const applyEditorContent = useCallback((nextContent) => {
-    if (editorRef.current) {
-      editorRef.current.replaceChildren(highlightWikiLinks(nextContent || ''))
+    const editor = editorRef.current
+    if (!editor) {
+      return
     }
+
+    let selectionOffsets = null
+    const selection = window.getSelection()
+    if (
+      document.activeElement === editor &&
+      selection &&
+      selection.rangeCount > 0 &&
+      editor.contains(selection.anchorNode) &&
+      editor.contains(selection.focusNode)
+    ) {
+      const range = selection.getRangeAt(0)
+
+      const startRange = document.createRange()
+      startRange.setStart(editor, 0)
+      startRange.setEnd(range.startContainer, range.startOffset)
+
+      const endRange = document.createRange()
+      endRange.setStart(editor, 0)
+      endRange.setEnd(range.endContainer, range.endOffset)
+
+      selectionOffsets = {
+        start: startRange.toString().length,
+        end: endRange.toString().length,
+      }
+    }
+
+    editor.replaceChildren(highlightWikiLinks(nextContent || ''))
+
+    if (!selectionOffsets || !selection) {
+      return
+    }
+
+    const resolveTextPosition = (offset) => {
+      const maxOffset = (editor.textContent || '').length
+      let remaining = Math.max(0, Math.min(offset, maxOffset))
+      const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT)
+      let lastTextNode = null
+      let currentNode = walker.nextNode()
+
+      while (currentNode) {
+        lastTextNode = currentNode
+        const textLength = currentNode.textContent?.length || 0
+        if (remaining <= textLength) {
+          return { node: currentNode, offset: remaining }
+        }
+        remaining -= textLength
+        currentNode = walker.nextNode()
+      }
+
+      if (lastTextNode) {
+        return {
+          node: lastTextNode,
+          offset: lastTextNode.textContent?.length || 0,
+        }
+      }
+
+      return { node: editor, offset: editor.childNodes.length }
+    }
+
+    const startPosition = resolveTextPosition(selectionOffsets.start)
+    const endPosition = resolveTextPosition(selectionOffsets.end)
+    const nextRange = document.createRange()
+    nextRange.setStart(startPosition.node, startPosition.offset)
+    nextRange.setEnd(endPosition.node, endPosition.offset)
+    selection.removeAllRanges()
+    selection.addRange(nextRange)
   }, [highlightWikiLinks])
+
+  const handleEditorBlur = useCallback(() => {
+    if (highlightTimerRef.current) {
+      clearTimeout(highlightTimerRef.current)
+      highlightTimerRef.current = null
+    }
+
+    applyEditorContent(content)
+  }, [applyEditorContent, content])
 
   const findRawWikiLinkFromSelection = useCallback(() => {
     const editor = editorRef.current
@@ -284,6 +361,14 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
   }, [content, currentChapter, novelPath, saveChapter])
 
   useEffect(() => {
+    return () => {
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     let cancelled = false;
     findMisspelledWords(content, dictionaryWords)
       .then((issues) => {
@@ -337,13 +422,23 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
     }
 
     setContent(plainContent)
+
+    if (highlightTimerRef.current) {
+      clearTimeout(highlightTimerRef.current)
+      highlightTimerRef.current = null
+    }
     
     // Re-apply highlighting after a brief delay to show wiki links
     // This needs to be done carefully to avoid disrupting typing
-    setTimeout(() => {
+    if (!plainContent.includes('[[') || !plainContent.includes(']]')) {
+      return
+    }
+
+    highlightTimerRef.current = setTimeout(() => {
       if (editorRef.current && editorRef.current.textContent === plainContent) {
         applyEditorContent(plainContent)
       }
+      highlightTimerRef.current = null
     }, 500)
   }
 
@@ -431,7 +526,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
         ref={editorRef}
         contentEditable
         onInput={handleInput}
-        onBlur={() => applyEditorContent(content)}
+        onBlur={handleEditorBlur}
         aria-busy={loading || isLoadingChapter}
         data-testid="manuscript-editor"
       />
