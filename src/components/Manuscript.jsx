@@ -288,7 +288,6 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
     findMisspelledWords(content, dictionaryWords).then((issues) => {
       if (!cancelled) setSpellcheckIssues(issues);
     });
-    }).catch(() => {});
     return () => { cancelled = true; };
   }, [content, dictionaryWords])
 

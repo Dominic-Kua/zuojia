@@ -13,9 +13,8 @@ async function getSpellchecker() {
   ]).then(([aff, dic]) => {
     _spellchecker = nspell(aff, dic);
     return _spellchecker;
-  });
   }).catch((err) => {
-    _initPromise = null; // Allow retry on next call
+    _initPromise = null;
     throw err;
   });
 
