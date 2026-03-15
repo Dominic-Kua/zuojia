@@ -9,7 +9,7 @@ import { useSpellcheck } from '../../../src/hooks/useSpellcheck.js';
 // Mock IPC client
 vi.mock('../../../src/lib/ipc-client.ts', () => ({
   wikiHandlers: {
-    list: vi.fn(),
+    rebuildDict: vi.fn(),
   },
 }));
 
@@ -22,7 +22,7 @@ describe('useSpellcheck', () => {
 
   describe('initialization', () => {
     it('starts with loading state', () => {
-      wikiHandlers.list.mockResolvedValue({ pages: [] });
+      wikiHandlers.rebuildDict.mockResolvedValue({ words: [] });
 
       const { result } = renderHook(() => useSpellcheck('/test/novel'));
 
@@ -32,11 +32,13 @@ describe('useSpellcheck', () => {
 
     it('loads spellcheck dictionary on mount', async () => {
       const mockPages = [
-        { title: 'Alice', slug: 'alice' },
-        { title: 'Bob Smith', slug: 'bob-smith' },
-        { title: 'The Shire', slug: 'the-shire' },
+        'Alice',
+        'Bob',
+        'Smith',
+        'The',
+        'Shire',
       ];
-      wikiHandlers.list.mockResolvedValue({ pages: mockPages });
+      wikiHandlers.rebuildDict.mockResolvedValue({ words: mockPages });
 
       const { result } = renderHook(() => useSpellcheck('/test/novel'));
 
@@ -52,7 +54,7 @@ describe('useSpellcheck', () => {
     });
 
     it('handles empty wiki pages list', async () => {
-      wikiHandlers.list.mockResolvedValue({ pages: [] });
+      wikiHandlers.rebuildDict.mockResolvedValue({ words: [] });
 
       const { result } = renderHook(() => useSpellcheck('/test/novel'));
 
@@ -66,11 +68,7 @@ describe('useSpellcheck', () => {
 
   describe('word checking', () => {
     beforeEach(async () => {
-      const mockPages = [
-        { title: 'Alice', slug: 'alice' },
-        { title: 'Frodo Baggins', slug: 'frodo-baggins' },
-      ];
-      wikiHandlers.list.mockResolvedValue({ pages: mockPages });
+      wikiHandlers.rebuildDict.mockResolvedValue({ words: ['Alice', 'Frodo', 'Baggins'] });
     });
 
     it('checks if word is in dictionary', async () => {
@@ -111,7 +109,7 @@ describe('useSpellcheck', () => {
 
   describe('error handling', () => {
     it('handles fetch error gracefully', async () => {
-      wikiHandlers.list.mockRejectedValue(new Error('IPC error'));
+      wikiHandlers.rebuildDict.mockRejectedValue(new Error('IPC error'));
 
       const { result } = renderHook(() => useSpellcheck('/test/novel'));
 
@@ -127,19 +125,11 @@ describe('useSpellcheck', () => {
 
   describe('refresh', () => {
     it('allows manual refresh of dictionary', async () => {
-      const initialPages = [
-        { title: 'Alice', slug: 'alice' },
-      ];
-      const updatedPages = [
-        { title: 'Alice', slug: 'alice' },
-        { title: 'Bob', slug: 'bob' },
-      ];
+      wikiHandlers.rebuildDict
+        .mockResolvedValueOnce({ words: ['Alice'] })
+        .mockResolvedValueOnce({ words: ['Alice', 'Bob'] });
 
-      wikiHandlers.list
-        .mockResolvedValueOnce({ pages: initialPages })
-        .mockResolvedValueOnce({ pages: updatedPages });
-
-      const { result, rerender } = renderHook(() => useSpellcheck('/test/novel'));
+      const { result } = renderHook(() => useSpellcheck('/test/novel'));
 
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
@@ -148,7 +138,6 @@ describe('useSpellcheck', () => {
       expect(result.current.words).toContain('Alice');
       expect(result.current.words).not.toContain('Bob');
 
-      // Call refresh
       result.current.refresh();
 
       await waitFor(() => {
@@ -159,12 +148,9 @@ describe('useSpellcheck', () => {
 
   describe('dependencies', () => {
     it('reloads dictionary when novelPath changes', async () => {
-      const page1 = [{ title: 'Alice', slug: 'alice' }];
-      const page2 = [{ title: 'Bob', slug: 'bob' }];
-
-      wikiHandlers.list
-        .mockResolvedValueOnce({ pages: page1 })
-        .mockResolvedValueOnce({ pages: page2 });
+      wikiHandlers.rebuildDict
+        .mockResolvedValueOnce({ words: ['Alice'] })
+        .mockResolvedValueOnce({ words: ['Bob'] });
 
       const { result, rerender } = renderHook(
         ({ path }) => useSpellcheck(path),
@@ -181,6 +167,26 @@ describe('useSpellcheck', () => {
 
       await waitFor(() => {
         expect(result.current.words).toContain('Bob');
+      });
+    });
+
+    it('reloads dictionary when wiki-change event is dispatched for the current novel', async () => {
+      wikiHandlers.rebuildDict
+        .mockResolvedValueOnce({ words: ['Alice'] })
+        .mockResolvedValueOnce({ words: ['Alice', 'Shadowfax'] });
+
+      const { result } = renderHook(() => useSpellcheck('/test/novel'));
+
+      await waitFor(() => {
+        expect(result.current.words).toContain('Alice');
+      });
+
+      window.dispatchEvent(new CustomEvent('netwriter:wiki-dictionary-updated', {
+        detail: { novelPath: '/test/novel' },
+      }));
+
+      await waitFor(() => {
+        expect(result.current.words).toContain('Shadowfax');
       });
     });
   });

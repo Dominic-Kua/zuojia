@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { ChapterList } from './Navigation/ChapterList'
 import { useChapters } from '../hooks/useChapters'
+import { useSpellcheck } from '../hooks/useSpellcheck'
 import { useWordCount } from '../hooks/useWordCount'
 import { useWikiLinks } from '../hooks/useWikiLinks'
 import { WikiLinkPopover } from './WikiLinkPopover'
+import { findMisspelledWords } from '../lib/spellcheck.js'
 import { indexHandlers } from '../lib/ipc-client'
 
 const DEFAULT_CHAPTER_FILENAME = 'chapter-01.md'
@@ -18,6 +20,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
   const [content, setContent] = useState('')
   const [isLoadingChapter, setIsLoadingChapter] = useState(false)
   const [popoverState, setPopoverState] = useState(null)
+  const [spellcheckIssues, setSpellcheckIssues] = useState([])
 
   const {
     chapters,
@@ -35,6 +38,8 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
     currentChapter,
     content
   )
+
+  const { words: dictionaryWords, loading: isSpellcheckLoading } = useSpellcheck(novelPath)
 
   const wikiLinkHandlers = useWikiLinks(novelPath, content, wikiPages)
 
@@ -278,6 +283,14 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
     }
   }, [content, currentChapter, novelPath, saveChapter])
 
+  useEffect(() => {
+    let cancelled = false;
+    findMisspelledWords(content, dictionaryWords).then((issues) => {
+      if (!cancelled) setSpellcheckIssues(issues);
+    });
+    return () => { cancelled = true; };
+  }, [content, dictionaryWords])
+
   const handleInput = (e) => {
     // Extract content from contentEditable, preserving wiki link markers and line breaks
     const editor = e.currentTarget
@@ -410,6 +423,23 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
         aria-busy={loading || isLoadingChapter}
         data-testid="manuscript-editor"
       />
+      <section className="spellcheck-panel" data-testid="spellcheck-panel" aria-live="polite">
+        <div className="spellcheck-panel-header">
+          <strong>Spellcheck</strong>
+          <span data-testid="spellcheck-status">
+            {isSpellcheckLoading
+              ? 'Refreshing dictionary...'
+              : spellcheckIssues.length === 0
+                ? 'No spelling issues'
+                : `${spellcheckIssues.length} potential issue${spellcheckIssues.length === 1 ? '' : 's'}`}
+          </span>
+        </div>
+        <div className="spellcheck-issues" data-testid="spellcheck-issues">
+          {spellcheckIssues.map((issue) => (
+            <span key={issue} className="spellcheck-issue" data-testid="spellcheck-issue">{issue}</span>
+          ))}
+        </div>
+      </section>
     </div>
   )
 }

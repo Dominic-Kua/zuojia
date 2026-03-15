@@ -31,29 +31,16 @@ export function useSpellcheck(novelPath) {
         return;
       }
 
-      // Fetch wiki pages
-      const result = await wikiHandlers.list(novelPath);
-      const pages = result.pages || [];
+      const result = await wikiHandlers.rebuildDict(novelPath);
+      const nextWords = result?.words || [];
+      const allWords = new Set(nextWords);
+      const lowercaseMap = new Map();
 
-      // Extract words from all page titles
-      const allWords = new Set();
-      const lowercaseMap = new Map(); // Maps lowercase word -> original word
-
-      pages.forEach((page) => {
-        // Split title on whitespace and punctuation - consistent with rebuild-dict
-        const titleWords = page.title
-          .replace(/[^\w\s-]/g, ' ') // Replace punctuation with spaces
-          .split(/\s+/)
-          .filter((w) => w.length > 0);
-
-        titleWords.forEach((word) => {
-          allWords.add(word);
-          lowercaseMap.set(word.toLowerCase(), word);
-        });
+      nextWords.forEach((word) => {
+        lowercaseMap.set(word.toLowerCase(), word);
       });
 
-      const wordArray = Array.from(allWords).sort();
-      setWords(wordArray);
+      setWords(nextWords);
       setWordSet(allWords);
       setWordSetLowercase(lowercaseMap);
     } catch (err) {
@@ -71,6 +58,21 @@ export function useSpellcheck(novelPath) {
   useEffect(() => {
     loadDictionary();
   }, [novelPath, loadDictionary]);
+
+  useEffect(() => {
+    const handleDictionaryUpdated = (event) => {
+      if (!event?.detail?.novelPath || event.detail.novelPath !== novelPath) {
+        return;
+      }
+
+      loadDictionary();
+    };
+
+    window.addEventListener('netwriter:wiki-dictionary-updated', handleDictionaryUpdated);
+    return () => {
+      window.removeEventListener('netwriter:wiki-dictionary-updated', handleDictionaryUpdated);
+    };
+  }, [loadDictionary, novelPath]);
 
   // Check if a word is in the dictionary (case-insensitive)
   const isWordInDictionary = useCallback(
