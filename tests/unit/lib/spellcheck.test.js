@@ -61,16 +61,19 @@ describe('spellcheck helpers', () => {
     const { findSpellingIssues } = await import('../../../src/lib/spellcheck.js');
     const issues = await findSpellingIssues('Alise will acheive victory.', []);
 
-    expect(issues).toEqual([
-      expect.objectContaining({
-        word: 'acheive',
-        suggestions: expect.arrayContaining(['achieve']),
-      }),
-      expect.objectContaining({
-        word: 'Alise',
-        suggestions: expect.arrayContaining(['Alice']),
-      }),
-    ]);
+    expect(issues).toHaveLength(2);
+    expect(issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          word: 'acheive',
+          suggestions: expect.arrayContaining(['achieve']),
+        }),
+        expect.objectContaining({
+          word: 'Alise',
+          suggestions: expect.arrayContaining(['Alice']),
+        }),
+      ])
+    );
   });
 
   it('replaces whole-word misspellings without touching partial matches', async () => {
