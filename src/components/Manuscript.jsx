@@ -285,10 +285,22 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
 
   useEffect(() => {
     let cancelled = false;
-    findMisspelledWords(content, dictionaryWords).then((issues) => {
-      if (!cancelled) setSpellcheckIssues(issues);
-    });
-    return () => { cancelled = true; };
+    findMisspelledWords(content, dictionaryWords)
+      .then((issues) => {
+        if (!cancelled) {
+          setSpellcheckIssues(issues)
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('Failed to run spellcheck:', err)
+          // Optionally reset issues so UI remains in a known state
+          setSpellcheckIssues([])
+        }
+      })
+    return () => {
+      cancelled = true
+    }
   }, [content, dictionaryWords])
 
   const handleInput = (e) => {
