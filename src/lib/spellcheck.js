@@ -50,9 +50,10 @@ export async function findSpellingIssues(text, customWords = [], options = {}) {
   const checker = await getSpellchecker();
   const customWordSet = new Set(customWords.map((word) => word.toLowerCase()));
   const misspelled = new Map();
-  const maxSuggestions = Number.isInteger(options.maxSuggestions)
+  const rawMaxSuggestions = Number.isInteger(options.maxSuggestions)
     ? options.maxSuggestions
     : 3;
+  const maxSuggestions = Math.min(Math.max(rawMaxSuggestions, 0), 50);
 
   for (const word of extractWords(text)) {
     const normalizedWord = word.toLowerCase();
