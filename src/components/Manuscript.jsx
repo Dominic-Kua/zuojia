@@ -84,6 +84,56 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
       return
     }
 
+    // Convert an offset measured against raw wiki-link text (e.g. "[[Target]]")
+    // into an offset measured against the display text used by highlightWikiLinks (e.g. "Target").
+    const toDisplayOffsetWithWikiLinks = (rawText, rawOffset) => {
+      if (!rawText || rawOffset <= 0) {
+        return Math.max(0, rawOffset)
+      }
+
+      let rawPos = 0
+      let displayPos = 0
+      const length = rawText.length
+
+      while (rawPos < length && rawPos < rawOffset) {
+        // Detect a wiki link of the form [[...]]
+        if (
+          rawText.charAt(rawPos) === '[' &&
+          rawPos + 1 < length &&
+          rawText.charAt(rawPos + 1) === '['
+        ) {
+          const linkStart = rawPos
+          const closeIndex = rawText.indexOf(']]', linkStart + 2)
+
+          if (closeIndex !== -1) {
+            // Skip the opening brackets "[["
+            rawPos += 2
+
+            // Characters inside the link contribute to display length.
+            while (rawPos < closeIndex && rawPos < rawOffset) {
+              rawPos += 1
+              displayPos += 1
+            }
+
+            // If we've consumed up to the requested rawOffset, stop here.
+            if (rawPos >= rawOffset) {
+              break
+            }
+
+            // Skip the closing brackets "]]"
+            rawPos = closeIndex + 2
+            continue
+          }
+        }
+
+        // Normal character, contributes to both raw and display positions.
+        rawPos += 1
+        displayPos += 1
+      }
+
+      return displayPos
+    }
+
     let selectionOffsets = null
     const selection = window.getSelection()
     if (
@@ -103,9 +153,16 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
       endRange.setStart(editor, 0)
       endRange.setEnd(range.endContainer, range.endOffset)
 
+      // Measure offsets against the current raw text, then convert them
+      // into wiki-link-normalized display offsets so they match the
+      // post-highlight DOM produced by highlightWikiLinks.
+      const rawText = editor.textContent || ''
+      const rawStart = startRange.toString().length
+      const rawEnd = endRange.toString().length
+
       selectionOffsets = {
-        start: startRange.toString().length,
-        end: endRange.toString().length,
+        start: toDisplayOffsetWithWikiLinks(rawText, rawStart),
+        end: toDisplayOffsetWithWikiLinks(rawText, rawEnd),
       }
     }
 
