@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
@@ -20,7 +20,11 @@ function makeFetchMock() {
 
 describe('spellcheck helpers', () => {
   beforeAll(() => {
-    global.fetch = makeFetchMock();
+    vi.stubGlobal('fetch', makeFetchMock());
+  });
+
+  afterAll(() => {
+    vi.unstubAllGlobals();
   });
 
   it('suppresses wiki-derived dictionary words while keeping real misspellings', async () => {
