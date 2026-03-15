@@ -1,59 +1,147 @@
-/**
- * E2E tests for spellcheck dictionary workflow
- */
-
 import { test, expect } from '@playwright/test';
+import os from 'os';
+import path from 'path';
+import fs from 'fs/promises';
+import { closeElectronApp, launchElectronApp } from './helpers/electron-launcher.js';
+
 test.describe('Spellcheck Dictionary E2E', () => {
-  let novelPath;
+  let app;
+  let page;
+  let testNovelName;
+  let testNovelPath;
 
-  test.beforeAll(async () => {
-    // Setup - create a test novel
-    // This would be handled by the test setup
+  async function createNovel() {
+    const newNovelButton = page.getByTestId('new-novel-button');
+    await expect(newNovelButton).toBeVisible({ timeout: 10000 });
+    await newNovelButton.click();
+
+    const dialog = page.getByTestId('create-novel-dialog');
+    await expect(dialog).toBeVisible();
+
+    await page.getByTestId('novel-name-input').fill(testNovelName);
+    await page.getByTestId('create-novel-button').click();
+    await expect(dialog).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('manuscript-editor')).toBeVisible({ timeout: 5000 });
+  }
+
+  async function clearAndTypeManuscript(text) {
+    const editor = page.getByTestId('manuscript-editor');
+    await editor.click();
+    await page.keyboard.press('Meta+A');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type(text);
+    await page.waitForTimeout(700);
+  }
+
+  async function createWikiPage(title) {
+    await page.getByTestId('wiki-create-button').click();
+    await expect(page.getByTestId('create-wiki-dialog')).toBeVisible();
+    await page.getByTestId('wiki-title-input').fill(title);
+    await page.getByTestId('confirm-create-wiki-button').click();
+    await expect(page.getByTestId('create-wiki-dialog')).not.toBeVisible({ timeout: 5000 });
+  }
+
+  async function renameCurrentWikiPage(title) {
+    const titleInput = page.locator('#wiki-title');
+    await expect(titleInput).toBeVisible({ timeout: 5000 });
+    await titleInput.fill(title);
+    await page.waitForTimeout(1200);
+  }
+
+  async function deleteWikiPage(slug) {
+    const pageItem = page.locator(`[data-testid="wiki-page-item-${slug}"]`);
+    await pageItem.hover();
+    await page.getByTestId(`wiki-delete-button-${slug}`).click();
+    await page.getByTestId(`wiki-confirm-delete-${slug}`).click();
+    await page.waitForTimeout(700);
+  }
+
+  async function waitForIssues(words) {
+    await expect.poll(async () => {
+      return await page.locator('[data-testid="spellcheck-issue"]').allTextContents();
+    }).toEqual(words);
+  }
+
+  test.beforeEach(async () => {
+    ({ app, page } = await launchElectronApp());
+    testNovelName = `test-spellcheck-${Date.now()}`;
+    testNovelPath = path.join(os.homedir(), '.netwriter', testNovelName);
+    await createNovel();
   });
 
-  test.afterAll(async () => {
-    // Cleanup
+  test.afterEach(async () => {
+    if (app) {
+      await closeElectronApp(app);
+    }
+
+    try {
+      await fs.rm(testNovelPath, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup failures for temp novels.
+    }
   });
 
-  test('should suppress wiki page names from spellcheck', async ({ page }) => {
-    // Create a wiki page named "Frodo Baggins"
-    // Type in manuscript "Frodo" and "Baggins" separately
-    // Verify neither is flagged as misspelled
-    // Type something actually misspelled like "Alise" (instead of Alice)
-    // Verify it IS flagged as misspelled
+  test('should suppress wiki page names from spellcheck', async () => {
+    await createWikiPage('Frodo Baggins');
+    await clearAndTypeManuscript('Frodo Baggins meets Alise in the Shire.');
+
+    const issueTexts = await page.locator('[data-testid="spellcheck-issue"]').allTextContents();
+    expect(issueTexts).toContain('Alise');
+    expect(issueTexts).not.toContain('Frodo');
+    expect(issueTexts).not.toContain('Baggins');
   });
 
-  test('should rebuild dictionary when wiki pages are created', async ({ page }) => {
-    // Create a novel and start editing
-    // Type character name - should be misspelled
-    // Create wiki page with that name
-    // Verify dictionary is rebuilt automatically
-    // Name should no longer be flagged
+  test('should rebuild dictionary when wiki pages are created', async () => {
+    await clearAndTypeManuscript('Shadowfax arrives at dawn.');
+    await waitForIssues(['Shadowfax']);
+
+    await createWikiPage('Shadowfax');
+
+    await expect.poll(async () => {
+      return await page.locator('[data-testid="spellcheck-issue"]').allTextContents();
+    }).toEqual([]);
   });
 
-  test('should handle special characters in wiki titles', async ({ page }) => {
-    // Create wiki page: "Bob's Tavern (The Inn)"
-    // Type components: "Bob", "Tavern", "Inn"
-    // Verify none are flagged
+  test('should handle special characters in wiki titles', async () => {
+    await createWikiPage("Bob's Tavern (The Inn)");
+    await clearAndTypeManuscript('Bob Tavern Inn welcomes Alise.');
+
+    const issueTexts = await page.locator('[data-testid="spellcheck-issue"]').allTextContents();
+    expect(issueTexts).toContain('Alise');
+    expect(issueTexts).not.toContain('Bob');
+    expect(issueTexts).not.toContain('Tavern');
+    expect(issueTexts).not.toContain('Inn');
   });
 
-  test('should reload dictionary after renaming wiki page', async ({ page }) => {
-    // Create wiki page "CharacterA"
-    // Verify it's suppressed in spellcheck
-    // Rename to "CharacterB"
-    // Verify old name is now flagged, new name is not
+  test('should reload dictionary after renaming wiki page', async () => {
+    await createWikiPage('CharacterA');
+    await clearAndTypeManuscript('CharacterA meets CharacterB.');
+    await waitForIssues(['CharacterB']);
+
+    await renameCurrentWikiPage('CharacterB');
+
+    const issueTexts = await page.locator('[data-testid="spellcheck-issue"]').allTextContents();
+    expect(issueTexts).toContain('CharacterA');
+    expect(issueTexts).not.toContain('CharacterB');
   });
 
-  test('should remove deleted wiki page from dictionary', async ({ page }) => {
-    // Create wiki page "TemporaryName"
-    // Verify it's suppressed
-    // Delete the page
-    // Verify "TemporaryName" is now flagged as misspelled
+  test('should remove deleted wiki page from dictionary', async () => {
+    await createWikiPage('TemporaryName');
+    await clearAndTypeManuscript('TemporaryName leaves the scene.');
+    await waitForIssues([]);
+
+    await deleteWikiPage('temporaryname');
+
+    await waitForIssues(['TemporaryName']);
   });
 
-  test('should handle manuscript with multiple wiki references', async ({ page }) => {
-    // Create multiple wiki pages
-    // Write manuscript using all their names
-    // Verify none are flagged
+  test('should handle manuscript with multiple wiki references', async () => {
+    await createWikiPage('Aragorn');
+    await createWikiPage('Gondor');
+    await createWikiPage('Minas Tirith');
+    await clearAndTypeManuscript('Aragorn rides to Gondor before Alise reaches Minas Tirith.');
+
+    const issueTexts = await page.locator('[data-testid="spellcheck-issue"]').allTextContents();
+    expect(issueTexts).toEqual(['Alise']);
   });
 });
