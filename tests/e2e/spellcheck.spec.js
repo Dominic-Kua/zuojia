@@ -91,6 +91,15 @@ test.describe('Spellcheck Dictionary E2E', () => {
     expect(issueTexts).not.toContain('Baggins');
   });
 
+  test('should disable native browser spellcheck in the manuscript editor', async () => {
+    const nativeSpellcheckEnabled = await page.evaluate(() => {
+      const editor = document.querySelector('[data-testid="manuscript-editor"]');
+      return editor ? editor.spellcheck : null;
+    });
+
+    expect(nativeSpellcheckEnabled).toBe(false);
+  });
+
   test('should rebuild dictionary when wiki pages are created', async () => {
     await clearAndTypeManuscript('Shadowfax arrives at dawn.');
     await waitForIssues(['Shadowfax']);
@@ -143,5 +152,28 @@ test.describe('Spellcheck Dictionary E2E', () => {
 
     const issueTexts = await page.locator('[data-testid="spellcheck-issue"]').allTextContents();
     expect(issueTexts).toEqual(['Alise']);
+  });
+
+  test('should show suggested corrections for misspelled words', async () => {
+    await clearAndTypeManuscript('Alise will acheive victory.');
+
+    const aliseIssue = page.locator('[data-testid="spellcheck-issue-item"]').filter({ hasText: 'Alise' });
+    const acheiveIssue = page.locator('[data-testid="spellcheck-issue-item"]').filter({ hasText: 'acheive' });
+
+    await expect(aliseIssue.getByRole('button', { name: 'Alice' })).toBeVisible();
+    await expect(acheiveIssue.getByRole('button', { name: 'achieve' })).toBeVisible();
+  });
+
+  test('should apply a suggested correction from the spellcheck panel', async () => {
+    await clearAndTypeManuscript('Alise will acheive victory.');
+
+    const acheiveIssue = page.locator('[data-testid="spellcheck-issue-item"]').filter({ hasText: 'acheive' });
+    await acheiveIssue.getByRole('button', { name: 'achieve' }).click();
+
+    await expect(page.getByTestId('manuscript-editor')).toContainText('Alise will achieve victory.');
+
+    await expect.poll(async () => {
+      return await page.locator('[data-testid="spellcheck-issue"]').allTextContents();
+    }).toEqual(['Alise']);
   });
 });
