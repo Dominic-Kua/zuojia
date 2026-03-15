@@ -485,12 +485,8 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
       highlightTimerRef.current = null
     }
     
-    // Re-apply highlighting after a brief delay to show wiki links
+    // Re-apply content after a brief delay (includes wiki-link highlighting when applicable)
     // This needs to be done carefully to avoid disrupting typing
-    if (!plainContent.includes('[[') || !plainContent.includes(']]')) {
-      return
-    }
-
     highlightTimerRef.current = setTimeout(() => {
       if (editorRef.current && editorRef.current.textContent === plainContent) {
         applyEditorContent(plainContent)
