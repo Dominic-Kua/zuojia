@@ -5,7 +5,7 @@ import { useSpellcheck } from '../hooks/useSpellcheck'
 import { useWordCount } from '../hooks/useWordCount'
 import { useWikiLinks } from '../hooks/useWikiLinks'
 import { WikiLinkPopover } from './WikiLinkPopover'
-import { findMisspelledWords } from '../lib/spellcheck.js'
+import { findSpellingIssues, replaceMisspelledWord } from '../lib/spellcheck.js'
 import { indexHandlers } from '../lib/ipc-client'
 
 const DEFAULT_CHAPTER_FILENAME = 'chapter-01.md'
@@ -427,7 +427,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
 
   useEffect(() => {
     let cancelled = false;
-    findMisspelledWords(content, dictionaryWords)
+    findSpellingIssues(content, dictionaryWords)
       .then((issues) => {
         if (!cancelled) {
           setSpellcheckIssues(issues)
@@ -444,6 +444,16 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
       cancelled = true
     }
   }, [content, dictionaryWords])
+
+  const handleApplySpellcheckSuggestion = useCallback((word, suggestion) => {
+    const nextContent = replaceMisspelledWord(content, word, suggestion)
+    if (nextContent === content) {
+      return
+    }
+
+    setContent(nextContent)
+    applyEditorContent(nextContent)
+  }, [applyEditorContent, content])
 
   const handleInput = (e) => {
     // Extract content from contentEditable, preserving wiki link markers and line breaks
@@ -578,6 +588,9 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
         className="editor"
         ref={editorRef}
         contentEditable
+        spellCheck={false}
+        autoCorrect="off"
+        autoCapitalize="off"
         onInput={handleInput}
         onBlur={handleEditorBlur}
         aria-busy={loading || isLoadingChapter}
@@ -596,7 +609,26 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
         </div>
         <div className="spellcheck-issues" data-testid="spellcheck-issues">
           {spellcheckIssues.map((issue) => (
-            <span key={issue} className="spellcheck-issue" data-testid="spellcheck-issue">{issue}</span>
+            <div key={issue.word} className="spellcheck-issue-item" data-testid="spellcheck-issue-item">
+              <span className="spellcheck-issue" data-testid="spellcheck-issue">{issue.word}</span>
+              <div className="spellcheck-suggestions" data-testid="spellcheck-suggestions">
+                {issue.suggestions.length > 0 ? issue.suggestions.map((suggestion) => (
+                  <button
+                    key={`${issue.word}-${suggestion}`}
+                    type="button"
+                    className="btn ghost spellcheck-suggestion"
+                    data-testid="spellcheck-suggestion"
+                    onClick={() => handleApplySpellcheckSuggestion(issue.word, suggestion)}
+                  >
+                    {suggestion}
+                  </button>
+                )) : (
+                  <span className="spellcheck-no-suggestions" data-testid="spellcheck-no-suggestions">
+                    No suggestions
+                  </span>
+                )}
+              </div>
+            </div>
           ))}
         </div>
       </section>

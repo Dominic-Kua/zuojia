@@ -33,10 +33,27 @@ function extractWords(text) {
   return matches || [];
 }
 
-export async function findMisspelledWords(text, customWords = []) {
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function replaceMisspelledWord(text, originalWord, replacementWord) {
+  if (!text || !originalWord || !replacementWord) {
+    return text || '';
+  }
+
+  const pattern = new RegExp(`\\b${escapeRegExp(originalWord)}\\b`, 'g');
+  return text.replace(pattern, replacementWord);
+}
+
+export async function findSpellingIssues(text, customWords = [], options = {}) {
   const checker = await getSpellchecker();
   const customWordSet = new Set(customWords.map((word) => word.toLowerCase()));
-  const misspelled = new Set();
+  const misspelled = new Map();
+  const rawMaxSuggestions = Number.isInteger(options.maxSuggestions)
+    ? options.maxSuggestions
+    : 3;
+  const maxSuggestions = Math.min(Math.max(rawMaxSuggestions, 0), 50);
 
   for (const word of extractWords(text)) {
     const normalizedWord = word.toLowerCase();
@@ -44,10 +61,24 @@ export async function findMisspelledWords(text, customWords = []) {
       continue;
     }
 
-    if (!checker.correct(word)) {
-      misspelled.add(word);
+    if (!checker.correct(word) && !misspelled.has(word)) {
+      const suggestions = checker
+        .suggest(word)
+        .filter(Boolean)
+        .filter((suggestion) => suggestion.toLowerCase() !== normalizedWord)
+        .slice(0, maxSuggestions);
+
+      misspelled.set(word, {
+        word,
+        suggestions,
+      });
     }
   }
 
-  return Array.from(misspelled).sort((left, right) => left.localeCompare(right));
+  return Array.from(misspelled.values()).sort((left, right) => left.word.localeCompare(right.word));
+}
+
+export async function findMisspelledWords(text, customWords = []) {
+  const issues = await findSpellingIssues(text, customWords);
+  return issues.map((issue) => issue.word);
 }
