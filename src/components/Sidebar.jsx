@@ -37,6 +37,16 @@ export default function Sidebar({ novelPath, openPageSlug }){
   const [isRenamingPage, setIsRenamingPage] = useState(false);
   const renameTimerRef = useRef(null);
 
+  const notifySpellcheckDictionaryChanged = useCallback(() => {
+    if (!novelPath) {
+      return;
+    }
+
+    window.dispatchEvent(new CustomEvent('netwriter:wiki-dictionary-updated', {
+      detail: { novelPath },
+    }));
+  }, [novelPath]);
+
   const buildAssetUrl = useCallback((fileName) => {
     const trimmed = fileName.trim();
     if (!trimmed || !novelPath) {
@@ -121,10 +131,11 @@ export default function Sidebar({ novelPath, openPageSlug }){
   const handleDeletePage = useCallback(async (slug) => {
     try {
       await deletePage(slug);
+      notifySpellcheckDictionaryChanged();
     } catch (err) {
       console.error('Error deleting wiki page:', err);
     }
-  }, [deletePage]);
+  }, [deletePage, notifySpellcheckDictionaryChanged]);
 
   const handleSearch = useCallback((query) => {
     search(query);
@@ -153,13 +164,14 @@ export default function Sidebar({ novelPath, openPageSlug }){
         setSelectedSlug(createdSlug);
         setIsPreviewMode(false); // Start in edit mode for new pages
       }
+      notifySpellcheckDictionaryChanged();
     } catch (err) {
       setCreateError(err.message || 'Failed to create wiki page');
       console.error('Error creating wiki page:', err);
     } finally {
       setIsCreating(false);
     }
-  }, [createPage, newTitle]);
+  }, [createPage, newTitle, notifySpellcheckDictionaryChanged]);
 
   useEffect(() => {
     const loadWikiContent = async () => {
@@ -278,6 +290,7 @@ export default function Sidebar({ novelPath, openPageSlug }){
             setSelectedSlug(newSlug);
           }
           setWikiTitle(value.trim());
+          notifySpellcheckDictionaryChanged();
         } catch (err) {
           setWikiLoadError(err.message || 'Failed to rename wiki page');
           // Revert input to current title on error

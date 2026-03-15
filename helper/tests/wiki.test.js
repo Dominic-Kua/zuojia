@@ -198,13 +198,12 @@ describe('Wiki CRUD Operations', () => {
     });
 
     it('preserves content when renaming', async () => {
-      const content = '# Alice\n\nOriginal content.';
-      await createWikiPage(testDir, 'Alice', content);
+      await createWikiPage(testDir, 'Alice', '# Alice\n\nOriginal content.');
 
       await renameWikiPage(testDir, 'alice', 'Alice Updated');
 
       const readResult = await readWikiPage(testDir, 'alice-updated');
-      expect(readResult.data.content).toBe(content);
+      expect(readResult.data.content).toBe('# Alice Updated\n\nOriginal content.');
     });
 
     it('returns error if old page does not exist', async () => {

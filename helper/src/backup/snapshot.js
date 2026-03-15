@@ -109,18 +109,34 @@ export async function createSnapshot(novelPath, label = null) {
     // Generate timestamp and backup directory name
     const timestamp = Date.now();
     const sanitized = sanitizeLabel(label);
-    const backupDirName = sanitized 
-      ? `${timestamp}-${sanitized}` 
-      : `${timestamp}`;
-    
     const backupsDir = path.join(novelPath, 'meta', 'backups');
-    const backupPath = path.join(backupsDir, backupDirName);
+    const backupBaseName = sanitized
+      ? `${timestamp}-${sanitized}`
+      : `${timestamp}`;
     
     // Ensure backups directory exists
     await fs.mkdir(backupsDir, { recursive: true });
     
-    // Create the backup directory
-    await fs.mkdir(backupPath, { recursive: true });
+    // Create a unique backup directory, retrying with a numeric suffix on collisions.
+    let backupPath;
+    let suffix = 0;
+    while (true) {
+      const backupDirName = suffix === 0
+        ? backupBaseName
+        : `${backupBaseName}-${suffix}`;
+      backupPath = path.join(backupsDir, backupDirName);
+
+      try {
+        await fs.mkdir(backupPath);
+        break;
+      } catch (err) {
+        if (err.code === 'EEXIST') {
+          suffix += 1;
+          continue;
+        }
+        throw err;
+      }
+    }
     
     // Copy manuscript, wiki, and meta directories
     let totalFiles = 0;

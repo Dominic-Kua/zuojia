@@ -26,6 +26,8 @@ export function useWordCount(novelPath, currentChapter, content) {
   const todayCountIntervalRef = useRef(null);
   const manuscriptCountIntervalRef = useRef(null);
   const lastManuscriptFetchRef = useRef(0);
+  const lastCountedContentRef = useRef(null);
+  const chapterCountRef = useRef(0);
 
   // Debounce delay for content changes (ms)
   const DEBOUNCE_DELAY = 300;
@@ -41,6 +43,8 @@ export function useWordCount(novelPath, currentChapter, content) {
     try {
       const result = await statsHandlers.wordCount(contentToCount);
       setChapterCount(result.wordCount);
+      lastCountedContentRef.current = contentToCount;
+      chapterCountRef.current = result.wordCount;
     } catch (err) {
       console.error('Error loading chapter count:', err);
       setError(err);
@@ -62,14 +66,14 @@ export function useWordCount(novelPath, currentChapter, content) {
     try {
       const result = await statsHandlers.manuscriptCount(novelPath);
       // Ensure manuscript count is at least as large as current chapter count
-      const count = Math.max(result.wordCount, chapterCount);
+      const count = Math.max(result.wordCount, chapterCountRef.current);
       setManuscriptCount(count);
       lastManuscriptFetchRef.current = now;
     } catch (err) {
       console.error('Error loading manuscript count:', err);
       setError(err);
     }
-  }, [novelPath, chapterCount]);
+  }, [novelPath]);
 
   /**
    * Load today's word count
@@ -162,6 +166,11 @@ export function useWordCount(novelPath, currentChapter, content) {
 
     // Don't debounce initial load (handled by mount effect)
     if (loading) {
+      return;
+    }
+
+    // Skip recounting when content has not changed since the last successful count.
+    if (lastCountedContentRef.current === content) {
       return;
     }
 

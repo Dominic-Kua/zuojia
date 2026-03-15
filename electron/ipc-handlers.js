@@ -10,6 +10,7 @@ import { getManuscriptWordCount } from '../helper/src/stats/manuscript-count.js'
 import { getWordsWrittenToday } from '../helper/src/git/history.js';
 import { createWikiPage, readWikiPage, updateWikiPage, deleteWikiPage, renameWikiPage } from '../helper/src/wiki/crud.js';
 import { listWikiPages } from '../helper/src/wiki/list-pages.js';
+import { rebuildSpellcheckDict } from '../helper/src/wiki/rebuild-dict.js';
 import { createSnapshot, listSnapshots, deleteSnapshot, restoreSnapshot } from '../helper/src/backup/snapshot.js';
 /**
  * Register all IPC handlers
@@ -192,6 +193,13 @@ export function registerHandlers() {
     'helper:wiki:list',
     wrapHandler(async ({ novelPath }) => {
       return await listWikiPages(novelPath);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:wiki:rebuildDict',
+    wrapHandler(async ({ novelPath }) => {
+      return await rebuildSpellcheckDict(novelPath);
     })
   );
 
