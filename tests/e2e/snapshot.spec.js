@@ -130,10 +130,15 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
 
   test('should restore a snapshot, reverting manuscript changes', async () => {
     const chapterFile = path.join(testNovelPath, 'manuscript', 'chapter-01.md');
-    const originalContent = '# Chapter 1\n\nOriginal content.';
+    const editor = page.getByTestId('manuscript-editor');
+    await expect(editor).toBeVisible({ timeout: 5000 });
 
-    // Write an initial chapter file and create a snapshot
-    await fs.writeFile(chapterFile, originalContent, 'utf-8');
+    // Set initial chapter content through the UI to avoid racing autosave.
+    await editor.click();
+    await page.keyboard.press('Meta+A');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('Original content.');
+    await page.waitForTimeout(700);
 
     const snapshotResult = await page.evaluate(
       async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'before-edit' }),
@@ -142,8 +147,12 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
     expect(snapshotResult.status).toBe('ok');
     const { timestamp } = snapshotResult.data;
 
-    // Overwrite the chapter to simulate later edits
-    await fs.writeFile(chapterFile, '# Chapter 1\n\nModified content.', 'utf-8');
+    // Overwrite chapter content via the UI to simulate later edits.
+    await editor.click();
+    await page.keyboard.press('Meta+A');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('Modified content.');
+    await page.waitForTimeout(700);
     expect(await fs.readFile(chapterFile, 'utf-8')).toContain('Modified content');
 
     // Restore the snapshot
