@@ -160,8 +160,8 @@ test.describe('Spellcheck Dictionary E2E', () => {
     const aliseIssue = page.locator('[data-testid="spellcheck-issue-item"]').filter({ hasText: 'Alise' });
     const acheiveIssue = page.locator('[data-testid="spellcheck-issue-item"]').filter({ hasText: 'acheive' });
 
-    await expect(aliseIssue.getByTestId('spellcheck-suggestion')).toContainText(['Alice']);
-    await expect(acheiveIssue.getByTestId('spellcheck-suggestion')).toContainText(['achieve']);
+    await expect(aliseIssue.getByRole('button', { name: 'Alice' })).toBeVisible();
+    await expect(acheiveIssue.getByRole('button', { name: 'achieve' })).toBeVisible();
   });
 
   test('should apply a suggested correction from the spellcheck panel', async () => {
