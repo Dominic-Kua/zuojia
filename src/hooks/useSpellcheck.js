@@ -85,9 +85,9 @@ export function useSpellcheck(novelPath) {
       loadDictionary();
     };
 
-    window.addEventListener('ä½å®¶:wiki-dictionary-updated', handleDictionaryUpdated);
+    window.addEventListener('zuojia:wiki-dictionary-updated', handleDictionaryUpdated);
     return () => {
-      window.removeEventListener('ä½å®¶:wiki-dictionary-updated', handleDictionaryUpdated);
+      window.removeEventListener('zuojia:wiki-dictionary-updated', handleDictionaryUpdated);
     };
   }, [loadDictionary, novelPath]);
 
