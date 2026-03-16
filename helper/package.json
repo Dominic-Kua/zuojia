@@ -1,7 +1,7 @@
 {
-  "name": "netwriter-helper",
+  "name": "ä½å®¶-helper",
   "version": "1.0.0",
-  "description": "Helper process for Netwriter: orchestrates file I/O, Git, export, backups",
+  "description": "Helper process for ä½å®¶: orchestrates file I/O, Git, export, backups",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -11,7 +11,7 @@
     "test:coverage": "vitest --coverage"
   },
   "keywords": [
-    "netwriter",
+    "ä½å®¶",
     "helper",
     "electron"
   ],

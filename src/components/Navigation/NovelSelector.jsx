@@ -155,7 +155,7 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
         {isLoadingNovels ? (
           <div className="novel-list-empty">Loading novels...</div>
         ) : novels.length === 0 ? (
-          <div className="novel-list-empty">No novels found in ~/.netwriter</div>
+          <div className="novel-list-empty">No novels found in ~/.ä½å®¶</div>
         ) : (
           <ul className="novel-list-items">
             {novels.map((novel) => (

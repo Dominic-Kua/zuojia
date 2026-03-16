@@ -14,7 +14,7 @@ describe('Spellcheck Dictionary Rebuild', () => {
 
   beforeEach(async () => {
     // Create temp directory structure
-    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'netwriter-spellcheck-test-'));
+    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ä½å®¶-spellcheck-test-'));
     await fs.mkdir(path.join(testDir, 'wiki'), { recursive: true });
     await fs.mkdir(path.join(testDir, 'meta'), { recursive: true });
   });
@@ -101,7 +101,7 @@ describe('Spellcheck Dictionary Rebuild', () => {
     });
 
     it('handles wiki directory not existing', async () => {
-      const emptyDir = await fs.mkdtemp(path.join(os.tmpdir(), 'netwriter-empty-'));
+      const emptyDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ä½å®¶-empty-'));
       await fs.mkdir(path.join(emptyDir, 'meta'), { recursive: true });
       // Don't create wiki directory
 

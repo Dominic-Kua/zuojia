@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Development launcher for Netwriter
+ * Development launcher for ä½å®¶
  * 
  * This script:
  * 1. Starts the Vite dev server (frontend)
@@ -258,7 +258,7 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Main execution
 async function main() {
-  log('LAUNCHER', 'Starting Netwriter development environment...', colors.green);
+  log('LAUNCHER', 'Starting ä½å®¶ development environment...', colors.green);
   
   try {
     await startVite();
