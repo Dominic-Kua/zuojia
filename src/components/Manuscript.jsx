@@ -495,10 +495,11 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
       highlightTimerRef.current = null
     }
     
-    // Re-apply content after a brief delay (includes wiki-link highlighting when applicable)
-    // This needs to be done carefully to avoid disrupting typing
+    // Re-apply content after a brief idle delay.
+    // We intentionally do not compare against editor.textContent here because
+    // contenteditable block structure can omit logical line breaks in textContent.
     highlightTimerRef.current = setTimeout(() => {
-      if (editorRef.current && editorRef.current.textContent === plainContent) {
+      if (editorRef.current) {
         applyEditorContent(plainContent)
       }
       highlightTimerRef.current = null
