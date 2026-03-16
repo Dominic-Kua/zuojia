@@ -28,7 +28,7 @@ test.describe('Wiki Link Syntax & Resolution E2E', () => {
     
     // Generate unique novel name for this test run
     testNovelName = `test-wiki-links-${Date.now()}`;
-    testNovelPath = path.join(os.homedir(), '.netwriter', testNovelName);
+    testNovelPath = path.join(os.homedir(), '.ä½å®¶', testNovelName);
 
     // Create a novel first
     const newNovelButton = page.getByTestId('new-novel-button');

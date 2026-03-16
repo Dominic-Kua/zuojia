@@ -3,7 +3,7 @@
 
 ## Project Configuration
 
-- **Project**: netwriter
+- **Project**: ä½å®¶
 - **User**: Dom
 - **Communication Language**: English
 - **Document Output Language**: English

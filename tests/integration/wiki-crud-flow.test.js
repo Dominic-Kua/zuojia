@@ -17,7 +17,7 @@ describe('Wiki CRUD Integration Flow', () => {
 
   beforeEach(async () => {
     // Create temporary novel directory
-    testNovelPath = path.join(os.tmpdir(), `netwriter-test-${Date.now()}`);
+    testNovelPath = path.join(os.tmpdir(), `ä½å®¶-test-${Date.now()}`);
     await fs.mkdir(path.join(testNovelPath, 'wiki'), { recursive: true });
   });
 

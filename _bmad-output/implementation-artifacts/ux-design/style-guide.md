@@ -1,4 +1,4 @@
-Netwriter Style Guide — MVP (macOS)
+ä½å®¶ Style Guide — MVP (macOS)
 =================================
 
 Intent: Clean, comfortable, soft-toned UI with a clear serif font for long-form reading and composition.

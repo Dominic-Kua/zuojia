@@ -15,7 +15,7 @@ test.describe('Novel Creation E2E', () => {
     
     // Generate unique novel name for this test run
     testNovelName = `test-novel-${Date.now()}`;
-    testNovelPath = path.join(os.homedir(), '.netwriter', testNovelName);
+    testNovelPath = path.join(os.homedir(), '.ä½å®¶', testNovelName);
   });
 
   test.afterEach(async () => {

@@ -85,9 +85,9 @@ export function useSpellcheck(novelPath) {
       loadDictionary();
     };
 
-    window.addEventListener('netwriter:wiki-dictionary-updated', handleDictionaryUpdated);
+    window.addEventListener('ä½å®¶:wiki-dictionary-updated', handleDictionaryUpdated);
     return () => {
-      window.removeEventListener('netwriter:wiki-dictionary-updated', handleDictionaryUpdated);
+      window.removeEventListener('ä½å®¶:wiki-dictionary-updated', handleDictionaryUpdated);
     };
   }, [loadDictionary, novelPath]);
 

@@ -20,7 +20,7 @@ describe('Wiki CRUD Operations', () => {
 
   beforeEach(async () => {
     // Create temp directory structure
-    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'netwriter-test-'));
+    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ä½å®¶-test-'));
     await fs.mkdir(path.join(testDir, 'wiki'), { recursive: true });
     await fs.mkdir(path.join(testDir, 'meta'), { recursive: true });
   });
@@ -229,7 +229,7 @@ describe('listWikiPages', () => {
   let testDir;
 
   beforeEach(async () => {
-    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'netwriter-test-'));
+    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ä½å®¶-test-'));
     await fs.mkdir(path.join(testDir, 'wiki'), { recursive: true });
   });
 
