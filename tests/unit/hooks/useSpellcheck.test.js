@@ -181,7 +181,7 @@ describe('useSpellcheck', () => {
         expect(result.current.words).toContain('Alice');
       });
 
-      window.dispatchEvent(new CustomEvent('ä½å®¶:wiki-dictionary-updated', {
+      window.dispatchEvent(new CustomEvent('zuojia:wiki-dictionary-updated', {
         detail: { novelPath: '/test/novel' },
       }));
 

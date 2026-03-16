@@ -234,7 +234,7 @@ export function registerHandlers() {
 
   ipcMain.handle('app:listNovels', async () => {
     try {
-      const novelsRoot = path.join(app.getPath('home'), '.ä½å®¶');
+      const novelsRoot = path.join(app.getPath('home'), '.zuojia');
 
       if (!fs.existsSync(novelsRoot)) {
         return {
@@ -336,7 +336,7 @@ export function registerHandlers() {
 
   // Dialog handler
   ipcMain.handle('app:selectNovelDirectory', async (event) => {
-    const defaultPath = path.join(app.getPath('home'), '.ä½å®¶');
+    const defaultPath = path.join(app.getPath('home'), '.zuojia');
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory'],
       title: 'Open Novel Directory',

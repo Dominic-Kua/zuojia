@@ -9,9 +9,9 @@
   --divider: rgba(30,41,50,0.06);
 }
 *{box-sizing:border-box}
-body{margin:0;font-family:Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;font-size:14px;color:var(--text-primary);background:var(--bg-app)}
+body{margin:0;font-family:'PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','Noto Sans SC','Microsoft YaHei',Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial;font-size:14px;color:var(--text-primary);background:var(--bg-app)}
 .topbar{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid var(--divider);background:transparent}
-.brand{font-family:'Merriweather', Georgia, serif;font-size:18px;font-weight:700;color:var(--text-primary)}
+.brand{font-family:'PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','Noto Sans SC','Microsoft YaHei','Merriweather',Georgia,serif;font-size:18px;font-weight:700;color:var(--text-primary)}
 .btn{padding:8px 12px;border-radius:8px;border:1px solid transparent;background:transparent;cursor:pointer}
 .btn.primary{background:var(--accent);color:white}
 .btn.ghost{border:1px solid var(--muted-accent);background:transparent}

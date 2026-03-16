@@ -6,10 +6,10 @@ import { createError } from '../util/error.js'
 /**
  * Create a new novel directory structure
  * @param {string} novelName - Name of the novel (pretty name with spaces, capitals, unicode allowed)
- * @param {string} novelRootPath - Base path where novels are stored (defaults to ~/.ä½å®¶)
+ * @param {string} novelRootPath - Base path where novels are stored (defaults to ~/.zuojia)
  * @returns {Promise<{status, data, timestamp}>} Response envelope
  */
-export async function createNovel(novelName, novelRootPath = path.join(process.env.HOME, '.ä½å®¶')) {
+export async function createNovel(novelName, novelRootPath = path.join(process.env.HOME, '.zuojia')) {
   try {
     // Validate novel name
     if (!novelName || novelName.trim() === '') {
