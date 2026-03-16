@@ -126,7 +126,7 @@ classification:
 - System integration: native file dialogs and macOS native spellcheck API for in-editor checks. No keychain or notifications in MVP.
 - Update strategy: updates handled by replacing files in `artifacts/` (manual or scripted). No auto-update mechanism in MVP.
 - Offline capabilities: fully functional offline — core features operate locally; remote sync is optional and explicit (push/pull).
-- Storage layout: per-novel directory under `~/.ä½å®¶/<novel>/` with `manuscript/`, `wiki/`, `meta/`.
+- Storage layout: per-novel directory under `~/.zuojia/<novel>/` with `manuscript/`, `wiki/`, `meta/`.
 - Performance: lazy-load large chapters; keep single-chapter in-memory editing to scale to 200+ chapters and ~1M characters.
 
 ### Required Sections (CSV-driven)
@@ -155,7 +155,7 @@ classification:
 **Resource posture:** Single-developer-first; design for extensibility and observability so you can iterate quickly.
 
 ### MVP Feature Set (Phase 1)
-**Project model:** per-novel directory (~/.ä½å®¶/<novel>/) with `manuscript/`, `wiki/`, `meta/`.
+**Project model:** per-novel directory (~/.zuojia/<novel>/) with `manuscript/`, `wiki/`, `meta/`.
 
 **Editor + UX:**
 - Markdown editor with per-chapter files and single-chapter in-memory editing.
@@ -319,7 +319,7 @@ classification:
 
 ### Admin / Setup (Single-User Developer Install & Repo Flow)
 - Opening Scene: On macOS, you install ä½å®¶ and run the initial setup wizard. Homebrew installs Pandoc/LaTeX if missing.
-- Rising Action: You configure your local SSH key for pushes/pulls and optionally choose an existing repo to clone into `~/.ä½å®¶/<novel>/`.
+- Rising Action: You configure your local SSH key for pushes/pulls and optionally choose an existing repo to clone into `~/.zuojia/<novel>/`.
 - Climax: The app validates Git connectivity and creates an initial snapshot commit; settings (export path, spellchecker options) are saved to `meta/`.
 - Resolution: You can inspect the per-novel directory, extend scripts, or add features with minimal friction.
 - Requirements revealed: macOS/HB installer guidance, SSH-based Git operations, clear meta/config files under `meta/`, developer-friendly layout.
@@ -345,7 +345,7 @@ classification:
 - Recommendation: treat user content as private by default; provide clear export/delete flows and an optional local-encryption setting (opt-in).
 
 ### Technical Constraints
-- Local-first storage: per-novel directory under `~/.ä½å®¶/<novel>/` with predictable `manuscript/`, `wiki/`, `meta/` layout.  
+- Local-first storage: per-novel directory under `~/.zuojia/<novel>/` with predictable `manuscript/`, `wiki/`, `meta/` layout.  
 - Backups & recovery: automatic snapshot backups before any remote sync or destructive operation; retention policy configurable in `meta/`.  
 - File permissions & sandboxing: ensure app respects macOS file permissions and entitlements; document access patterns for extensibility.  
 - Spellchecker/dictionary: programmatic dictionary derived from wiki index; update on create/rename/delete operations without blocking the editor.  

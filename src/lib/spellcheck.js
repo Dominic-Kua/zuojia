@@ -8,8 +8,8 @@ async function getSpellchecker() {
   if (_initPromise) return _initPromise;
 
   _initPromise = Promise.all([
-    fetch('./dictionary-en/index.aff').then((r) => r.text()),
-    fetch('./dictionary-en/index.dic').then((r) => r.text()),
+    fetch('./dictionary-en-gb/index.aff').then((r) => r.text()),
+    fetch('./dictionary-en-gb/index.dic').then((r) => r.text()),
   ]).then(([aff, dic]) => {
     _spellchecker = nspell(aff, dic);
     return _spellchecker;

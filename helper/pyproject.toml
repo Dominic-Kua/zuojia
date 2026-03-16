@@ -1,5 +1,5 @@
 [project]
-name = "ä½å®¶-helper"
+name = "zuojia-helper"
 version = "0.1.0"
 description = "Helper process for ä½å®¶ (orchestration: git, export, backups)"
 requires-python = ">=3.9"

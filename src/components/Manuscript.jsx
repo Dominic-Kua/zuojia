@@ -40,7 +40,11 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
     content
   )
 
-  const { words: dictionaryWords, loading: isSpellcheckLoading } = useSpellcheck(novelPath)
+  const {
+    words: dictionaryWords,
+    loading: isSpellcheckLoading,
+    refresh: refreshSpellcheckDictionary,
+  } = useSpellcheck(novelPath)
 
   const wikiLinkHandlers = useWikiLinks(novelPath, content, wikiPages)
 
@@ -455,6 +459,34 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
     applyEditorContent(nextContent)
   }, [applyEditorContent, content])
 
+  const escapeForRegex = useCallback((value) => {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }, [])
+
+  const handleCreateWikiFromSpellcheckIssue = useCallback(async (word) => {
+    if (!word) {
+      return
+    }
+
+    const issuePattern = new RegExp(`\\b${escapeForRegex(word)}\\b`, 'i')
+    const originalCasingMatch = content.match(issuePattern)
+    const pageTitle = originalCasingMatch?.[0] || word
+
+    try {
+      const created = await wikiLinkHandlers.handleCreatePageFromLink(pageTitle)
+
+      // Reload dictionary immediately so the issue disappears without waiting
+      // for a later event cycle.
+      await refreshSpellcheckDictionary({ forceRebuild: true })
+
+      if (created?.slug && onOpenWikiPage) {
+        onOpenWikiPage(created.slug)
+      }
+    } catch (err) {
+      console.error('Failed to create wiki page from spellcheck issue:', err)
+    }
+  }, [content, escapeForRegex, onOpenWikiPage, refreshSpellcheckDictionary, wikiLinkHandlers])
+
   const handleInput = (e) => {
     // Extract content from contentEditable, preserving wiki link markers and line breaks
     const editor = e.currentTarget
@@ -627,6 +659,14 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
                     No suggestions
                   </span>
                 )}
+                <button
+                  type="button"
+                  className="btn ghost spellcheck-create-wiki"
+                  data-testid="spellcheck-create-wiki"
+                  onClick={() => handleCreateWikiFromSpellcheckIssue(issue.word)}
+                >
+                  Create Wiki Page
+                </button>
               </div>
             </div>
           ))}
