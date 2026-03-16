@@ -3,11 +3,11 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 const affContent = readFileSync(
-  resolve(process.cwd(), 'node_modules/dictionary-en/index.aff'),
+  resolve(process.cwd(), 'node_modules/dictionary-en-gb/index.aff'),
   'utf8'
 );
 const dicContent = readFileSync(
-  resolve(process.cwd(), 'node_modules/dictionary-en/index.dic'),
+  resolve(process.cwd(), 'node_modules/dictionary-en-gb/index.dic'),
   'utf8'
 );
 
@@ -85,5 +85,13 @@ describe('spellcheck helpers', () => {
     );
 
     expect(updated).toBe('Alice met another Alice, but Malisen stayed behind.');
+  });
+
+  it('uses UK English dictionary conventions', async () => {
+    const { findMisspelledWords } = await import('../../../src/lib/spellcheck.js');
+    const misspelled = await findMisspelledWords('The colour is bright but the color is odd.', []);
+
+    expect(misspelled).toContain('color');
+    expect(misspelled).not.toContain('colour');
   });
 });

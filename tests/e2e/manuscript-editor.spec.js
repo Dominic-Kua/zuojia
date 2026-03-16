@@ -27,7 +27,7 @@ test.describe('Manuscript Editor E2E', () => {
   test.beforeEach(async () => {
     ({ app, page } = await launchElectronApp())
     testNovelName = `test-manuscript-${Date.now()}`
-    testNovelPath = path.join(os.homedir(), '.ä½å®¶', testNovelName)
+    testNovelPath = path.join(os.homedir(), '.zuojia', testNovelName)
     await createNovel()
   })
 

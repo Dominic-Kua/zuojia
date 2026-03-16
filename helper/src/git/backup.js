@@ -11,8 +11,8 @@ function ensureGitRepo(novelPath) {
 
   try {
     execFileSync('git', ['init'], { cwd: novelPath, stdio: 'ignore' });
-    execFileSync('git', ['config', 'user.name', 'ä½å®¶'], { cwd: novelPath, stdio: 'ignore' });
-    execFileSync('git', ['config', 'user.email', 'ä½å®¶@localhost'], { cwd: novelPath, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.name', 'zuojia'], { cwd: novelPath, stdio: 'ignore' });
+    execFileSync('git', ['config', 'user.email', 'zuojia@localhost'], { cwd: novelPath, stdio: 'ignore' });
     return null;
   } catch (err) {
     return createError('GIT_INIT_FAILED', 'Failed to initialize git repository',

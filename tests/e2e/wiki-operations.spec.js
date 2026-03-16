@@ -15,7 +15,7 @@ test.describe('Wiki Operations E2E', () => {
     
     // Generate unique novel name for this test run
     testNovelName = `test-wiki-${Date.now()}`;
-    testNovelPath = path.join(os.homedir(), '.ä½å®¶', testNovelName);
+    testNovelPath = path.join(os.homedir(), '.zuojia', testNovelName);
 
     // Create a novel first
     const newNovelButton = page.getByTestId('new-novel-button');
