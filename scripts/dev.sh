@@ -105,15 +105,15 @@ if check_port $VITE_PORT; then
 else
     # Start Vite dev server in background
     echo -e "${CYAN}Starting Vite dev server...${NC}"
-    npm run dev:vite > /tmp/ä½å®¶-vite.log 2>&1 &
+    npm run dev:vite > /tmp/zuojia-vite.log 2>&1 &
     VITE_PID=$!
     
     echo -e "${CYAN}Vite PID: $VITE_PID${NC}"
     
     # Wait for Vite to be ready
     if ! wait_for_port $VITE_PORT; then
-        echo -e "${RED}Failed to start Vite. Check logs: /tmp/ä½å®¶-vite.log${NC}"
-        tail -20 /tmp/ä½å®¶-vite.log
+        echo -e "${RED}Failed to start Vite. Check logs: /tmp/zuojia-vite.log${NC}"
+        tail -20 /tmp/zuojia-vite.log
         exit 1
     fi
 fi
