@@ -126,7 +126,7 @@ classification:
 - System integration: native file dialogs and macOS native spellcheck API for in-editor checks. No keychain or notifications in MVP.
 - Update strategy: updates handled by replacing files in `artifacts/` (manual or scripted). No auto-update mechanism in MVP.
 - Offline capabilities: fully functional offline — core features operate locally; remote sync is optional and explicit (push/pull).
-- Storage layout: per-novel directory under `~/.ä½å®¶/<novel>/` with `manuscript/`, `wiki/`, `meta/`.
+- Storage layout: per-novel directory under `~/.zuojia/<novel>/` with `manuscript/`, `wiki/`, `meta/`.
 - Performance: lazy-load large chapters; keep single-chapter in-memory editing to scale to 200+ chapters and ~1M characters.
 
 ### Required Sections (CSV-driven)
