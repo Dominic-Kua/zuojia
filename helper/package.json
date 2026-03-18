@@ -1,5 +1,5 @@
 {
-  "name": "ä½å®¶-helper",
+  "name": "zuojia-helper",
   "version": "1.0.0",
   "description": "Helper process for ä½å®¶: orchestrates file I/O, Git, export, backups",
   "main": "index.js",
