@@ -1,4 +1,4 @@
-# ä½å®¶ Plugin System Specification
+# 作家 Plugin System Specification
 
 **Version:** 1.0.0  
 **Author:** Dom  
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-This document specifies a Python-based plugin system for ä½å®¶ that enables per-novel custom functionality through user-provided scripts. The system allows authors to extend their novels with custom export formats, automated content generation, integration with external tools, and workflow automation without modifying the core application.
+This document specifies a Python-based plugin system for 作家 that enables per-novel custom functionality through user-provided scripts. The system allows authors to extend their novels with custom export formats, automated content generation, integration with external tools, and workflow automation without modifying the core application.
 
 **Key Design Principles:**
 - **Per-novel isolation:** Plugins are scoped to individual novels
@@ -103,7 +103,7 @@ Every plugin requires a `manifest.json` file:
   "version": "1.0.0",
   "description": "Export manuscript to custom ePub format",
   "author": "Dom",
-  "ä½å®¶_version": ">=0.1.0",
+  "zuojia_version": ">=0.1.0",
   
   "permissions": [
     "read:manuscript",
@@ -144,7 +144,7 @@ Every plugin requires a `manifest.json` file:
 Minimal plugin structure:
 
 ```python
-from ä½å®¶_plugin_api import Plugin, PluginContext
+from zuojia_plugin_api import Plugin, PluginContext
 
 class CustomExport(Plugin):
     """Custom export plugin implementation."""
