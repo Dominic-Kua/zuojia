@@ -258,7 +258,7 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Main execution
 async function main() {
-  log('LAUNCHER', 'Starting ä½å®¶ development environment...', colors.green);
+  log('LAUNCHER', 'Starting zuojia development environment...', colors.green);
   
   try {
     await startVite();
