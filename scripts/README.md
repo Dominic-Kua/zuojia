@@ -2,7 +2,7 @@
 
 ## dev.sh (Recommended)
 
-Simple bash script launcher that manages all processes for ä½å®¶ development.
+Simple bash script launcher that manages all processes for zuojia development.
 
 ### Features
 
@@ -40,7 +40,7 @@ Edit `scripts/dev.sh` to configure:
 
 ### Logs
 
-Vite output is logged to `/tmp/ä½å®¶-vite.log` for debugging.
+Vite output is logged to `/tmp/zuojia-vite.log` for debugging.
 
 ---
 
@@ -75,7 +75,7 @@ kill <PID>
 ```
 
 **Electron doesn't start:**
-- Check Vite logs: `tail -f /tmp/ä½å®¶-vite.log`
+- Check Vite logs: `tail -f /tmp/zuojia-vite.log`
 - Verify Vite is running: `curl http://localhost:5173`
 
 **Process not stopping:**
