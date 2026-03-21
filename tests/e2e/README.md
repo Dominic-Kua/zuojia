@@ -1,8 +1,8 @@
-# End-to-End Testing Guide for ä½å®¶
+# End-to-End Testing Guide for 作家
 
 ## Overview
 
-This guide explains how to set up and run end-to-end tests for ä½å®¶ using Playwright with Electron.
+This guide explains how to set up and run end-to-end tests for 作家 using Playwright with Electron.
 
 ## Installation
 
