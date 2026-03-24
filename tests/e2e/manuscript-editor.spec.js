@@ -52,12 +52,35 @@ test.describe('Manuscript Editor E2E', () => {
     await page.keyboard.press('Backspace')
 
     await page.keyboard.type('Hello')
-    await page.waitForTimeout(700)
     await page.keyboard.type(' world')
-    await page.waitForTimeout(700)
 
-    await expect.poll(async () => {
-      return await editor.evaluate((node) => node.textContent)
-    }).toBe('Hello world')
+    await expect.poll(
+      async () => {
+        return await editor.evaluate((node) => node.textContent)
+      },
+      { timeout: 3000 }
+    ).toBe('Hello world')
+  })
+
+  test('preserves line breaks after typing and delayed editor refresh', async () => {
+    const editor = page.getByTestId('manuscript-editor')
+    await expect(editor).toBeVisible({ timeout: 5000 })
+
+    await editor.click()
+    await page.keyboard.press('Meta+A')
+    await page.keyboard.press('Backspace')
+
+    await page.keyboard.type('Line one')
+    await page.keyboard.press('Enter')
+    await page.keyboard.type('Line two')
+    await page.keyboard.press('Enter')
+    await page.keyboard.type('Line three')
+
+    await expect.poll(
+      async () => {
+        return await editor.evaluate((node) => node.textContent)
+      },
+      { timeout: 3000 }
+    ).toBe('Line one\nLine two\nLine three')
   })
 })
