@@ -14,7 +14,7 @@ describe('getWordsWrittenToday', () => {
 
   beforeEach(async () => {
     // Create temp directory with git repo
-    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'netwriter-test-'));
+    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ä½å®¶-test-'));
     await fs.mkdir(path.join(testDir, 'manuscript'), { recursive: true });
     
     // Initialize git repo
@@ -124,7 +124,7 @@ describe('getWordsWrittenToday', () => {
 
   it('returns 0 if git repo does not exist', async () => {
     // Create non-git directory
-    const nonGitDir = await fs.mkdtemp(path.join(os.tmpdir(), 'netwriter-nogit-'));
+    const nonGitDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ä½å®¶-nogit-'));
     await fs.mkdir(path.join(nonGitDir, 'manuscript'), { recursive: true });
 
     const count = await getWordsWrittenToday(nonGitDir);

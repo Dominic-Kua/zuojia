@@ -15,18 +15,18 @@ inputDocuments:
   - _bmad-output/implementation-artifacts/ux-design/prototype/mockup.html
   - _bmad-output/implementation-artifacts/ux-design/prototype/mockup.css
 workflowType: 'architecture'
-project_name: netwriter
+project_name: ä½å®¶
 user_name: Dom
 date: 2026-02-25T00:00:00Z
 ---
 
-# Architecture Decision Document — Netwriter
+# Architecture Decision Document — ä½å®¶
 
-This document records the initial architecture decisions for the Netwriter macOS MVP. It was initialized from the template and seeded with the PRD and UX deliverables.
+This document records the initial architecture decisions for the ä½å®¶ macOS MVP. It was initialized from the template and seeded with the PRD and UX deliverables.
 
 ## Overview & Goals
 - Helper Process (local orchestrator): lightweight Node (or Go) background process responsible for file IO, Git orchestration, export orchestration (Pandoc calls), and backups. Runs as a child process spawned by the main Electron process or as an embedded worker.
-- File System: per-novel directory `~/.netwriter/<novel>/` with `manuscript/`, `wiki/`, `meta/` (backups, hooks, logs).
+- File System: per-novel directory `~/.ä½å®¶/<novel>/` with `manuscript/`, `wiki/`, `meta/` (backups, hooks, logs).
 - Git: rely on system Git + SSH agent. The helper process invokes git commands; UI shows snapshot/commit flows.
 - Export Pipeline: helper process runs Pandoc + LaTeX (via Homebrew). Export executed in isolated subprocess with logs captured under `meta/logs/`.
 
@@ -122,8 +122,8 @@ Rationale:
 ### Initialization Commands (developer-friendly, generic)
 1. Create the renderer:
 ```bash
-npm init vite@latest netwriter-ui -- --template react-ts
-cd netwriter-ui
+npm init vite@latest ä½å®¶-ui -- --template react-ts
+cd ä½å®¶-ui
 npm install
 ```
 2. Add Electron dev wiring (manual or via starter):
@@ -161,7 +161,7 @@ The following critical decisions were made collaboratively and lock in the techn
 **Previously Decided (from Steps 2–3):**
 - Renderer: Vite + React (TypeScript) + Electron
 - Helper process: Node.js (Git/export/backup orchestration)
-- File layout: `~/.netwriter/<novel>/` with `manuscript/`, `wiki/`, `meta/`
+- File layout: `~/.ä½å®¶/<novel>/` with `manuscript/`, `wiki/`, `meta/`
 - Git: system `git` + SSH agent (no stored credentials)
 - Export: `pandoc` + TeX via Homebrew
 - Spellcheck: macOS native API + wiki-derived dictionary
@@ -202,7 +202,7 @@ The following critical decisions were made collaboratively and lock in the techn
 ```javascript
 // In renderer (React component):
 await ipcRenderer.invoke('helper:git:commit', {
-  novelPath: '~/.netwriter/my-novel',
+  novelPath: '~/.ä½å®¶/my-novel',
   message: 'Chapter 3 edits',
   files: ['manuscript/chapter-03.md']
 });
@@ -300,7 +300,7 @@ ipcMain.handle('helper:git:commit', async (event, payload) => {
 - Faster time-to-first-release for solo developer
 
 **Build Artifacts:**
-- Output: `dist/netwriter-x.y.z.dmg` (installer)
+- Output: `dist/ä½å®¶-x.y.z.dmg` (installer)
 - Code signing: provisioned via macOS developer certificates (manual setup)
 - Entitlements: configured in `electron-builder.yml` for file system access
 
@@ -506,7 +506,7 @@ src/components/
 
 **Example:**
 ```
-[2026-02-25T14:32:10Z] [ERROR] [export] pandoc not found. suggestion=brew install pandoc context={"cwd":"/Users/dom/.netwriter/my-novel","searchPath":"/usr/local/bin:/usr/bin"}
+[2026-02-25T14:32:10Z] [ERROR] [export] pandoc not found. suggestion=brew install pandoc context={"cwd":"/Users/dom/.ä½å®¶/my-novel","searchPath":"/usr/local/bin:/usr/bin"}
 ```
 
 **Log Location:**
@@ -634,7 +634,7 @@ export function useNovel() {
 4. Use PascalCase + feature folders for React components
 5. Structure errors with code, message, and suggestion
 6. Log all operations to `meta/logs/` with timestamp and context
-7. Treat `~/.netwriter/<novel>/` as the source of truth for all data
+7. Treat `~/.ä½å®¶/<novel>/` as the source of truth for all data
 
 **Pattern Violations → Code Review Blocker:**
 Any pull request that violates these patterns must be revised before merge.
@@ -644,7 +644,7 @@ Any pull request that violates these patterns must be revised before merge.
 ### Complete Project Directory Structure
 
 ```
-netwriter/
+ä½å®¶/
 ├── README.md                          # Project overview & dev setup
 ├── package.json                       # Root workspace config
 ├── tsconfig.json                      # TypeScript base config
@@ -839,13 +839,13 @@ State update / Re-render
 
 | Data | Location | Authority | Access Pattern |
 |------|----------|-----------|-----------------|
-| Chapters | `~/.netwriter/<novel>/manuscript/*.md` | Source of truth | Helper reads/writes; Renderer displays |
-| Wiki pages | `~/.netwriter/<novel>/wiki/*.md` | Source of truth | Helper maintains; Renderer queries via IPC |
-| Index | `~/.netwriter/<novel>/meta/index.json` | Derived from filesystem | Helper writes; Renderer reads via `helper:index:get` |
+| Chapters | `~/.ä½å®¶/<novel>/manuscript/*.md` | Source of truth | Helper reads/writes; Renderer displays |
+| Wiki pages | `~/.ä½å®¶/<novel>/wiki/*.md` | Source of truth | Helper maintains; Renderer queries via IPC |
+| Index | `~/.ä½å®¶/<novel>/meta/index.json` | Derived from filesystem | Helper writes; Renderer reads via `helper:index:get` |
 | Editor state | Memory (React) | Transient | Saved to disk on autosave timeout |
 | Spellcheck dict | Memory (React) | Loaded at startup | Generated from wiki via `helper:wiki:rebuild-dict` |
 | Git history | Helper subprocess | On-demand | Fetched via `helper:git:history` |
-| Logs | `~/.netwriter/<novel>/meta/logs/` | Append-only | Helper writes; Diagnostics UI reads |
+| Logs | `~/.ä½å®¶/<novel>/meta/logs/` | Append-only | Helper writes; Diagnostics UI reads |
 
 ### Requirements to Structure Mapping
 
@@ -906,7 +906,7 @@ State update / Re-render
 - Helper unit: `helper/tests/`
 
 **Runtime Data:**
-- User novels: `~/.netwriter/<novel-name>/` (filesystem source of truth)
+- User novels: `~/.ä½å®¶/<novel-name>/` (filesystem source of truth)
 - Build artifacts: `build/dist/` (DMG, zip, app)
 
 ## Architecture Validation Results (Step 7)
@@ -1082,7 +1082,7 @@ The architecture is **coherent, complete, and actionable**. Technology choices a
 ### Implementation Roadmap (First Steps)
 
 **Phase 1: Scaffolding (Week 1)**
-1. Initialize Vite + React + TypeScript renderer: `npm init vite@latest netwriter -- --template react-ts`
+1. Initialize Vite + React + TypeScript renderer: `npm init vite@latest ä½å®¶ -- --template react-ts`
 2. Set up Electron main process in `electron/main.js` with preload script
 3. Create IPC handlers in `electron/ipc-handlers.js` (route to helper)
 4. Initialize helper process in `helper/` with `npm init`

@@ -42,7 +42,7 @@ export default function Sidebar({ novelPath, openPageSlug }){
       return;
     }
 
-    window.dispatchEvent(new CustomEvent('netwriter:wiki-dictionary-updated', {
+    window.dispatchEvent(new CustomEvent('zuojia:wiki-dictionary-updated', {
       detail: { novelPath },
     }));
   }, [novelPath]);

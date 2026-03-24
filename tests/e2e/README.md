@@ -1,8 +1,8 @@
-# End-to-End Testing Guide for Netwriter
+# End-to-End Testing Guide for ä½å®¶
 
 ## Overview
 
-This guide explains how to set up and run end-to-end tests for Netwriter using Playwright with Electron.
+This guide explains how to set up and run end-to-end tests for ä½å®¶ using Playwright with Electron.
 
 ## Installation
 

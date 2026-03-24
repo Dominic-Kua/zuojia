@@ -69,7 +69,7 @@ export default function App(){
     return (
       <div className="app-shell" data-testid="app-shell">
         <header className="topbar" data-testid="topbar">
-          <div className="brand">Netwriter</div>
+          <div className="brand">作家</div>
         </header>
         <main className="main-grid" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <NovelSelector 
@@ -85,7 +85,7 @@ export default function App(){
   return (
     <div className="app-shell" data-testid="app-shell">
       <header className="topbar" data-testid="topbar">
-        <div className="brand">Netwriter</div>
+        <div className="brand">作家</div>
         <div className="top-actions">
           <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>
           <button className="btn primary" data-testid="push-button" onClick={handleBackup} disabled={isBackingUp}>

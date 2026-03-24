@@ -5,7 +5,7 @@ import requests
 
 DEFAULT_PORT = 5178
 
-parser = argparse.ArgumentParser(description='Netwriter helper CLI')
+parser = argparse.ArgumentParser(description='ä½å®¶ helper CLI')
 parser.add_argument('command', choices=['snapshot','export','health'], help='command')
 parser.add_argument('--port', type=int, default=DEFAULT_PORT)
 parser.add_argument('--message', type=str, default='autosnapshot')

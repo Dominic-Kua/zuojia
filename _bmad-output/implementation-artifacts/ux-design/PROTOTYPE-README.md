@@ -6,7 +6,7 @@ From the project root, install dependencies and run the dev environment which st
 Install (macOS):
 
 ```bash
-cd /Users/dominickua/code/netwriter
+cd /Users/dominickua/code/ä½å®¶
 npm install
 npm run dev
 ```
