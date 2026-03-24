@@ -21,7 +21,7 @@ body{margin:0;font-family:'PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','N
 .manuscript-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
 .chapter-select{font-family:Inter;padding:6px 8px;border-radius:8px;border:1px solid var(--divider)}
 .wordcounts span{margin-left:12px;color:var(--text-secondary);font-size:13px}
-.editor{font-family:'Merriweather', Georgia, serif;font-size:18px;line-height:1.6;color:var(--text-primary);min-height:6.4em;flex:1;overflow:auto;padding-bottom:16px}
+.editor{font-family:'Merriweather', Georgia, serif;font-size:18px;line-height:1.6;color:var(--text-primary);min-height:0;flex:1;overflow:auto;padding-bottom:16px;white-space:pre-wrap}
 .editor:focus{outline:none}
 .sidebar{padding-top:8px}
 .sidebar-inner{background:var(--sidebar-surface);padding:20px;border-radius:10px;height:100%;box-shadow:0 4px 12px rgba(32,38,40,0.04)}

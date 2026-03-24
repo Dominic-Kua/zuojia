@@ -12,6 +12,132 @@ const DEFAULT_CHAPTER_FILENAME = 'chapter-01.md'
 const DEFAULT_CHAPTER_CONTENT = '# Chapter 1\n\nStart writing here...'
 const CHAPTER_FILENAME_PATTERN = /^chapter-(\d+)\.md$/i
 
+// Block-level HTML tags whose boundaries represent implicit line breaks in
+// the contenteditable editor.  Kept as a module-level constant so the same
+// set is shared between the two serialization helpers below.
+const EDITOR_BLOCK_TAGS = new Set(['DIV', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE'])
+
+/**
+ * Serialize the contenteditable editor DOM to a plain-text string that
+ * preserves line breaks (from <br> elements and block-level tags) and
+ * reconstructs wiki-link markers from their rendered <span> elements.
+ *
+ * This mirrors the traversal used in handleInput so that the text produced
+ * here is always consistent with the `plainContent` stored in React state.
+ */
+const serializeEditorDom = (editor) => {
+  let result = ''
+
+  const traverse = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      result += node.textContent
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      if (node.tagName === 'BR') {
+        result += '\n'
+      } else if (node.classList.contains('wiki-link')) {
+        const target = node.getAttribute('data-wiki-target')
+        const display = node.getAttribute('data-wiki-display')
+        result += target === display ? `[[${target}]]` : `[[${target}|${display}]]`
+      } else {
+        if (EDITOR_BLOCK_TAGS.has(node.tagName) && result.length > 0 && !result.endsWith('\n')) {
+          result += '\n'
+        }
+        for (const child of node.childNodes) {
+          traverse(child)
+        }
+      }
+    }
+  }
+
+  for (const node of editor.childNodes) {
+    traverse(node)
+  }
+
+  return result
+}
+
+/**
+ * Return the character offset within the serialized editor text
+ * (as produced by serializeEditorDom) that corresponds to the given
+ * DOM position (targetNode / targetOffset).
+ *
+ * Mirrors the same traversal as serializeEditorDom but stops early once
+ * the target DOM position is reached, returning the number of serialized
+ * characters accumulated up to that point.
+ */
+const getSerializedOffset = (editor, targetNode, targetOffset) => {
+  let length = 0
+  let endsWithNewline = false
+  let done = false
+
+  const traverse = (node) => {
+    if (done) return
+
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node === targetNode) {
+        length += targetOffset
+        done = true
+        return
+      }
+      const text = node.textContent
+      if (text.length > 0) {
+        length += text.length
+        endsWithNewline = text[text.length - 1] === '\n'
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      if (node.tagName === 'BR') {
+        if (node === targetNode) {
+          done = true
+          return
+        }
+        length += 1
+        endsWithNewline = true
+      } else if (node.classList.contains('wiki-link')) {
+        const target = node.getAttribute('data-wiki-target')
+        const display = node.getAttribute('data-wiki-display')
+        const linkStr = target === display ? `[[${target}]]` : `[[${target}|${display}]]`
+        if (node === targetNode || node.contains(targetNode)) {
+          length += linkStr.length
+          done = true
+          return
+        }
+        length += linkStr.length
+        endsWithNewline = false
+      } else {
+        if (EDITOR_BLOCK_TAGS.has(node.tagName) && length > 0 && !endsWithNewline) {
+          length += 1
+          endsWithNewline = true
+        }
+        if (node === targetNode) {
+          for (let i = 0; i < targetOffset && !done; i++) {
+            traverse(node.childNodes[i])
+          }
+          done = true
+          return
+        }
+        for (const child of node.childNodes) {
+          if (done) return
+          traverse(child)
+        }
+      }
+    }
+  }
+
+  if (editor === targetNode) {
+    for (let i = 0; i < targetOffset && !done; i++) {
+      traverse(editor.childNodes[i])
+    }
+    return length
+  }
+
+  for (const node of editor.childNodes) {
+    if (done) break
+    traverse(node)
+  }
+
+  return length
+}
+
 export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }){
   const editorRef = useRef(null)
   const saveTimerRef = useRef(null)
@@ -149,20 +275,14 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
     ) {
       const range = selection.getRangeAt(0)
 
-      const startRange = document.createRange()
-      startRange.setStart(editor, 0)
-      startRange.setEnd(range.startContainer, range.startOffset)
-
-      const endRange = document.createRange()
-      endRange.setStart(editor, 0)
-      endRange.setEnd(range.endContainer, range.endOffset)
-
-      // Measure offsets against the current raw text, then convert them
-      // into wiki-link-normalized display offsets so they match the
-      // post-highlight DOM produced by highlightWikiLinks.
-      const rawText = editor.textContent || ''
-      const rawStart = startRange.toString().length
-      const rawEnd = endRange.toString().length
+      // Measure offsets using the same block-element-aware serialization as
+      // handleInput so that newlines from block-level tags are counted.
+      // editor.textContent / Range.toString() omit those implicit newlines,
+      // which shifts the restored caret by the number of missing '\n's in
+      // multi-line documents.
+      const rawText = serializeEditorDom(editor)
+      const rawStart = getSerializedOffset(editor, range.startContainer, range.startOffset)
+      const rawEnd = getSerializedOffset(editor, range.endContainer, range.endOffset)
 
       selectionOffsets = {
         start: toDisplayOffsetWithWikiLinks(rawText, rawStart),
@@ -488,37 +608,10 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
   }, [content, escapeForRegex, onOpenWikiPage, refreshSpellcheckDictionary, wikiLinkHandlers])
 
   const handleInput = (e) => {
-    // Extract content from contentEditable, preserving wiki link markers and line breaks
+    // Extract content from contentEditable, preserving wiki link markers and
+    // line breaks, using the shared serializeEditorDom helper.
     const editor = e.currentTarget
-    let plainContent = ''
-
-    const BLOCK_TAGS = new Set(['DIV', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE'])
-
-    const traverse = (node) => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        plainContent += node.textContent
-      } else if (node.nodeType === Node.ELEMENT_NODE) {
-        if (node.tagName === 'BR') {
-          plainContent += '\n'
-        } else if (node.classList.contains('wiki-link')) {
-          const target = node.getAttribute('data-wiki-target')
-          const display = node.getAttribute('data-wiki-display')
-          plainContent += target === display ? `[[${target}]]` : `[[${target}|${display}]]`
-        } else {
-          // Insert newline before block-level elements (except at the very start)
-          if (BLOCK_TAGS.has(node.tagName) && plainContent.length > 0 && !plainContent.endsWith('\n')) {
-            plainContent += '\n'
-          }
-          for (const child of node.childNodes) {
-            traverse(child)
-          }
-        }
-      }
-    }
-
-    for (const node of editor.childNodes) {
-      traverse(node)
-    }
+    const plainContent = serializeEditorDom(editor)
 
     setContent(plainContent)
 
@@ -527,10 +620,11 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
       highlightTimerRef.current = null
     }
     
-    // Re-apply content after a brief delay (includes wiki-link highlighting when applicable)
-    // This needs to be done carefully to avoid disrupting typing
+    // Re-apply content after a brief idle delay.
+    // We intentionally do not compare against editor.textContent here because
+    // contenteditable block structure can omit logical line breaks in textContent.
     highlightTimerRef.current = setTimeout(() => {
-      if (editorRef.current && editorRef.current.textContent === plainContent) {
+      if (editorRef.current) {
         applyEditorContent(plainContent)
       }
       highlightTimerRef.current = null
