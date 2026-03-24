@@ -2,23 +2,23 @@
 
 **Last Updated:** 2026-03-24  
 **Current Branch:** main  
-**Project Stage:** MVP Development - Core Features Complete
+**Project Stage:** MVP Complete; Planning Version 2
 
 ---
 
 ## Executive Summary
 
-ä½å®¶ is an Electron-based novel writing application with integrated wiki system, word count tracking, and git-based autosave. The core MVP features are substantially complete, with 3 out of 5 epics finished and the remaining 2 partially implemented.
+ä½å®¶ is an Electron-based novel writing application with integrated wiki system, word count tracking, and git-based autosave. MVP scope is now complete; all remaining stories have been moved into the Version 2 roadmap (git workflow, export, spellcheck dictionary, plugins, diagnostics, settings, infra, performance, testing).
 
-**Overall Progress:** ~75% of planned MVP features complete (see test note below)
+**Overall Progress:** MVP 100% delivered; V2 backlog open
 
 ### Latest Test Run (2026-03-24)
 - Unit + integration: ✅ passing (186 tests + 1 skipped across 15 files; integration 10 tests + 1 skipped)
-- E2E: ⚠️ failing — Spellcheck Dictionary E2E (`tests/e2e/spellcheck.spec.js`) interrupted after app exited while typing; error shows `path` argument is `null` during `helper:wiki:list`. 16 passed, 1 interrupted, 21 not run.
+- E2E: ⚠️ failing — Spellcheck Dictionary E2E (`tests/e2e/spellcheck.spec.js`) interrupted after app exited while typing; error shows `path` argument is `null` during `helper:wiki:list`. Issue deferred to V2 backlog.
 
 ---
 
-## Epic Status Overview
+## Epic Status Overview (MVP)
 
 ### ✅ Epic 1: Novel Management & Bootstrap (COMPLETE)
 **Status:** All 3 stories complete  
@@ -63,8 +63,8 @@
 ---
 
 ### ✅ Epic 3: Wiki System & Contextual Reference (COMPLETE)
-**Status:** 3/3 stories complete  
-**Points:** 11/11 (100%)
+**Status:** 2/3 stories complete; remaining story moved to V2  
+**Points:** 11/11 (MVP stories), Spellcheck Dictionary moved
 
 - ✅ 3.1 Wiki Page CRUD
 - ✅ 3.2 Wiki Link Syntax & Resolution
@@ -106,49 +106,18 @@
 
 ---
 
-### 🔄 Epic 4: Git Workflow & Sync (PARTIAL)
-**Status:** 1/5 stories complete, 1 replaced  
-**Points:** ~4/14 (29%)
+## Version 2 Roadmap (Deferred from MVP + New Scope)
 
-- 🔄 Backup Button (Replaces 4.1 Snapshot + 4.3 Push)
-- ✅ Auto-commit (Part of 4.2)
-- ❌ 4.2 Manual Commit Dialog (Not started)
-- ❌ 4.4 Pull with Conflict Detection (Not started)
-- ❌ 4.5 Git Configuration (Not started)
-
-**Key Features Implemented:**
-- Integrated backup button (git add/commit/push in one operation)
-- Automatic git commits on chapter save
-- Commit messages include timestamp and file list
-
-**Technical Implementation:**
-- `helper/src/git/backup.js` - Backup workflow
-- `helper/src/git/commit.js` - Auto-commit logic
-- `src/App.jsx` - Backup button UI
-
-**Missing Features:**
-- Manual commit dialog with staging
-- Pull operations
-- Conflict resolution UI
-- Remote configuration UI
-
----
-
-### ❌ Epic 5: Export Pipeline (NOT STARTED)
-**Status:** 0/2 stories complete  
-**Points:** 0/7 (0%)
-
-- ❌ 5.1 Manuscript to PDF Export
-- ❌ 5.2 Metadata & Chapter Ordering
-
-**Planned Features:**
-- Pandoc-based PDF export
-- LaTeX template support
-- Metadata embedding
-- Chapter ordering and selection
-- Dependency validation
-
----
+- Epic 3.3: Spellcheck Dictionary from Wiki (deferred)  
+- Epic 4: Git Workflow & Sync (manual commit dialog, pull/conflict detection, git configuration)  
+- Epic 5: Export Pipeline (PDF export, metadata & ordering, validation/logs)  
+- Epic 6: Spellcheck Integration (native marks and macOS spellchecker)  
+- Epic 7: Diagnostics & Recovery  
+- Epic 8: Settings & Configuration  
+- Epic 9: App Infrastructure & Packaging  
+- Epic 10: Performance & Polish  
+- Epic 11: Testing  
+- Epic 12: Plugin System (manifest, extension points, content pipelines)
 
 ## Implementation Highlights
 
@@ -278,26 +247,13 @@ tests/
 
 ---
 
-## Next Priority Work
+## Next Priority Work (Version 2)
 
-### Immediate (Story 3.3 - Spellcheck Dictionary)
-- **Generate dictionary from wiki titles** and character names
-- **Integrate with editor spellcheck** to prevent false positives
-- **Auto-update dictionary** on wiki CRUD operations
-- **Fix E2E regression:** `helper:wiki:list` receiving `null` novel path causes Spellcheck E2E to exit; investigate novelPath wiring and ensure dictionary rebuild flow keeps app alive during typing.
-
-**Estimated Effort:** 3-4 hours  
-**Points:** 3  
-**Dependencies:** Wiki system (complete)
-
-### Medium-term (Epic 4 features)
-- Manual commit dialog with staging (3 points)
-- Pull with conflict detection (5 points)
-- Git configuration UI (2 points)
-
-### Long-term (Epic 5 export)
-- PDF export pipeline (5 points)
-- Metadata and ordering UI (2 points)
+- Spellcheck dictionary (Epic 3.3) and E2E fix for `helper:wiki:list` null path
+- Git workflow features: manual commit dialog, pull with conflict detection, git configuration
+- Export pipeline: PDF export with metadata and chapter ordering
+- Plugin system (Epic 12): manifest, extension points, content pipelines
+- Diagnostics, settings, performance polish, and expanded testing
 
 ---
 

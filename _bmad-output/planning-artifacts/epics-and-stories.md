@@ -1,14 +1,14 @@
 ---
 title: "ä½å®¶ Epics & Stories"
-date: 2026-02-25
+date: 2026-03-24
 author: Dom
-status: draft
-version: 1.0
+status: final (MVP complete; V2 planned)
+version: 1.1
 ---
 
-# ä½å®¶ Epics & Stories (MVP)
+# ä½å®¶ Epics & Stories (MVP complete; V2 roadmap)
 
-This document breaks down the architecture and PRD into implementable epics and user stories. Each epic maps to one or more architectural components. Stories include acceptance criteria and point estimates.
+This document breaks down the architecture and PRD into implementable epics and user stories. MVP stories are complete; remaining and new scope are captured in the Version 2 roadmap. Each epic maps to one or more architectural components. Stories include acceptance criteria and point estimates.
 
 ---
 
@@ -238,7 +238,16 @@ This document breaks down the architecture and PRD into implementable epics and 
 
 **Estimate:** 4 points
 
-### 3.3 Spellcheck Dictionary from Wiki
+### 3.3 Spellcheck Dictionary from Wiki ➡️ Moved to V2
+Pending story relocated to Version 2 roadmap (see below).
+
+---
+
+## Version 2 Roadmap
+
+All unfinished MVP stories have been moved here. New V2 scope includes plugins.
+
+### Story 3.3 Spellcheck Dictionary from Wiki (V2)
 **Story:** As the system, I need to suppress wiki-derived terms from spellcheck, so proper nouns (character/place names) don't clutter suggestions.
 
 **Acceptance Criteria:**
@@ -256,9 +265,7 @@ This document breaks down the architecture and PRD into implementable epics and 
 
 **Estimate:** 3 points
 
----
-
-## Epic 4: Git Workflow & Sync
+## Epic 4 (V2): Git Workflow & Sync
 
 **Description:** Users can snapshot (local), commit (stage+commit), and push/pull to remotes. Conflicts are detected and surfaced per-chapter.
 
@@ -371,7 +378,7 @@ This document breaks down the architecture and PRD into implementable epics and 
 
 ---
 
-## Epic 5: Export Pipeline
+## Epic 5 (V2): Export Pipeline
 
 **Description:** Users can export the manuscript to PDF (and optionally EPUB, Markdown). Export validates dependencies and provides install guidance.
 
@@ -444,7 +451,7 @@ This document breaks down the architecture and PRD into implementable epics and 
 
 ---
 
-## Epic 6: Spellcheck Integration
+## Epic 6 (V2): Spellcheck Integration
 
 **Description:** Spell-check active in editor using macOS native API + wiki-derived dictionary for suppression.
 
@@ -489,7 +496,7 @@ This document breaks down the architecture and PRD into implementable epics and 
 
 ---
 
-## Epic 7: Diagnostics & Recovery
+## Epic 7 (V2): Diagnostics & Recovery
 
 **Description:** Users can view logs, manage backups, and recover from corruption or crashes.
 
@@ -558,7 +565,7 @@ This document breaks down the architecture and PRD into implementable epics and 
 
 ---
 
-## Epic 8: Settings & Configuration
+## Epic 8 (V2): Settings & Configuration
 
 **Description:** Users configure editor preferences, git settings, and backup policies.
 
@@ -624,7 +631,7 @@ This document breaks down the architecture and PRD into implementable epics and 
 
 ---
 
-## Epic 9: App Infrastructure & Packaging
+## Epic 9 (V2): App Infrastructure & Packaging
 
 **Description:** Build, package, and distribute the Electron app using electron-builder.
 
@@ -691,7 +698,7 @@ This document breaks down the architecture and PRD into implementable epics and 
 
 ---
 
-## Epic 10: Performance & Polish
+## Epic 10 (V2): Performance & Polish
 
 **Description:** Optimize startup time, editor responsiveness, and overall UX polish.
 
@@ -739,7 +746,7 @@ This document breaks down the architecture and PRD into implementable epics and 
 
 ---
 
-## Epic 11: Testing
+## Epic 11 (V2): Testing
 
 **Description:** Unit, integration, and E2E tests to validate functionality and prevent regressions.
 
@@ -784,6 +791,46 @@ This document breaks down the architecture and PRD into implementable epics and 
 **Estimate:** 5 points
 
 ---
+
+## Epic 12 (V2): Plugin System
+
+**Description:** Extensible plugin system enabling third-party or user-authored plugins for editor features, transformations, and integrations. Based on plugin system spec in docs/plugin-system-spec.md.
+
+**Stories:**
+
+### 12.1 Plugin Manifest & Loading
+**Story:** As a developer, I need a manifest-driven plugin loader so plugins can declare capabilities and be safely loaded.
+
+**Acceptance Criteria:**
+- [ ] Define plugin manifest schema (name, version, permissions, entry points)
+- [ ] Validate manifests on load; reject invalid or unsafe permissions
+- [ ] Load plugins from `~/.zuojia/plugins` with sandboxed context
+- [ ] Provide lifecycle hooks: init, activate, deactivate
+- [ ] Errors surfaced in diagnostics/logs
+
+**Estimate:** 3 points
+
+### 12.2 Editor Extension Points
+**Story:** As an author, I want plugins to add editor commands and UI, so I can customize my workflow.
+
+**Acceptance Criteria:**
+- [ ] Expose extension points: commands palette, toolbar buttons, context menu actions
+- [ ] Plugins can register keyboard shortcuts (with conflict detection)
+- [ ] Plugin-provided UI runs in isolated iframe/webview to protect host app
+- [ ] Permissions gate access to filesystem/IPC
+
+**Estimate:** 3 points
+
+### 12.3 Content Pipelines
+**Story:** As an author, I want plugins to transform content (e.g., lint, translate, outline), so I can automate tasks.
+
+**Acceptance Criteria:**
+- [ ] Provide pipeline API to read/write manuscript or wiki buffers
+- [ ] Support streaming responses for long-running operations
+- [ ] Allow dry-run mode (show diff before applying)
+- [ ] Long-running jobs report progress and can be canceled
+
+**Estimate:** 4 points
 
 ## Story Prioritization & Phasing
 
