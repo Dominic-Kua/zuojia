@@ -1,5 +1,7 @@
 node_modules
 helper/tests/temp/
+/_bmad/
+/_bmad-output/
 _bmad-output/test-artifacts/
 playwright-report/
 test-results/
