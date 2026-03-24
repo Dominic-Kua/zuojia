@@ -1,6 +1,6 @@
 # ä½å®¶ Project Status Summary
 
-**Last Updated:** 2026-03-02  
+**Last Updated:** 2026-03-24  
 **Current Branch:** main  
 **Project Stage:** MVP Development - Core Features Complete
 
@@ -10,7 +10,11 @@
 
 ä½å®¶ is an Electron-based novel writing application with integrated wiki system, word count tracking, and git-based autosave. The core MVP features are substantially complete, with 3 out of 5 epics finished and the remaining 2 partially implemented.
 
-**Overall Progress:** ~75% of planned MVP features complete
+**Overall Progress:** ~75% of planned MVP features complete (see test note below)
+
+### Latest Test Run (2026-03-24)
+- Unit + integration: ✅ passing (186 tests + 1 skipped across 15 files; integration 10 tests + 1 skipped)
+- E2E: ⚠️ failing — Spellcheck Dictionary E2E (`tests/e2e/spellcheck.spec.js`) interrupted after app exited while typing; error shows `path` argument is `null` during `helper:wiki:list`. 16 passed, 1 interrupted, 21 not run.
 
 ---
 
@@ -280,6 +284,7 @@ tests/
 - **Generate dictionary from wiki titles** and character names
 - **Integrate with editor spellcheck** to prevent false positives
 - **Auto-update dictionary** on wiki CRUD operations
+- **Fix E2E regression:** `helper:wiki:list` receiving `null` novel path causes Spellcheck E2E to exit; investigate novelPath wiring and ensure dictionary rebuild flow keeps app alive during typing.
 
 **Estimated Effort:** 3-4 hours  
 **Points:** 3  
@@ -307,6 +312,9 @@ tests/
 ### Test Coverage Gaps
 - **Integration:** Some flows lack integration tests
 - **Recommendation:** Continue building E2E coverage for critical user flows
+
+### Spellcheck Stability
+- E2E Spellcheck dictionary flow currently fails (app exits; `path` argument `null` during `helper:wiki:list`). Requires investigation into novel path wiring and dictionary rebuild lifecycle.
 
 ---
 
