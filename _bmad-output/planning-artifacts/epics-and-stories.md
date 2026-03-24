@@ -696,6 +696,24 @@ All unfinished MVP stories have been moved here. New V2 scope includes plugins.
 
 **Estimate:** 2 points
 
+### 9.4 macOS Installer (DMG + Notarization)
+**Story:** As a macOS user, I want a standard DMG installer so I can install the app like a typical Mac application.
+
+**Acceptance Criteria:**
+- [ ] electron-builder produces signed/notarized `.dmg` and `.zip`
+- [ ] App passes Gatekeeper; no “unverified developer” warning
+- [ ] Codesigning with Apple Developer ID; notarization ticket stapled
+- [ ] DMG includes Applications symlink and branding assets
+- [ ] CI script to build + notarize with environment-configured credentials
+- [ ] Release artifact attached to GitHub Releases (manual or scripted)
+
+**Components Involved:**
+- `electron-builder.yml`
+- CI build script (GitHub Actions or equivalent)
+- Apple Developer ID cert + notarization API key setup
+
+**Estimate:** 3 points
+
 ---
 
 ## Epic 10 (V2): Performance & Polish

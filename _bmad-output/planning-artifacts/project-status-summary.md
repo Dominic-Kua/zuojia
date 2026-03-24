@@ -114,7 +114,7 @@
 - Epic 6: Spellcheck Integration (native marks and macOS spellchecker)  
 - Epic 7: Diagnostics & Recovery  
 - Epic 8: Settings & Configuration  
-- Epic 9: App Infrastructure & Packaging  
+- Epic 9: App Infrastructure & Packaging (adds macOS DMG installer + signing/notarization)  
 - Epic 10: Performance & Polish  
 - Epic 11: Testing  
 - Epic 12: Plugin System (manifest, extension points, content pipelines)
