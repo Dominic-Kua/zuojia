@@ -126,6 +126,9 @@ Roadmap issues:
 - #66 PDF export
 - #67 Release hardening
 
+Detailed planning artifact:
+- `v2-sprint-plan.md` defines the sprint-by-sprint execution plan for the distribution release
+
 ## Version 3 Candidates
 
 - Epic 4.4: Pull with Conflict Detection / conflict resolution UI  
