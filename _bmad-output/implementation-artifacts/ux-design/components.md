@@ -1,4 +1,4 @@
-Netwriter Component Spec (MVP)
+ä½å®¶ Component Spec (MVP)
 ==============================
 
 Core components and behaviors scoped for the macOS MVP.

@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
 /**
- * Playwright configuration for Netwriter E2E tests
+ * Playwright configuration for ä½å®¶ E2E tests
  * Testing Electron application with Playwright
  */
 export default defineConfig({

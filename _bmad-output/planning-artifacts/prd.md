@@ -21,7 +21,7 @@ documentCounts:
   research: 0
   brainstorming: 0
   projectDocs: 0
-project_name: netwriter
+project_name: ä½å®¶
 author: Dom
 date: 2026-02-25T00:00:00Z
 classification:
@@ -40,14 +40,14 @@ classification:
   remoteAuth: "local SSH keys; no token storage"
 ---
 
-# Product Requirements Document - netwriter
+# Product Requirements Document - ä½å®¶
 
 **Author:** Dom
 **Date:** 2026-02-25T00:00:00Z
 
 ## Executive Summary
 
-Netwriter is a local-first Electron desktop authoring tool (macOS MVP) that combines Scrivener-style project organization with plain-text Markdown and first-class git workflows. It targets single-author novelists (developer-friendly power users) who want fast, distraction-free writing with immediate access to structured world-building. The product solves context-switching and awkward versioning by keeping each novel in a simple directory structure, storing chapters as per-file Markdown, and surfacing related wiki pages inline without leaving the editor. For the MVP we’ll target macOS only and lean on Homebrew to install any required toolchain (Pandoc, LaTeX, Git).
+ä½å®¶ is a local-first Electron desktop authoring tool (macOS MVP) that combines Scrivener-style project organization with plain-text Markdown and first-class git workflows. It targets single-author novelists (developer-friendly power users) who want fast, distraction-free writing with immediate access to structured world-building. The product solves context-switching and awkward versioning by keeping each novel in a simple directory structure, storing chapters as per-file Markdown, and surfacing related wiki pages inline without leaving the editor. For the MVP we’ll target macOS only and lean on Homebrew to install any required toolchain (Pandoc, LaTeX, Git).
 
 ### What Makes This Special
 
@@ -71,7 +71,7 @@ Netwriter is a local-first Electron desktop authoring tool (macOS MVP) that comb
 ## Success Criteria
 
 ### User Success
-- Open-app continuity: User can open Netwriter and resume their last-edit state for any novel within 5 seconds of launch (session restore).
+- Open-app continuity: User can open ä½å®¶ and resume their last-edit state for any novel within 5 seconds of launch (session restore).
 - Instant reference: Clicking a named wiki item in the manuscript opens that wiki page in the right-hand sidebar within 1 second, preserving cursor position.
 - Authoring flow: User can create/edit chapters in per-file Markdown, and navigate between chapters and wiki pages without losing draft content.
 - Repo workflows: User can initialize or clone a per-novel git repo, make a local snapshot/commit, and push/pull to a remote via local SSH keys with clear UX and no data loss.
@@ -126,7 +126,7 @@ Netwriter is a local-first Electron desktop authoring tool (macOS MVP) that comb
 - System integration: native file dialogs and macOS native spellcheck API for in-editor checks. No keychain or notifications in MVP.
 - Update strategy: updates handled by replacing files in `artifacts/` (manual or scripted). No auto-update mechanism in MVP.
 - Offline capabilities: fully functional offline — core features operate locally; remote sync is optional and explicit (push/pull).
-- Storage layout: per-novel directory under `~/.netwriter/<novel>/` with `manuscript/`, `wiki/`, `meta/`.
+- Storage layout: per-novel directory under `~/.zuojia/<novel>/` with `manuscript/`, `wiki/`, `meta/`.
 - Performance: lazy-load large chapters; keep single-chapter in-memory editing to scale to 200+ chapters and ~1M characters.
 
 ### Required Sections (CSV-driven)
@@ -155,7 +155,7 @@ Netwriter is a local-first Electron desktop authoring tool (macOS MVP) that comb
 **Resource posture:** Single-developer-first; design for extensibility and observability so you can iterate quickly.
 
 ### MVP Feature Set (Phase 1)
-**Project model:** per-novel directory (~/.netwriter/<novel>/) with `manuscript/`, `wiki/`, `meta/`.
+**Project model:** per-novel directory (~/.zuojia/<novel>/) with `manuscript/`, `wiki/`, `meta/`.
 
 **Editor + UX:**
 - Markdown editor with per-chapter files and single-chapter in-memory editing.
@@ -304,7 +304,7 @@ Netwriter is a local-first Electron desktop authoring tool (macOS MVP) that comb
 ## User Journeys
 
 ### Primary User — Success Path
-- Opening Scene: You open Netwriter, select a novel folder or clone an existing repo, and the editor restores your last cursor/chapter.
+- Opening Scene: You open ä½å®¶, select a novel folder or clone an existing repo, and the editor restores your last cursor/chapter.
 - Rising Action: You write in a chapter, highlight a character name, right-click → “Open Wiki Page” and the character’s wiki appears in the right-hand sidebar. You glance, refresh details, and continue without losing flow.
 - Climax: You hit “Snapshot/Commit”, give a short note, then push via local SSH to your remote; UI shows a safe backup and success.
 - Resolution: You export the full manuscript to PDF via the Pandoc+LaTeX pipeline, and the output matches chapter ordering and metadata.
@@ -312,21 +312,21 @@ Netwriter is a local-first Electron desktop authoring tool (macOS MVP) that comb
 
 ### Primary User — Edge Case (Merge / Conflict Recovery)
 - Opening Scene: You have been writing offline; later you pull and a chapter has diverged.
-- Rising Action: Pull detects conflicts; Netwriter shows per-chapter visual diff and highlights conflicting paragraphs.
-- Climax: You choose the correct version or merge manually in-editor; Netwriter creates a pre-sync backup snapshot and preserves the other version in a recovery file.
+- Rising Action: Pull detects conflicts; ä½å®¶ shows per-chapter visual diff and highlights conflicting paragraphs.
+- Climax: You choose the correct version or merge manually in-editor; ä½å®¶ creates a pre-sync backup snapshot and preserves the other version in a recovery file.
 - Resolution: Push succeeds; your manuscript integrity is preserved and you continue writing.
 - Requirements revealed: per-chapter diffs, conflict UI, automatic pre-sync backup, recovery file system, clear user guidance during merges.
 
 ### Admin / Setup (Single-User Developer Install & Repo Flow)
-- Opening Scene: On macOS, you install Netwriter and run the initial setup wizard. Homebrew installs Pandoc/LaTeX if missing.
-- Rising Action: You configure your local SSH key for pushes/pulls and optionally choose an existing repo to clone into `~/.netwriter/<novel>/`.
+- Opening Scene: On macOS, you install ä½å®¶ and run the initial setup wizard. Homebrew installs Pandoc/LaTeX if missing.
+- Rising Action: You configure your local SSH key for pushes/pulls and optionally choose an existing repo to clone into `~/.zuojia/<novel>/`.
 - Climax: The app validates Git connectivity and creates an initial snapshot commit; settings (export path, spellchecker options) are saved to `meta/`.
 - Resolution: You can inspect the per-novel directory, extend scripts, or add features with minimal friction.
 - Requirements revealed: macOS/HB installer guidance, SSH-based Git operations, clear meta/config files under `meta/`, developer-friendly layout.
 
 ### Support / Troubleshooting Journey
 - Opening Scene: You notice an export failed or spellchecker is flagging many proper names.
-- Rising Action: You open “Help & Diagnostics”; Netwriter shows logs, the last backups, and a quick “rebuild dictionary from wiki index” action.
+- Rising Action: You open “Help & Diagnostics”; ä½å®¶ shows logs, the last backups, and a quick “rebuild dictionary from wiki index” action.
 - Climax: You trigger dictionary rebuild or restore from backup; the spellchecker stops false-flagging named entities.
 - Resolution: Export completes; logs show successful recovery and you file a small issue or patch.
 - Requirements revealed: accessible diagnostics, indexed wiki → dictionary rebuild action, visible backups, easy-to-export logs, straightforward issue/patch path for a developer user.
@@ -345,7 +345,7 @@ Netwriter is a local-first Electron desktop authoring tool (macOS MVP) that comb
 - Recommendation: treat user content as private by default; provide clear export/delete flows and an optional local-encryption setting (opt-in).
 
 ### Technical Constraints
-- Local-first storage: per-novel directory under `~/.netwriter/<novel>/` with predictable `manuscript/`, `wiki/`, `meta/` layout.  
+- Local-first storage: per-novel directory under `~/.zuojia/<novel>/` with predictable `manuscript/`, `wiki/`, `meta/` layout.  
 - Backups & recovery: automatic snapshot backups before any remote sync or destructive operation; retention policy configurable in `meta/`.  
 - File permissions & sandboxing: ensure app respects macOS file permissions and entitlements; document access patterns for extensibility.  
 - Spellchecker/dictionary: programmatic dictionary derived from wiki index; update on create/rename/delete operations without blocking the editor.  

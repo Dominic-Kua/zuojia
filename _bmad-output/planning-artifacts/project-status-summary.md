@@ -1,4 +1,4 @@
-# Netwriter Project Status Summary
+# ä½å®¶ Project Status Summary
 
 **Last Updated:** 2026-03-02  
 **Current Branch:** main  
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Netwriter is an Electron-based novel writing application with integrated wiki system, word count tracking, and git-based autosave. The core MVP features are substantially complete, with 3 out of 5 epics finished and the remaining 2 partially implemented.
+ä½å®¶ is an Electron-based novel writing application with integrated wiki system, word count tracking, and git-based autosave. The core MVP features are substantially complete, with 3 out of 5 epics finished and the remaining 2 partially implemented.
 
 **Overall Progress:** ~75% of planned MVP features complete
 
@@ -223,11 +223,11 @@ tests/
 - **UI Framework:** React 18.2.0
 - **Testing:** Vitest 4.0.18 (unit), Playwright (E2E)
 - **Markdown:** marked + DOMPurify
-- **Storage:** Local filesystem (`~/.netwriter/<novel>/`)
+- **Storage:** Local filesystem (`~/.zuojia/<novel>/`)
 
 ### Data Structure
 ```
-~/.netwriter/<novel>/
+~/.zuojia/<novel>/
 ├── manuscript/
 │   └── chapter-NN.md
 ├── wiki/
@@ -347,7 +347,7 @@ tests/
 
 ## Conclusion
 
-Netwriter's core MVP features are substantially complete (70%). The application provides a functional novel writing environment with:
+ä½å®¶'s core MVP features are substantially complete (70%). The application provides a functional novel writing environment with:
 - ✅ Project management (create, open, recent list)
 - ✅ Full manuscript editing with autosave
 - ✅ Comprehensive word count tracking
