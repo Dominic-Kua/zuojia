@@ -94,4 +94,23 @@ describe('spellcheck helpers', () => {
     expect(misspelled).toContain('color');
     expect(misspelled).not.toContain('colour');
   });
+
+  it('suppresses possessive forms of custom dictionary words', async () => {
+    const { findMisspelledWords } = await import('../../../src/lib/spellcheck.js');
+    const misspelled = await findMisspelledWords(
+      "Dominic's quest led him to Frodo's ring and Baggins' lair.",
+      ['Dominic', 'Frodo', 'Baggins']
+    );
+
+    expect(misspelled).not.toContain("Dominic's");
+    expect(misspelled).not.toContain("Frodo's");
+    expect(misspelled).not.toContain("Baggins'");
+  });
+
+  it('still flags misspelled possessives not in the dictionary', async () => {
+    const { findMisspelledWords } = await import('../../../src/lib/spellcheck.js');
+    const misspelled = await findMisspelledWords("Xyzqt's plan was bold.", []);
+
+    expect(misspelled).toContain("Xyzqt's");
+  });
 });
