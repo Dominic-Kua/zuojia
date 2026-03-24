@@ -1,4 +1,4 @@
-# Netwriter Plugin System Specification
+# 作家 Plugin System Specification
 
 **Version:** 1.0.0  
 **Author:** Dom  
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-This document specifies a Python-based plugin system for Netwriter that enables per-novel custom functionality through user-provided scripts. The system allows authors to extend their novels with custom export formats, automated content generation, integration with external tools, and workflow automation without modifying the core application.
+This document specifies a Python-based plugin system for 作家 that enables per-novel custom functionality through user-provided scripts. The system allows authors to extend their novels with custom export formats, automated content generation, integration with external tools, and workflow automation without modifying the core application.
 
 **Key Design Principles:**
 - **Per-novel isolation:** Plugins are scoped to individual novels
@@ -26,7 +26,7 @@ This document specifies a Python-based plugin system for Netwriter that enables 
 
 ```
 ┌─────────────────────────────────────────────────┐
-│           Netwriter Electron App                │
+│           ä½å®¶ Electron App                │
 │  ┌───────────────────────────────────────────┐  │
 │  │         Renderer Process (UI)             │  │
 │  └───────────────┬───────────────────────────┘  │
@@ -64,7 +64,7 @@ This document specifies a Python-based plugin system for Netwriter that enables 
 ### 1.2 Novel Directory Structure
 
 ```
-~/.netwriter/<novel-name>/
+~/.zuojia/<novel-name>/
 ├── manuscript/
 │   ├── chapter-01.md
 │   └── chapter-02.md
@@ -103,7 +103,7 @@ Every plugin requires a `manifest.json` file:
   "version": "1.0.0",
   "description": "Export manuscript to custom ePub format",
   "author": "Dom",
-  "netwriter_version": ">=0.1.0",
+  "zuojia_version": ">=0.1.0",
   
   "permissions": [
     "read:manuscript",
@@ -144,7 +144,7 @@ Every plugin requires a `manifest.json` file:
 Minimal plugin structure:
 
 ```python
-from netwriter_plugin_api import Plugin, PluginContext
+from zuojia_plugin_api import Plugin, PluginContext
 
 class CustomExport(Plugin):
     """Custom export plugin implementation."""
@@ -211,7 +211,7 @@ class PluginContext:
     storage: PluginStorage       # Plugin-specific storage
     
     # Metadata
-    netwriter_version: str       # Netwriter version
+    ä½å®¶_version: str       # ä½å®¶ version
     permissions: list[str]       # Granted permissions
 ```
 
@@ -332,7 +332,7 @@ Plugins must explicitly request permissions in `manifest.json`. Users approve on
 ### 4.2 Permission Grant Flow
 
 1. User opens novel with new/updated plugin
-2. Netwriter detects changed permissions
+2. ä½å®¶ detects changed permissions
 3. UI displays permission request dialog:
    ```
    Plugin "Custom Export" requests:
@@ -466,7 +466,7 @@ Novel Settings > Plugins
 ```python
 # meta/plugins/custom_export/plugin.py
 
-from netwriter_plugin_api import Plugin, PluginContext
+from ä½å®¶_plugin_api import Plugin, PluginContext
 from ebooklib import epub
 
 class CustomExportPlugin(Plugin):
@@ -512,7 +512,7 @@ class CustomExportPlugin(Plugin):
 ```python
 # meta/plugins/word_tracker/plugin.py
 
-from netwriter_plugin_api import Plugin
+from ä½å®¶_plugin_api import Plugin
 from datetime import datetime
 
 class WordTrackerPlugin(Plugin):
@@ -554,7 +554,7 @@ class WordTrackerPlugin(Plugin):
 ```python
 # meta/plugins/name_checker/plugin.py
 
-from netwriter_plugin_api import Plugin
+from ä½å®¶_plugin_api import Plugin
 import re
 
 class NameCheckerPlugin(Plugin):
@@ -670,8 +670,8 @@ Enforced via `resource` module and async timeouts.
 
 1. **Initialize directory:**
    ```bash
-   mkdir -p ~/.netwriter/my-novel/meta/plugins/my_plugin
-   cd ~/.netwriter/my-novel/meta/plugins/my_plugin
+   mkdir -p ~/.zuojia/my-novel/meta/plugins/my_plugin
+   cd ~/.zuojia/my-novel/meta/plugins/my_plugin
    ```
 
 2. **Create manifest:**
@@ -683,7 +683,7 @@ Enforced via `resource` module and async timeouts.
      "version": "0.1.0",
      "description": "Does something useful",
      "author": "Your Name",
-     "netwriter_version": ">=0.1.0",
+     "ä½å®¶_version": ">=0.1.0",
      "permissions": ["read:manuscript"],
      "hooks": {
        "on_chapter_save": "handle_save"
@@ -694,7 +694,7 @@ Enforced via `resource` module and async timeouts.
 
 3. **Create plugin.py:**
    ```python
-   from netwriter_plugin_api import Plugin, PluginContext
+   from ä½å®¶_plugin_api import Plugin, PluginContext
    
    class MyPlugin(Plugin):
        async def handle_save(self, event):
@@ -704,7 +704,7 @@ Enforced via `resource` module and async timeouts.
        return MyPlugin(context)
    ```
 
-4. **Test:** Open novel in Netwriter, plugin auto-loads
+4. **Test:** Open novel in ä½å®¶, plugin auto-loads
 
 ### 9.2 Debugging
 
@@ -720,7 +720,7 @@ Enforced via `resource` module and async timeouts.
 
 **Logs location:**
 ```
-~/.netwriter/my-novel/meta/plugins/my_plugin/logs/
+~/.zuojia/my-novel/meta/plugins/my_plugin/logs/
 ├── plugin.log          # Plugin-specific logs
 └── errors.log          # Error traces
 ```
@@ -850,7 +850,7 @@ class ExportResult:
 Plugins should use standard exceptions:
 
 ```python
-from netwriter_plugin_api.exceptions import (
+from ä½å®¶_plugin_api.exceptions import (
     PluginError,          # Base exception
     PermissionError,      # Missing required permission
     ConfigError,          # Invalid configuration
@@ -884,16 +884,16 @@ Existing novels work without modification. Plugin system is opt-in:
 
 ### 12.2 Plugin Version Management
 
-Plugins can declare minimum Netwriter version:
+Plugins can declare minimum ä½å®¶ version:
 
 ```json
 {
-  "netwriter_version": ">=0.2.0",
+  "ä½å®¶_version": ">=0.2.0",
   "deprecated_after": "1.0.0"
 }
 ```
 
-If Netwriter version incompatible:
+If ä½å®¶ version incompatible:
 - Plugin disabled automatically
 - User shown upgrade prompt
 - Safe fallback to core functionality

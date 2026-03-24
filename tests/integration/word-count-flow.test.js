@@ -17,7 +17,7 @@ describe('Word Count Integration Flow', () => {
 
   beforeEach(async () => {
     // Create temporary novel directory with git
-    testNovelPath = path.join(os.tmpdir(), `netwriter-test-${Date.now()}`);
+    testNovelPath = path.join(os.tmpdir(), `zuojia-test-${Date.now()}`);
     manuscriptPath = path.join(testNovelPath, 'manuscript');
     
     await fs.mkdir(manuscriptPath, { recursive: true });

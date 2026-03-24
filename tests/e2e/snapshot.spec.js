@@ -22,7 +22,7 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
     ({ app, page } = await launchElectronApp());
 
     testNovelName = `test-snapshot-${Date.now()}`;
-    testNovelPath = path.join(os.homedir(), '.netwriter', testNovelName);
+    testNovelPath = path.join(os.homedir(), '.zuojia', testNovelName);
 
     const newNovelButton = page.getByTestId('new-novel-button');
     await expect(newNovelButton).toBeVisible({ timeout: 10000 });

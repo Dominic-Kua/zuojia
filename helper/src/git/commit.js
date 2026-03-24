@@ -47,8 +47,8 @@ export async function commitChapter(novelPath, filename, content) {
     if (!hasOwnGit) {
       try {
         execSync('git init', { cwd: novelPath, stdio: 'ignore' });
-        execSync('git config user.name "Netwriter"', { cwd: novelPath, stdio: 'ignore' });
-        execSync('git config user.email "netwriter@localhost"', { cwd: novelPath, stdio: 'ignore' });
+        execSync('git config user.name "zuojia"', { cwd: novelPath, stdio: 'ignore' });
+        execSync('git config user.email "zuojia@localhost"', { cwd: novelPath, stdio: 'ignore' });
       } catch (initErr) {
         return createError('GIT_INIT_FAILED', 'Failed to initialize git repository',
           'Check file permissions and disk space', { error: initErr.message });
@@ -81,11 +81,11 @@ export async function commitChapter(novelPath, filename, content) {
 
     // Get commit hash and author info
     let commitHash = '';
-    let author = 'Netwriter';
+    let author = 'zuojia';
     
     try {
       commitHash = execSync('git rev-parse HEAD', { cwd: novelPath, encoding: 'utf-8' }).trim().slice(0, 7);
-      author = execSync('git config user.name', { cwd: novelPath, encoding: 'utf-8' }).trim() || 'Netwriter';
+      author = execSync('git config user.name', { cwd: novelPath, encoding: 'utf-8' }).trim() || 'zuojia';
     } catch {
       // Ignore errors getting commit info - commit may not exist yet
     }
