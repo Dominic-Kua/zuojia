@@ -28,6 +28,7 @@ validation-rules:
 - [ ] **Architecture Compliance:** Implementation follows all architectural requirements specified in Dev Notes
 - [ ] **Technical Specifications:** All technical specifications (libraries, frameworks, versions) from Dev Notes are implemented correctly
 - [ ] **Previous Story Learnings:** Previous story insights incorporated (if applicable) and build upon appropriately
+- [ ] **Story Branch Prepared:** Work started from freshly updated `main` on a dedicated story branch
 
 ## ✅ Implementation Completion
 
@@ -46,6 +47,17 @@ validation-rules:
 - [ ] **Regression Prevention:** ALL existing tests pass (no regressions introduced)
 - [ ] **Code Quality:** Linting and static checks pass when configured in project
 - [ ] **Test Framework Compliance:** Tests use project's testing frameworks and patterns from Dev Notes
+- [ ] **TDD Followed:** Story work began with failing tests before implementation and refactor kept tests green
+
+## 🔍 Review, Git, & Release Flow
+
+- [ ] **Implementation Commit:** Initial implementation was committed after tests passed and before first review
+- [ ] **First Code Review:** A code review pass was run and all findings that should be addressed were fixed
+- [ ] **E2E Coverage Evaluated:** E2E need was explicitly evaluated for user-facing or integration-impacting changes
+- [ ] **Post-Review Commit:** Review fixes and any E2E additions/updates were committed
+- [ ] **Second Code Review:** A second code review pass was run on the updated branch and resulting findings were fixed
+- [ ] **Final Commit & Push:** Final fixes were committed and the story branch was pushed to remote
+- [ ] **GitHub Issue Updated:** Any associated GitHub issue was updated with progress, review status, testing coverage, and branch/commit outcome
 
 ## 📝 Documentation & Tracking
 
