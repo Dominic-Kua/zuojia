@@ -33,6 +33,22 @@ function extractWords(text) {
   return matches || [];
 }
 
+function stripPossessive(word) {
+  const possessiveSuffixes = ["'s", '\u2019s'];
+  for (const suffix of possessiveSuffixes) {
+    if (word.endsWith(suffix)) {
+      return word.slice(0, -suffix.length);
+    }
+  }
+  const trailingApostrophes = ["'", '\u2019'];
+  for (const apostrophe of trailingApostrophes) {
+    if (word.endsWith(apostrophe)) {
+      return word.slice(0, -apostrophe.length);
+    }
+  }
+  return null;
+}
+
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -58,6 +74,11 @@ export async function findSpellingIssues(text, customWords = [], options = {}) {
   for (const word of extractWords(text)) {
     const normalizedWord = word.toLowerCase();
     if (customWordSet.has(normalizedWord)) {
+      continue;
+    }
+
+    const baseWord = stripPossessive(normalizedWord);
+    if (baseWord && customWordSet.has(baseWord)) {
       continue;
     }
 
