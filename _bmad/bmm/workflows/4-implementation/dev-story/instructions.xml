@@ -147,6 +147,18 @@
     </output>
   </step>
 
+  <step n="2.5" goal="Prepare story branch and issue context">
+    <critical>Every story starts from the latest remote main on a dedicated story branch unless the user explicitly instructs otherwise</critical>
+
+    <action>Check out `main` in the repository for the story</action>
+    <action>Pull the latest remote changes for `main`</action>
+    <action>Create or refresh a dedicated branch for the story from that updated `main`</action>
+    <action>Identify any GitHub issue associated with the story from story metadata, filename, linked notes, or user context</action>
+    <action>If a GitHub issue is associated, update it to indicate the story branch/work has started</action>
+
+    <action if="repository has uncommitted changes that would block checkout or pull">HALT and ask user how to proceed before story execution</action>
+  </step>
+
   <step n="3" goal="Detect review continuation and extract review context">
     <critical>Determine if this is a fresh start or continuation after code review</critical>
 
@@ -223,6 +235,7 @@
 
   <step n="5" goal="Implement task following red-green-refactor cycle">
     <critical>FOLLOW THE STORY FILE TASKS/SUBTASKS SEQUENCE EXACTLY AS WRITTEN - NO DEVIATION</critical>
+    <critical>Use TDD for the story: write failing tests first, implement the minimum fix, then refactor with tests green</critical>
 
     <action>Review the current task/subtask from the story file - this is your authoritative implementation guide</action>
     <action>Plan implementation following red-green-refactor cycle</action>
@@ -325,6 +338,14 @@
     <action>Run the full regression suite (do not skip)</action>
     <action>Confirm File List includes every changed file</action>
     <action>Execute enhanced definition-of-done validation</action>
+    <action>Create a commit for the completed implementation before the first review pass</action>
+    <action>Run a code review pass for the story and fix all review findings that should be addressed</action>
+    <action>Determine whether the story changes a user-facing flow, integration boundary, or other behavior that warrants end-to-end coverage; if yes, add or update E2E tests and run them</action>
+    <action>Create a follow-up commit containing review-driven fixes and any required E2E additions/updates</action>
+    <action>Run a second code review pass on the updated branch and fix the resulting findings</action>
+    <action>Create a final commit for second-review fixes</action>
+    <action>Push the story branch to the remote when the story is ready for review</action>
+    <action>If a GitHub issue is associated with the story, update it with progress, review status, testing coverage, branch name, and final commit state</action>
     <action>Update the story Status to: "review"</action>
 
     <!-- Enhanced Definition of Done Validation -->
@@ -334,6 +355,13 @@
       - Unit tests for core functionality added/updated
       - Integration tests for component interactions added when required
       - End-to-end tests for critical flows added when story demands them
+      - Initial implementation commit created before review
+      - First code review pass completed and findings addressed
+      - E2E coverage added or updated when story risk/user flow requires it
+      - Follow-up commit created after review fixes and E2E work
+      - Second code review pass completed and findings addressed
+      - Final story branch commit created and branch pushed to remote
+      - Associated GitHub issue updated with story outcome and testing/review status
       - All tests pass (no regressions, new tests successful)
       - Code quality checks pass (linting, static analysis if configured)
       - File List includes every new/modified/deleted file (relative paths)

@@ -37,6 +37,18 @@
 - Save outputs after EACH step when using the workflow engine
 - The `{project-root}` variable resolves to the workspace root at runtime
 
+## Story Execution Rules
+
+- Every implementation story starts by syncing from the latest `main`: checkout `main`, pull from the remote, then create a dedicated story branch from that updated `main`
+- Every story must use TDD: write failing tests first, implement the minimum fix, then refactor with tests green
+- After the initial implementation for a story is complete and tests pass, create a commit before review
+- Run a code review pass for the story, fix all findings that should be addressed, and keep those fixes in the story branch
+- Add or update end-to-end coverage when the story changes a user-facing flow, integration boundary, or other behavior that warrants E2E validation
+- After E2E additions/updates and review-driven fixes, create another commit
+- Run a second code review pass on the updated story branch, fix the resulting findings, then create a final commit
+- Push the story branch to the remote when the story is ready for review
+- Update any GitHub issue associated with the story to reflect progress, review status, testing coverage, and final branch/commit state
+
 ## Available Agents
 
 | Agent | Persona | Title | Capabilities |
