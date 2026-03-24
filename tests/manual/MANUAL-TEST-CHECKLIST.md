@@ -1,4 +1,4 @@
-# Manual Testing Checklist for Netwriter
+# Manual Testing Checklist for ä½å®¶
 
 **Version:** 1.0  
 **Last Updated:** February 26, 2026  

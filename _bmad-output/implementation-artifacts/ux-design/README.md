@@ -1,7 +1,7 @@
-UX Design for Netwriter
+UX Design for ä½å®¶
 ======================
 
-This folder contains the initial UX deliverables for the Netwriter macOS MVP:
+This folder contains the initial UX deliverables for the ä½å®¶ macOS MVP:
 
 - style-guide.md — color palette, typography, spacing, and tokens
 - components.md — list of core components and behaviors

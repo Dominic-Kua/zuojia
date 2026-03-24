@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Netwriter Development Launcher
+# ä½å®¶ Development Launcher
 # Starts Vite dev server, waits for it to be ready, then launches Electron
 # Cleans up all processes when Electron closes or on Ctrl+C
 
@@ -79,7 +79,7 @@ wait_for_port() {
 }
 
 # Main execution
-echo -e "${GREEN}Starting Netwriter development environment...${NC}"
+echo -e "${GREEN}Starting ä½å®¶ development environment...${NC}"
 
 # Check for required commands
 if ! command -v nc &> /dev/null; then
@@ -105,15 +105,15 @@ if check_port $VITE_PORT; then
 else
     # Start Vite dev server in background
     echo -e "${CYAN}Starting Vite dev server...${NC}"
-    npm run dev:vite > /tmp/netwriter-vite.log 2>&1 &
+    npm run dev:vite > /tmp/zuojia-vite.log 2>&1 &
     VITE_PID=$!
     
     echo -e "${CYAN}Vite PID: $VITE_PID${NC}"
     
     # Wait for Vite to be ready
     if ! wait_for_port $VITE_PORT; then
-        echo -e "${RED}Failed to start Vite. Check logs: /tmp/netwriter-vite.log${NC}"
-        tail -20 /tmp/netwriter-vite.log
+        echo -e "${RED}Failed to start Vite. Check logs: /tmp/zuojia-vite.log${NC}"
+        tail -20 /tmp/zuojia-vite.log
         exit 1
     fi
 fi

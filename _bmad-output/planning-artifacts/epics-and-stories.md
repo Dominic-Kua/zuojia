@@ -1,12 +1,12 @@
 ---
-title: "Netwriter Epics & Stories"
+title: "ä½å®¶ Epics & Stories"
 date: 2026-02-25
 author: Dom
 status: draft
 version: 1.0
 ---
 
-# Netwriter Epics & Stories (MVP)
+# ä½å®¶ Epics & Stories (MVP)
 
 This document breaks down the architecture and PRD into implementable epics and user stories. Each epic maps to one or more architectural components. Stories include acceptance criteria and point estimates.
 
@@ -14,7 +14,7 @@ This document breaks down the architecture and PRD into implementable epics and 
 
 ## Epic 1: Novel Management & Bootstrap
 
-**Description:** Users can create new novels or open existing ones from the filesystem. The app initializes the `~/.netwriter/<novel>/` directory structure and maintains a novel registry.
+**Description:** Users can create new novels or open existing ones from the filesystem. The app initializes the `~/.ä½å®¶/<novel>/` directory structure and maintains a novel registry.
 
 **Architecture Components:**
 - `src/components/Navigation` (NovelSelector)
@@ -30,7 +30,7 @@ This document breaks down the architecture and PRD into implementable epics and 
 **Acceptance Criteria:**
 - [x] "New Novel" button opens a dialog
 - [x] User enters novel name; validation prevents empty/invalid names
-- [x] Helper creates `~/.netwriter/<novel-name>/` with subdirs: `manuscript/`, `wiki/`, `meta/`
+- [x] Helper creates `~/.ä½å®¶/<novel-name>/` with subdirs: `manuscript/`, `wiki/`, `meta/`
 - [x] Helper initializes `meta/index.json` (empty chapters, wiki)
 - [x] Novel appears in sidebar novel list
 - [x] App opens the new novel (empty editor)
@@ -48,7 +48,7 @@ This document breaks down the architecture and PRD into implementable epics and 
 
 **Acceptance Criteria:**
 - [x] "Open" button opens file picker
-- [x] User selects `~/.netwriter/<novel>/` directory
+- [x] User selects `~/.ä½å®¶/<novel>/` directory
 - [x] Helper validates structure (manuscript/, wiki/, meta/); returns error if invalid
 - [x] App loads chapter list from `meta/index.json`
 - [x] Editor displays first chapter (or last edited)
@@ -607,7 +607,7 @@ This document breaks down the architecture and PRD into implementable epics and 
 
 **Acceptance Criteria:**
 - [ ] On first app launch, onboarding dialog appears:
-  - "Welcome to Netwriter"
+  - "Welcome to ä½å®¶"
   - Check 1: Git installed? (system `git --version`)
   - Check 2: Pandoc installed? (system `pandoc --version`)  
   - Check 3: TeX installed? (system `latex --version`)
@@ -662,7 +662,7 @@ This document breaks down the architecture and PRD into implementable epics and 
 **Acceptance Criteria:**
 - [ ] `electron-builder.yml` defines build target: `.dmg` (installer), `.zip` (portable)
 - [ ] Code signing configured (macOS developer certificate)
-- [ ] Build script: `npm run pack` produces `dist/netwriter-x.y.z.dmg`
+- [ ] Build script: `npm run pack` produces `dist/ä½å®¶-x.y.z.dmg`
 - [ ] DMG includes: app bundle, Applications symlink for easy install
 - [ ] Build works on current macOS release
 

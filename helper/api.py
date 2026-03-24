@@ -7,7 +7,7 @@ import subprocess
 import logging
 
 app = FastAPI()
-logger = logging.getLogger("netwriter-helper")
+logger = logging.getLogger("zuojia-helper")
 logging.basicConfig(level=logging.INFO)
 
 class SnapshotRequest(BaseModel):

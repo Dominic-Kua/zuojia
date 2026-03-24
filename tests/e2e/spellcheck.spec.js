@@ -65,7 +65,7 @@ test.describe('Spellcheck Dictionary E2E', () => {
   test.beforeEach(async () => {
     ({ app, page } = await launchElectronApp());
     testNovelName = `test-spellcheck-${Date.now()}`;
-    testNovelPath = path.join(os.homedir(), '.netwriter', testNovelName);
+    testNovelPath = path.join(os.homedir(), '.zuojia', testNovelName);
     await createNovel();
   });
 
