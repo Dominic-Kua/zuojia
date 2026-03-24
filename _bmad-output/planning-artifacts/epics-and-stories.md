@@ -14,7 +14,7 @@ This document breaks down the architecture and PRD into implementable epics and 
 
 ## Epic 1: Novel Management & Bootstrap
 
-**Description:** Users can create new novels or open existing ones from the filesystem. The app initializes the `~/.ä½å®¶/<novel>/` directory structure and maintains a novel registry.
+**Description:** Users can create new novels or open existing ones from the filesystem. The app initializes the `~/.zuojia/<novel>/` directory structure and maintains a novel registry.
 
 **Architecture Components:**
 - `src/components/Navigation` (NovelSelector)
@@ -30,7 +30,7 @@ This document breaks down the architecture and PRD into implementable epics and 
 **Acceptance Criteria:**
 - [x] "New Novel" button opens a dialog
 - [x] User enters novel name; validation prevents empty/invalid names
-- [x] Helper creates `~/.ä½å®¶/<novel-name>/` with subdirs: `manuscript/`, `wiki/`, `meta/`
+- [x] Helper creates `~/.zuojia/<novel-name>/` with subdirs: `manuscript/`, `wiki/`, `meta/`
 - [x] Helper initializes `meta/index.json` (empty chapters, wiki)
 - [x] Novel appears in sidebar novel list
 - [x] App opens the new novel (empty editor)
@@ -48,7 +48,7 @@ This document breaks down the architecture and PRD into implementable epics and 
 
 **Acceptance Criteria:**
 - [x] "Open" button opens file picker
-- [x] User selects `~/.ä½å®¶/<novel>/` directory
+- [x] User selects `~/.zuojia/<novel>/` directory
 - [x] Helper validates structure (manuscript/, wiki/, meta/); returns error if invalid
 - [x] App loads chapter list from `meta/index.json`
 - [x] Editor displays first chapter (or last edited)

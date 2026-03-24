@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# ä½å®¶ Development Launcher
+# 作家 Development Launcher
 # Starts Vite dev server, waits for it to be ready, then launches Electron
 # Cleans up all processes when Electron closes or on Ctrl+C
 
@@ -79,7 +79,7 @@ wait_for_port() {
 }
 
 # Main execution
-echo -e "${GREEN}Starting ä½å®¶ development environment...${NC}"
+echo -e "${GREEN}Starting 作家 development environment...${NC}"
 
 # Check for required commands
 if ! command -v nc &> /dev/null; then

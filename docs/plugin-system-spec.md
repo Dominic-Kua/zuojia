@@ -64,7 +64,7 @@ This document specifies a Python-based plugin system for 作家 that enables per
 ### 1.2 Novel Directory Structure
 
 ```
-~/.ä½å®¶/<novel-name>/
+~/.zuojia/<novel-name>/
 ├── manuscript/
 │   ├── chapter-01.md
 │   └── chapter-02.md
@@ -670,8 +670,8 @@ Enforced via `resource` module and async timeouts.
 
 1. **Initialize directory:**
    ```bash
-   mkdir -p ~/.ä½å®¶/my-novel/meta/plugins/my_plugin
-   cd ~/.ä½å®¶/my-novel/meta/plugins/my_plugin
+   mkdir -p ~/.zuojia/my-novel/meta/plugins/my_plugin
+   cd ~/.zuojia/my-novel/meta/plugins/my_plugin
    ```
 
 2. **Create manifest:**
@@ -720,7 +720,7 @@ Enforced via `resource` module and async timeouts.
 
 **Logs location:**
 ```
-~/.ä½å®¶/my-novel/meta/plugins/my_plugin/logs/
+~/.zuojia/my-novel/meta/plugins/my_plugin/logs/
 ├── plugin.log          # Plugin-specific logs
 └── errors.log          # Error traces
 ```

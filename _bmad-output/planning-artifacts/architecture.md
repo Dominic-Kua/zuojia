@@ -26,7 +26,7 @@ This document records the initial architecture decisions for the ä½å®¶ ma
 
 ## Overview & Goals
 - Helper Process (local orchestrator): lightweight Node (or Go) background process responsible for file IO, Git orchestration, export orchestration (Pandoc calls), and backups. Runs as a child process spawned by the main Electron process or as an embedded worker.
-- File System: per-novel directory `~/.ä½å®¶/<novel>/` with `manuscript/`, `wiki/`, `meta/` (backups, hooks, logs).
+- File System: per-novel directory `~/.zuojia/<novel>/` with `manuscript/`, `wiki/`, `meta/` (backups, hooks, logs).
 - Git: rely on system Git + SSH agent. The helper process invokes git commands; UI shows snapshot/commit flows.
 - Export Pipeline: helper process runs Pandoc + LaTeX (via Homebrew). Export executed in isolated subprocess with logs captured under `meta/logs/`.
 
@@ -161,7 +161,7 @@ The following critical decisions were made collaboratively and lock in the techn
 **Previously Decided (from Steps 2–3):**
 - Renderer: Vite + React (TypeScript) + Electron
 - Helper process: Node.js (Git/export/backup orchestration)
-- File layout: `~/.ä½å®¶/<novel>/` with `manuscript/`, `wiki/`, `meta/`
+- File layout: `~/.zuojia/<novel>/` with `manuscript/`, `wiki/`, `meta/`
 - Git: system `git` + SSH agent (no stored credentials)
 - Export: `pandoc` + TeX via Homebrew
 - Spellcheck: macOS native API + wiki-derived dictionary
@@ -202,7 +202,7 @@ The following critical decisions were made collaboratively and lock in the techn
 ```javascript
 // In renderer (React component):
 await ipcRenderer.invoke('helper:git:commit', {
-  novelPath: '~/.ä½å®¶/my-novel',
+  novelPath: '~/.zuojia/my-novel',
   message: 'Chapter 3 edits',
   files: ['manuscript/chapter-03.md']
 });
@@ -506,7 +506,7 @@ src/components/
 
 **Example:**
 ```
-[2026-02-25T14:32:10Z] [ERROR] [export] pandoc not found. suggestion=brew install pandoc context={"cwd":"/Users/dom/.ä½å®¶/my-novel","searchPath":"/usr/local/bin:/usr/bin"}
+[2026-02-25T14:32:10Z] [ERROR] [export] pandoc not found. suggestion=brew install pandoc context={"cwd":"/Users/dom/.zuojia/my-novel","searchPath":"/usr/local/bin:/usr/bin"}
 ```
 
 **Log Location:**
@@ -634,7 +634,7 @@ export function useNovel() {
 4. Use PascalCase + feature folders for React components
 5. Structure errors with code, message, and suggestion
 6. Log all operations to `meta/logs/` with timestamp and context
-7. Treat `~/.ä½å®¶/<novel>/` as the source of truth for all data
+7. Treat `~/.zuojia/<novel>/` as the source of truth for all data
 
 **Pattern Violations → Code Review Blocker:**
 Any pull request that violates these patterns must be revised before merge.
@@ -839,13 +839,13 @@ State update / Re-render
 
 | Data | Location | Authority | Access Pattern |
 |------|----------|-----------|-----------------|
-| Chapters | `~/.ä½å®¶/<novel>/manuscript/*.md` | Source of truth | Helper reads/writes; Renderer displays |
-| Wiki pages | `~/.ä½å®¶/<novel>/wiki/*.md` | Source of truth | Helper maintains; Renderer queries via IPC |
-| Index | `~/.ä½å®¶/<novel>/meta/index.json` | Derived from filesystem | Helper writes; Renderer reads via `helper:index:get` |
+| Chapters | `~/.zuojia/<novel>/manuscript/*.md` | Source of truth | Helper reads/writes; Renderer displays |
+| Wiki pages | `~/.zuojia/<novel>/wiki/*.md` | Source of truth | Helper maintains; Renderer queries via IPC |
+| Index | `~/.zuojia/<novel>/meta/index.json` | Derived from filesystem | Helper writes; Renderer reads via `helper:index:get` |
 | Editor state | Memory (React) | Transient | Saved to disk on autosave timeout |
 | Spellcheck dict | Memory (React) | Loaded at startup | Generated from wiki via `helper:wiki:rebuild-dict` |
 | Git history | Helper subprocess | On-demand | Fetched via `helper:git:history` |
-| Logs | `~/.ä½å®¶/<novel>/meta/logs/` | Append-only | Helper writes; Diagnostics UI reads |
+| Logs | `~/.zuojia/<novel>/meta/logs/` | Append-only | Helper writes; Diagnostics UI reads |
 
 ### Requirements to Structure Mapping
 
@@ -906,7 +906,7 @@ State update / Re-render
 - Helper unit: `helper/tests/`
 
 **Runtime Data:**
-- User novels: `~/.ä½å®¶/<novel-name>/` (filesystem source of truth)
+- User novels: `~/.zuojia/<novel-name>/` (filesystem source of truth)
 - Build artifacts: `build/dist/` (DMG, zip, app)
 
 ## Architecture Validation Results (Step 7)

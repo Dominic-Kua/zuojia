@@ -21,7 +21,7 @@ body{margin:0;font-family:'PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','N
 .manuscript-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
 .chapter-select{font-family:Inter;padding:6px 8px;border-radius:8px;border:1px solid var(--divider)}
 .wordcounts span{margin-left:12px;color:var(--text-secondary);font-size:13px}
-.editor{font-family:'Merriweather', Georgia, serif;font-size:18px;line-height:1.6;color:var(--text-primary);min-height:0;flex:1;overflow:auto;padding-bottom:16px}
+.editor{font-family:'Merriweather', Georgia, serif;font-size:18px;line-height:1.6;color:var(--text-primary);min-height:6.4em;flex:1;overflow:auto;padding-bottom:16px}
 .editor:focus{outline:none}
 .sidebar{padding-top:8px}
 .sidebar-inner{background:var(--sidebar-surface);padding:20px;border-radius:10px;height:100%;box-shadow:0 4px 12px rgba(32,38,40,0.04)}
@@ -73,11 +73,12 @@ body{margin:0;font-family:'PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','N
 
 .spellcheck-panel{margin-top:16px;padding-top:16px;border-top:1px solid var(--divider);display:flex;flex-direction:column;gap:12px}
 .spellcheck-panel-header{display:flex;justify-content:space-between;align-items:center;gap:12px}
-.spellcheck-issues{display:flex;flex-direction:column;gap:10px}
+.spellcheck-issues{display:flex;flex-direction:column;gap:10px;height:220px;overflow-y:auto;padding-right:4px}
 .spellcheck-issue-item{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 12px;border:1px solid var(--divider);border-radius:10px;background:#fbfcfb}
 .spellcheck-issue{font-weight:600;color:var(--text-primary)}
 .spellcheck-suggestions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px}
 .spellcheck-suggestion{padding:4px 10px;font-size:12px}
+.spellcheck-create-wiki{padding:4px 10px;font-size:12px}
 .spellcheck-no-suggestions{font-size:12px;color:var(--text-secondary)}
 
 @media (max-width:900px){

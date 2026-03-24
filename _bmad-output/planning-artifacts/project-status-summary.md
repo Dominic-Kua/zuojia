@@ -223,11 +223,11 @@ tests/
 - **UI Framework:** React 18.2.0
 - **Testing:** Vitest 4.0.18 (unit), Playwright (E2E)
 - **Markdown:** marked + DOMPurify
-- **Storage:** Local filesystem (`~/.ä½å®¶/<novel>/`)
+- **Storage:** Local filesystem (`~/.zuojia/<novel>/`)
 
 ### Data Structure
 ```
-~/.ä½å®¶/<novel>/
+~/.zuojia/<novel>/
 ├── manuscript/
 │   └── chapter-NN.md
 ├── wiki/

@@ -176,4 +176,42 @@ test.describe('Spellcheck Dictionary E2E', () => {
       return await page.locator('[data-testid="spellcheck-issue"]').allTextContents();
     }).toEqual(['Alise']);
   });
+
+  test('should use a fixed-height scrollable suggestions panel', async () => {
+    await clearAndTypeManuscript('Alise acheive wierd recieve definately adress occurence accomodate seperate untill.');
+
+    const metrics = await page.evaluate(() => {
+      const panel = document.querySelector('[data-testid="spellcheck-issues"]');
+      if (!panel) {
+        return null;
+      }
+      const style = window.getComputedStyle(panel);
+      return {
+        overflowY: style.overflowY,
+        height: style.height,
+        scrollHeight: panel.scrollHeight,
+        clientHeight: panel.clientHeight,
+      };
+    });
+
+    expect(metrics).not.toBeNull();
+    expect(metrics.overflowY).toBe('auto');
+    expect(metrics.height).toBe('220px');
+    expect(metrics.scrollHeight).toBeGreaterThanOrEqual(metrics.clientHeight);
+  });
+
+  test('can create a wiki page from a suspected spelling issue', async () => {
+    await clearAndTypeManuscript('Eldorwyn appears in the scene.');
+
+    const issue = page.locator('[data-testid="spellcheck-issue-item"]').filter({ hasText: 'Eldorwyn' });
+    await expect(issue).toBeVisible({ timeout: 5000 });
+
+    await issue.getByTestId('spellcheck-create-wiki').click();
+
+    await expect(page.locator('#wiki-title')).toHaveValue(/eldorwyn/i, { timeout: 5000 });
+
+    await expect.poll(async () => {
+      return await page.locator('[data-testid="spellcheck-issue"]').allTextContents();
+    }).toEqual([]);
+  });
 });
