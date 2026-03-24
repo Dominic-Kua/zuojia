@@ -6,6 +6,27 @@ import { useState, useEffect, useCallback } from 'react';
 import { wikiHandlers } from '../lib/ipc-client.ts';
 
 /**
+ * Strip possessive suffix from a word (e.g. "Dominic's" → "Dominic")
+ * @param {string} word
+ * @returns {string|null} Base word without possessive, or null if not possessive
+ */
+function stripPossessive(word) {
+  const possessiveSuffixes = ["'s", '\u2019s'];
+  for (const suffix of possessiveSuffixes) {
+    if (word.endsWith(suffix)) {
+      return word.slice(0, -suffix.length);
+    }
+  }
+  const trailingApostrophes = ["'", '\u2019'];
+  for (const apostrophe of trailingApostrophes) {
+    if (word.endsWith(apostrophe)) {
+      return word.slice(0, -apostrophe.length);
+    }
+  }
+  return null;
+}
+
+/**
  * Hook for managing spellcheck dictionary from wiki pages
  * @param {string} novelPath - Path to the novel
  * @returns {Object} - {words, loading, error, isWordInDictionary, refresh}
@@ -91,14 +112,19 @@ export function useSpellcheck(novelPath) {
     };
   }, [loadDictionary, novelPath]);
 
-  // Check if a word is in the dictionary (case-insensitive)
+  // Check if a word is in the dictionary (case-insensitive, with possessive support)
   const isWordInDictionary = useCallback(
     (word) => {
       if (!word) return false;
       // First try exact match for performance
       if (wordSet.has(word)) return true;
+      const lowerWord = word.toLowerCase();
       // Then try case-insensitive lookup
-      return wordSetLowercase.has(word.toLowerCase());
+      if (wordSetLowercase.has(lowerWord)) return true;
+      // Check possessive forms (e.g. "Dominic's" → "Dominic")
+      const baseWord = stripPossessive(lowerWord);
+      if (baseWord && wordSetLowercase.has(baseWord)) return true;
+      return false;
     },
     [wordSet, wordSetLowercase]
   );

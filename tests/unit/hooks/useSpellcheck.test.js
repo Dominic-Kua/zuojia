@@ -105,6 +105,39 @@ describe('useSpellcheck', () => {
       expect(result.current.isWordInDictionary('NotAWikiPage')).toBe(false);
       expect(result.current.isWordInDictionary('xyz')).toBe(false);
     });
+
+    it('recognises possessive forms of dictionary words', async () => {
+      const { result } = renderHook(() => useSpellcheck('/test/novel'));
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      expect(result.current.isWordInDictionary("Alice's")).toBe(true);
+      expect(result.current.isWordInDictionary("Frodo's")).toBe(true);
+      expect(result.current.isWordInDictionary("Baggins'")).toBe(true);
+    });
+
+    it('recognises possessive forms case-insensitively', async () => {
+      const { result } = renderHook(() => useSpellcheck('/test/novel'));
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      expect(result.current.isWordInDictionary("alice's")).toBe(true);
+      expect(result.current.isWordInDictionary("ALICE'S")).toBe(true);
+    });
+
+    it('returns false for possessive forms of words not in dictionary', async () => {
+      const { result } = renderHook(() => useSpellcheck('/test/novel'));
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      expect(result.current.isWordInDictionary("NotAPage's")).toBe(false);
+    });
   });
 
   describe('error handling', () => {
