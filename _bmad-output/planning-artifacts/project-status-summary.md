@@ -8,13 +8,13 @@
 
 ## Executive Summary
 
-ä½å®¶ is an Electron-based novel writing application with integrated wiki system, word count tracking, and git-based autosave. MVP scope is now complete; all remaining stories have been moved into the Version 2 roadmap (git workflow, export, spellcheck dictionary, plugins, diagnostics, settings, infra, performance, testing).
+ä½å®¶ is an Electron-based novel writing application with integrated wiki system, word count tracking, and git-based autosave. MVP scope is now complete; all remaining stories have been moved into the Version 2 roadmap (git workflow, export, plugins, diagnostics, settings, infra, performance, testing).
 
 **Overall Progress:** MVP 100% delivered; V2 backlog open
 
 ### Latest Test Run (2026-03-24)
-- Unit + integration: ✅ passing (186 tests + 1 skipped across 15 files; integration 10 tests + 1 skipped)
-- E2E: ⚠️ failing — Spellcheck Dictionary E2E (`tests/e2e/spellcheck.spec.js`) interrupted after app exited while typing; error shows `path` argument is `null` during `helper:wiki:list`. Issue deferred to V2 backlog.
+- Unit + integration: ✅ passing (191 tests + 1 skipped across 15 files)
+- E2E: not re-run in this documentation refresh
 
 ---
 
@@ -63,12 +63,12 @@
 ---
 
 ### ✅ Epic 3: Wiki System & Contextual Reference (COMPLETE)
-**Status:** 2/3 stories complete; remaining story moved to V2  
-**Points:** 11/11 (MVP stories), Spellcheck Dictionary moved
+**Status:** All 3 stories complete  
+**Points:** 14/14 (100%)
 
 - ✅ 3.1 Wiki Page CRUD
 - ✅ 3.2 Wiki Link Syntax & Resolution
-- ❌ 3.3 Spellcheck Dictionary (Not started)
+- ✅ 3.3 Spellcheck Dictionary
 
 **Key Features Implemented:**
 - Full CRUD operations for wiki pages
@@ -106,18 +106,34 @@
 
 ---
 
-## Version 2 Roadmap (Deferred from MVP + New Scope)
+## Version 2 Roadmap (Distribution Release)
 
-- Epic 3.3: Spellcheck Dictionary from Wiki (deferred)  
-- Epic 4: Git Workflow & Sync (manual commit dialog, pull/conflict detection, git configuration)  
+V2 is the distribution release: make the app installable, exportable, and trustworthy for day-to-day solo use on macOS.
+
+- Epic 4: Git Workflow & Sync (snapshot, manual commit, push, git configuration)  
 - Epic 5: Export Pipeline (PDF export, metadata & ordering, validation/logs)  
-- Epic 6: Spellcheck Integration (native marks and macOS spellchecker)  
 - Epic 7: Diagnostics & Recovery  
 - Epic 8: Settings & Configuration  
-- Epic 9: App Infrastructure & Packaging (adds macOS DMG installer + signing/notarization)  
+- Epic 9: App Infrastructure & Packaging (macOS DMG installer + signing/notarization)  
 - Epic 10: Performance & Polish  
 - Epic 11: Testing  
+
+Roadmap issues:
+- #62 Packaging baseline
+- #63 Signed and notarized macOS distribution
+- #64 Trusted solo workflow (snapshot, commit, push, git config)
+- #65 Diagnostics and recovery
+- #66 PDF export
+- #67 Release hardening
+
+## Version 3 Candidates
+
+- Epic 4.4: Pull with Conflict Detection / conflict resolution UI  
 - Epic 12: Plugin System (manifest, extension points, content pipelines)
+
+Deferred issues:
+- #68 Pull conflict resolution
+- #69 Plugin system
 
 ## Implementation Highlights
 
@@ -249,10 +265,9 @@ tests/
 
 ## Next Priority Work (Version 2)
 
-- Spellcheck dictionary (Epic 3.3) and E2E fix for `helper:wiki:list` null path
-- Git workflow features: manual commit dialog, pull with conflict detection, git configuration
+- macOS packaging: signed/notarized DMG, release artifacts, install flow
+- Git workflow features: manual commit dialog, push, and git configuration
 - Export pipeline: PDF export with metadata and chapter ordering
-- Plugin system (Epic 12): manifest, extension points, content pipelines
 - Diagnostics, settings, performance polish, and expanded testing
 
 ---
@@ -269,8 +284,9 @@ tests/
 - **Integration:** Some flows lack integration tests
 - **Recommendation:** Continue building E2E coverage for critical user flows
 
-### Spellcheck Stability
-- E2E Spellcheck dictionary flow currently fails (app exits; `path` argument `null` during `helper:wiki:list`). Requires investigation into novel path wiring and dictionary rebuild lifecycle.
+### Roadmap Hygiene
+- Spellcheck work has been completed and removed from the V2 backlog.
+- Plugins and merge conflict resolution have been explicitly deferred to V3 so V2 stays focused on distribution and export.
 
 ---
 

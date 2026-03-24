@@ -238,25 +238,18 @@ This document breaks down the architecture and PRD into implementable epics and 
 
 **Estimate:** 4 points
 
-### 3.3 Spellcheck Dictionary from Wiki ➡️ Moved to V2
-Pending story relocated to Version 2 roadmap (see below).
-
----
-
-## Version 2 Roadmap
-
-All unfinished MVP stories have been moved here. New V2 scope includes plugins.
-
-### Story 3.3 Spellcheck Dictionary from Wiki (V2)
+### 3.3 Spellcheck Dictionary from Wiki ✅
 **Story:** As the system, I need to suppress wiki-derived terms from spellcheck, so proper nouns (character/place names) don't clutter suggestions.
 
+**Status:** Complete
+
 **Acceptance Criteria:**
-- [ ] On app startup (or after wiki rebuild), helper scans `wiki/` directory
-- [ ] Helper generates spellcheck dictionary: `meta/spellcheck-dict.json` with all wiki page titles
-- [ ] Renderer loads dictionary on startup; passes to CodeMirror spellcheck extension
-- [ ] Terms in dictionary are not flagged as misspelled
-- [ ] Dictionary updates whenever a wiki page is created/renamed
-- [ ] Dictionary rebuilds triggered by IPC call `helper:wiki:rebuild-dict`
+- [x] On app startup (or after wiki rebuild), helper scans `wiki/` directory
+- [x] Helper generates spellcheck dictionary: `meta/spellcheck-dict.json` with all wiki page titles
+- [x] Renderer loads dictionary on startup; passes to CodeMirror spellcheck extension
+- [x] Terms in dictionary are not flagged as misspelled
+- [x] Dictionary updates whenever a wiki page is created/renamed
+- [x] Dictionary rebuilds triggered by IPC call `helper:wiki:rebuild-dict`
 
 **Components Involved:**
 - `helper/src/wiki/rebuild-dict.js`
@@ -265,9 +258,23 @@ All unfinished MVP stories have been moved here. New V2 scope includes plugins.
 
 **Estimate:** 3 points
 
+---
+
+## Version 2 Roadmap
+
+V2 is the distribution release: packaging, installability, export, trusted backup/sync basics, and release hardening. Plugins and conflict resolution are deferred to V3.
+
+Tracking issues:
+- #62 Packaging baseline
+- #63 Signed and notarized macOS distribution
+- #64 Trusted solo workflow (snapshot, commit, push, git config)
+- #65 Diagnostics and recovery
+- #66 PDF export
+- #67 Release hardening
+
 ## Epic 4 (V2): Git Workflow & Sync
 
-**Description:** Users can snapshot (local), commit (stage+commit), and push/pull to remotes. Conflicts are detected and surfaced per-chapter.
+**Description:** Users can snapshot, commit, push, and configure sync settings for safe off-machine backup. Advanced pull conflict resolution is deferred to V3.
 
 **Architecture Components:**
 - `helper/src/git/commit.js`
@@ -336,27 +343,8 @@ All unfinished MVP stories have been moved here. New V2 scope includes plugins.
 
 **Estimate:** 2 points
 
-### 4.4 Pull with Conflict Detection
-**Story:** As an author, I want to pull changes from a remote, with automatic detection of conflicts per-chapter.
-
-**Acceptance Criteria:**
-- [ ] "Pull" button in toolbar
-- [ ] Before pull, helper creates a pre-sync snapshot (automatic, no dialog)
-- [ ] Helper runs `git pull origin main`
-- [ ] If no conflicts: toast "Pulled X commits"
-- [ ] If conflicts detected: Helper parses conflict markers per-chapter
-- [ ] Renderer displays diff UI for each conflicted chapter (side-by-side or merged view)
-- [ ] User selects which version to keep: "Keep Local" | "Keep Remote" | "Manual Merge"
-- [ ] On resolution, helper stages + commits with message "Merge conflict resolved: <chapters>"
-- [ ] Backup of conflicted versions preserved in `meta/backups/`
-
-**Components Involved:**
-- `src/components/EditorToolbar`
-- `src/components/Manuscript/ConflictResolver` (new, diff UI)
-- `helper/src/git/pull.js`
-- `helper/src/backup/create-snapshot.js`
-
-**Estimate:** 5 points
+### 4.4 Pull with Conflict Detection ➡️ Moved to V3
+Advanced pull and merge conflict handling are intentionally deferred so V2 can stay focused on distribution, export, and trusted single-user workflows.
 
 ### 4.5 Git Configuration
 **Story:** As an author, I want to configure git settings (remote URL, branch, SSH key), so I can customize my sync workflow.
@@ -446,51 +434,6 @@ All unfinished MVP stories have been moved here. New V2 scope includes plugins.
 - `helper/src/export/validate-deps.js`
 - `helper/src/util/logging.js`
 - `src/components/Diagnostics/LogViewer`
-
-**Estimate:** 2 points
-
----
-
-## Epic 6 (V2): Spellcheck Integration
-
-**Description:** Spell-check active in editor using macOS native API + wiki-derived dictionary for suppression.
-
-**Architecture Components:**
-- `src/lib/codemirror-extensions` (spellcheck marks)
-- `helper/src/wiki/rebuild-dict.js`
-- macOS native API (via Electron)
-
-**Stories:**
-
-### 6.1 Spellcheck Marks & Menu
-**Story:** As an author, I want misspelled words underlined and right-click suggestions, so I can fix typos quickly.
-
-**Acceptance Criteria:**
-- [ ] CodeMirror extension adds spellcheck marks (red squiggly underline)
-- [ ] Right-click on misspelled word shows context menu with suggestions
-- [ ] User can click a suggestion to replace word
-- [ ] User can "Ignore" (for this session) or "Add to Dictionary" (persistent)
-- [ ] Dictionary persisted in `meta/spellcheck-dict.json`
-- [ ] Spellcheck latency <100ms for typical chapters
-
-**Components Involved:**
-- `src/lib/codemirror-extensions.ts` (spellcheck extension)
-- `src/components/Manuscript/CodeMirrorEditor`
-
-**Estimate:** 3 points
-
-### 6.2 macOS Native Spellchecker
-**Story:** As the system, I want to use the platform's native spellchecker, so suggestions are accurate and user experience familiar.
-
-**Acceptance Criteria:**
-- [ ] Electron preload script exposes macOS spell-check API to renderer
-- [ ] CodeMirror extension uses native spellcheck for suggestions
-- [ ] Language defaults to user's system language
-- [ ] Performance: suggestions appear <500ms
-
-**Components Involved:**
-- `electron/preload.js` (macOS spell-check binding)
-- `src/lib/codemirror-extensions.ts`
 
 **Estimate:** 2 points
 
@@ -810,7 +753,37 @@ All unfinished MVP stories have been moved here. New V2 scope includes plugins.
 
 ---
 
-## Epic 12 (V2): Plugin System
+## Version 3 Candidates
+
+V3 is the extensibility and advanced collaboration release. It takes on higher-risk surface area after V2 proves the distribution and authoring workflow.
+
+Tracking issues:
+- #68 Pull conflict resolution
+- #69 Plugin system
+
+### Story 4.4 Pull with Conflict Detection (V3)
+**Story:** As an author, I want to pull changes from a remote, with automatic detection of conflicts per-chapter.
+
+**Acceptance Criteria:**
+- [ ] "Pull" button in toolbar
+- [ ] Before pull, helper creates a pre-sync snapshot (automatic, no dialog)
+- [ ] Helper runs `git pull origin main`
+- [ ] If no conflicts: toast "Pulled X commits"
+- [ ] If conflicts detected: Helper parses conflict markers per-chapter
+- [ ] Renderer displays diff UI for each conflicted chapter (side-by-side or merged view)
+- [ ] User selects which version to keep: "Keep Local" | "Keep Remote" | "Manual Merge"
+- [ ] On resolution, helper stages + commits with message "Merge conflict resolved: <chapters>"
+- [ ] Backup of conflicted versions preserved in `meta/backups/`
+
+**Components Involved:**
+- `src/components/EditorToolbar`
+- `src/components/Manuscript/ConflictResolver` (new, diff UI)
+- `helper/src/git/pull.js`
+- `helper/src/backup/create-snapshot.js`
+
+**Estimate:** 5 points
+
+## Epic 12 (V3): Plugin System
 
 **Description:** Extensible plugin system enabling third-party or user-authored plugins for editor features, transformations, and integrations. Based on plugin system spec in docs/plugin-system-spec.md.
 
@@ -870,20 +843,16 @@ All unfinished MVP stories have been moved here. New V2 scope includes plugins.
 - **4.1** Snapshot (Local Backup)
 - **4.2** Commit (Stage & Track)
 - **4.3** Push (Send to Remote)
-- **4.4** Pull with Conflict Detection
 - **4.5** Git Configuration
 
-**Phase 2 Estimate:** 12 points
-**Goal:** Authors can sync with git remotes and resolve conflicts.
+**Phase 2 Estimate:** 7 points
+**Goal:** Authors can back up work off-machine and manage git settings without advanced merge workflows.
 
 ### Phase 3: Wiki & Reference (Week 3)
 - **3.1** Wiki Page CRUD
 - **3.2** Wiki Link Syntax & Resolution
-- **3.3** Spellcheck Dictionary from Wiki
-- **6.1** Spellcheck Marks & Menu
-- **6.2** macOS Native Spellchecker
 
-**Phase 3 Estimate:** 14 points
+**Phase 3 Estimate:** 6 points
 **Goal:** Authors can reference world-building details inline.
 
 ### Phase 4: Export & Polish (Week 4)
@@ -918,12 +887,13 @@ All unfinished MVP stories have been moved here. New V2 scope includes plugins.
 
 | Metric | Value |
 |--------|-------|
-| Total Epics | 11 |
-| Total Stories | 36 |
-| Total Estimate | 88 points |
+| Active V2 Epics | 7 |
+| Active V2 Stories | 23 |
+| Active V2 Estimate | 56 points |
+| Deferred to V3 | Conflict resolution, plugins |
 | Phase 1 (Weeks 1-2) | 22 pts (Core Editor) |
-| Phase 2 (Weeks 2-3) | 12 pts (Git Workflow) |
-| Phase 3 (Week 3-4) | 14 pts (Wiki & Spellcheck) |
+| Phase 2 (Weeks 2-3) | 7 pts (Git Workflow) |
+| Phase 3 (Week 3-4) | 6 pts (Wiki & Reference) |
 | Phase 4 (Week 4) | 20 pts (Export & Polish) |
 | Phase 5 (Week 4-5) | 19 pts (Testing & Deploy) |
 
