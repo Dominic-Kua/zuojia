@@ -81,7 +81,7 @@ describe('SnapshotButton', () => {
     await user.click(screen.getByTestId('snapshot-button'));
     await user.click(screen.getByTestId('snapshot-confirm'));
 
-    expect(backupHandlers.createSnapshot).toHaveBeenCalledWith(novelPath, '');
+    expect(backupHandlers.createSnapshot).toHaveBeenCalledWith(novelPath, null);
   });
 
   it('shows success toast after snapshot creation', async () => {
@@ -176,9 +176,17 @@ describe('SnapshotButton', () => {
     render(<SnapshotButton novelPath={novelPath} />);
 
     await user.click(screen.getByTestId('snapshot-button'));
+
+    const dialog = screen.getByTestId('snapshot-dialog');
+    expect(dialog).toBeInTheDocument();
+
+    // Clicking inside the dialog should not close it
+    await user.click(dialog);
     expect(screen.getByTestId('snapshot-dialog')).toBeInTheDocument();
 
-    await user.click(screen.getByTestId('snapshot-dialog'));
+    // Clicking the overlay/backdrop should close it
+    const overlay = screen.getByTestId('snapshot-overlay');
+    await user.click(overlay);
     expect(screen.queryByTestId('snapshot-dialog')).not.toBeInTheDocument();
   });
 

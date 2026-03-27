@@ -23,16 +23,19 @@ export function SnapshotButton({ novelPath }) {
   };
 
   const handleCancel = () => {
+    if (isCreating) return;
     setShowDialog(false);
     setLabel('');
     setError(null);
   };
 
   const handleConfirm = async () => {
+    const normalizedLabel = label.trim();
+    const labelToSend = normalizedLabel === '' ? null : normalizedLabel;
     setIsCreating(true);
     setError(null);
     try {
-      const result = await backupHandlers.createSnapshot(novelPath, label);
+      const result = await backupHandlers.createSnapshot(novelPath, labelToSend);
       const displayLabel = result.label || new Date(result.timestamp).toLocaleString();
       setToast(`Snapshot created: ${displayLabel}`);
       setShowDialog(false);
@@ -55,14 +58,24 @@ export function SnapshotButton({ novelPath }) {
       </button>
 
       {showDialog && (
-        <div className="snapshot-overlay" data-testid="snapshot-dialog" onClick={handleCancel}>
-          <div className="snapshot-dialog" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Escape') handleCancel(); }}>
-            <h3>Create Snapshot</h3>
+        <div className="snapshot-overlay" data-testid="snapshot-overlay" onClick={handleCancel}>
+          <div
+            className="snapshot-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="snapshot-dialog-title"
+            data-testid="snapshot-dialog"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => { if (e.key === 'Escape') handleCancel(); }}
+          >
+            <h3 id="snapshot-dialog-title">Create Snapshot</h3>
             <p>Save a local backup of your current manuscript state.</p>
             <input
               type="text"
+              id="snapshot-label-input"
               data-testid="snapshot-label-input"
               className="snapshot-label-input"
+              aria-label="Snapshot label (optional)"
               placeholder="Label (optional, e.g. End of Chapter 5)"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
