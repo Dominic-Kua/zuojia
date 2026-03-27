@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react'
 import Manuscript from './components/Manuscript'
 import Sidebar from './components/Sidebar'
 import { NovelSelector } from './components/Navigation/NovelSelector'
+import { SnapshotButton } from './components/SnapshotButton'
 import { gitHandlers } from './lib/ipc-client'
 import { useWikiPages } from './hooks/useWikiPages'
 
@@ -87,6 +88,7 @@ export default function App(){
       <header className="topbar" data-testid="topbar">
         <div className="brand">作家</div>
         <div className="top-actions">
+          <SnapshotButton novelPath={novelPath} />
           <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>
           <button className="btn primary" data-testid="push-button" onClick={handleBackup} disabled={isBackingUp}>
             {isBackingUp ? 'Backing up...' : 'Backup'}
