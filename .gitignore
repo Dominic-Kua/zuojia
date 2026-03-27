@@ -7,6 +7,8 @@ playwright-report/
 test-results/
 coverage/
 dist/
+release/
+.DS_Store
 .env
 .env.local
 .env.*.local
