@@ -90,16 +90,12 @@ export function parseWikiLinks(text) {
 }
 
 /**
- * Convert page name to URL-safe slug.
- * @param {string} pageName - The page name to convert.
- * @returns {string} URL-safe slug derived from the page name.
+ * Normalize a single path segment to a URL-safe slug.
+ * @param {string} segment - The segment to convert.
+ * @returns {string} URL-safe slug derived from the segment.
  */
-export function resolveSlug(pageName) {
-  if (!pageName || typeof pageName !== 'string') {
-    return '';
-  }
-
-  return pageName
+function resolveSlugSegment(segment) {
+  return segment
     .toLowerCase()
     .trim()
     // Replace spaces and underscores with hyphens
@@ -110,6 +106,23 @@ export function resolveSlug(pageName) {
     .replace(/-+/g, '-')
     // Remove leading/trailing hyphens
     .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Convert page name to URL-safe slug, preserving path separators.
+ * @param {string} pageName - The page name to convert.
+ * @returns {string} URL-safe slug derived from the page name.
+ */
+export function resolveSlug(pageName) {
+  if (!pageName || typeof pageName !== 'string') {
+    return '';
+  }
+
+  return pageName
+    .split('/')
+    .map(resolveSlugSegment)
+    .filter(Boolean)
+    .join('/');
 }
 
 /**
