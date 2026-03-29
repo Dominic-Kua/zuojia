@@ -326,4 +326,114 @@ describe('listWikiPages', () => {
     expect(result.data.pages).toHaveLength(1);
     expect(result.data.pages[0].slug).toBe('alice');
   });
+
+  it('lists wiki pages in subdirectories', async () => {
+    // Create subdirectory structure
+    await fs.mkdir(path.join(testDir, 'wiki', 'characters'), { recursive: true });
+    await fs.mkdir(path.join(testDir, 'wiki', 'locations'), { recursive: true });
+    await fs.writeFile(path.join(testDir, 'wiki', 'characters', 'arkid-deedie.md'), '# Arkid Deedie\n\nA character.');
+    await fs.writeFile(path.join(testDir, 'wiki', 'locations', 'landfall.md'), '# Landfall\n\nA location.');
+
+    const result = await listWikiPages(testDir);
+
+    expect(result.status).toBe('ok');
+    expect(result.data.pages).toHaveLength(2);
+    const slugs = result.data.pages.map(p => p.slug);
+    expect(slugs).toContain('characters/arkid-deedie');
+    expect(slugs).toContain('locations/landfall');
+  });
+
+  it('includes both root and subdirectory pages', async () => {
+    await createWikiPage(testDir, 'Alice', '# Alice\n\nRoot page.');
+    await fs.mkdir(path.join(testDir, 'wiki', 'characters'), { recursive: true });
+    await fs.writeFile(path.join(testDir, 'wiki', 'characters', 'bob.md'), '# Bob\n\nSubdir page.');
+
+    const result = await listWikiPages(testDir);
+
+    expect(result.data.pages).toHaveLength(2);
+    const slugs = result.data.pages.map(p => p.slug);
+    expect(slugs).toContain('alice');
+    expect(slugs).toContain('characters/bob');
+  });
+
+  it('normalizes subdirectory slugs to lowercase with hyphens', async () => {
+    await fs.mkdir(path.join(testDir, 'wiki', 'Characters'), { recursive: true });
+    await fs.writeFile(path.join(testDir, 'wiki', 'Characters', 'Arkid_deedie.md'), '# Arkid Deedie');
+
+    const result = await listWikiPages(testDir);
+
+    expect(result.data.pages).toHaveLength(1);
+    expect(result.data.pages[0].slug).toBe('characters/arkid-deedie');
+  });
+
+  it('excludes hidden directories in subdirectory scan', async () => {
+    await fs.mkdir(path.join(testDir, 'wiki', '.hidden-dir'), { recursive: true });
+    await fs.writeFile(path.join(testDir, 'wiki', '.hidden-dir', 'secret.md'), '# Secret');
+    await createWikiPage(testDir, 'Alice', '# Alice');
+
+    const result = await listWikiPages(testDir);
+
+    expect(result.data.pages).toHaveLength(1);
+    expect(result.data.pages[0].slug).toBe('alice');
+  });
+});
+
+describe('Wiki CRUD with subdirectory slugs', () => {
+  let testDir;
+
+  beforeEach(async () => {
+    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'zuojia-test-'));
+    await fs.mkdir(path.join(testDir, 'wiki', 'characters'), { recursive: true });
+    await fs.mkdir(path.join(testDir, 'meta'), { recursive: true });
+  });
+
+  afterEach(async () => {
+    await fs.rm(testDir, { recursive: true, force: true });
+  });
+
+  it('reads a wiki page in a subdirectory', async () => {
+    const content = '# Arkid Deedie\n\nA character.';
+    await fs.writeFile(path.join(testDir, 'wiki', 'characters', 'arkid-deedie.md'), content);
+
+    const result = await readWikiPage(testDir, 'characters/arkid-deedie');
+
+    expect(result.status).toBe('ok');
+    expect(result.data.content).toBe(content);
+  });
+
+  it('updates a wiki page in a subdirectory', async () => {
+    await fs.writeFile(path.join(testDir, 'wiki', 'characters', 'arkid-deedie.md'), '# Arkid Deedie\n\nOriginal.');
+
+    const result = await updateWikiPage(testDir, 'characters/arkid-deedie', '# Arkid Deedie\n\nUpdated.');
+
+    expect(result.status).toBe('ok');
+    const readResult = await readWikiPage(testDir, 'characters/arkid-deedie');
+    expect(readResult.data.content).toBe('# Arkid Deedie\n\nUpdated.');
+  });
+
+  it('deletes a wiki page in a subdirectory', async () => {
+    await fs.writeFile(path.join(testDir, 'wiki', 'characters', 'arkid-deedie.md'), '# Arkid Deedie');
+
+    const result = await deleteWikiPage(testDir, 'characters/arkid-deedie');
+
+    expect(result.status).toBe('ok');
+  });
+
+  it('still blocks path traversal attacks', async () => {
+    const result = await readWikiPage(testDir, '../../../etc/passwd');
+    expect(result.status).toBe('error');
+    expect(result.error.code).toBe('INVALID_SLUG');
+  });
+
+  it('still blocks backslash paths', async () => {
+    const result = await readWikiPage(testDir, 'characters\\arkid-deedie');
+    expect(result.status).toBe('error');
+    expect(result.error.code).toBe('INVALID_SLUG');
+  });
+
+  it('blocks slugs starting with /', async () => {
+    const result = await readWikiPage(testDir, '/characters/arkid');
+    expect(result.status).toBe('error');
+    expect(result.error.code).toBe('INVALID_SLUG');
+  });
 });

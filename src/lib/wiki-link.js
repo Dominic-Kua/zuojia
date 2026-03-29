@@ -67,19 +67,33 @@ export function extractWikiLinks(content) {
 }
 
 /**
- * Normalize a title to a slug
+ * Normalize a single path segment to a slug
+ * @param {string} segment - Title or text segment to normalize
+ * @returns {string} Normalized slug segment (lowercase, hyphenated)
+ */
+function normalizeSlugSegment(segment) {
+  return segment
+    .toLowerCase()
+    .trim()
+    // Remove non-letter, non-number chars (preserve unicode letters/numbers, spaces, hyphens, underscores)
+    .replace(/[^\p{L}\p{N}\s_-]/gu, '')
+    // Replace spaces, hyphens, underscores with single hyphen
+    .replace(/[-\s_]+/g, '-')
+    // Remove leading/trailing hyphens
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Normalize a title to a slug, preserving path separators
  * @param {string} title - Title or text to normalize
- * @returns {string} Normalized slug (lowercase, hyphenated)
+ * @returns {string} Normalized slug (lowercase, hyphenated, path-aware)
  */
 export function normalizeSlug(title) {
   return title
-    .toLowerCase()
-    .trim()
-    // Remove non-letter, non-number chars (preserve unicode letters/numbers, spaces, hyphens)
-    .replace(/[^\p{L}\p{N}\s-]/gu, '')
-    .replace(/[-\s]+/g, '-')
-    // Remove leading/trailing hyphens
-    .replace(/^-+|-+$/g, '');
+    .split('/')
+    .map(normalizeSlugSegment)
+    .filter(Boolean)
+    .join('/');
 }
 
 /**

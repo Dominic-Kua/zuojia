@@ -204,6 +204,25 @@ describe('resolveSlug', () => {
   it('handles unicode characters', () => {
     expect(resolveSlug('Café René')).toBe('caf-ren');
   });
+
+  it('preserves path separators in subdirectory slugs', () => {
+    expect(resolveSlug('characters/Alice')).toBe('characters/alice');
+    expect(resolveSlug('locations/The Forest')).toBe('locations/the-forest');
+  });
+
+  it('normalizes each path segment independently', () => {
+    expect(resolveSlug('Characters/Arkid_deedie')).toBe('characters/arkid-deedie');
+    expect(resolveSlug('Locations/New York City')).toBe('locations/new-york-city');
+  });
+
+  it('handles deeply nested paths', () => {
+    expect(resolveSlug('world/places/cities/new-york')).toBe('world/places/cities/new-york');
+  });
+
+  it('strips empty path segments', () => {
+    expect(resolveSlug('/characters/alice')).toBe('characters/alice');
+    expect(resolveSlug('characters//alice')).toBe('characters/alice');
+  });
 });
 
 describe('isValidLink', () => {
