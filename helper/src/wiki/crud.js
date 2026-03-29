@@ -22,6 +22,7 @@ function isValidSlug(slug) {
   if (slug.includes('..')) return false;
   if (slug.startsWith('/')) return false;
   if (slug.endsWith('/')) return false;
+  if (slug.includes('//')) return false;
   return true;
 }
 

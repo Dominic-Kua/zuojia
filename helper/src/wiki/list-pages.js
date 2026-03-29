@@ -104,9 +104,8 @@ export async function listWikiPages(novelPath) {
         const segments = relPath.split(path.sep);
         const slug = segments.map(seg =>
           seg.toLowerCase().trim()
-            .replace(/[\s_]+/g, '-')
-            .replace(/[^a-z0-9-]/g, '')
-            .replace(/-+/g, '-')
+            .replace(/[^\p{L}\p{N}\s_-]/gu, '')
+            .replace(/[-\s_]+/g, '-')
             .replace(/^-+|-+$/g, '')
         ).filter(Boolean).join('/');
         const filePath = path.join(wikiDir, file);
