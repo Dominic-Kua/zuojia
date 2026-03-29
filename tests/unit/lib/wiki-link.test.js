@@ -88,6 +88,25 @@ describe('Wiki Link Utilities', () => {
     it('handles already-normalized slugs', () => {
       expect(normalizeSlug('alice-protagonist')).toBe('alice-protagonist');
     });
+
+    it('preserves path separators in subdirectory slugs', () => {
+      expect(normalizeSlug('characters/Alice')).toBe('characters/alice');
+      expect(normalizeSlug('locations/The Forest')).toBe('locations/the-forest');
+    });
+
+    it('normalizes each path segment independently', () => {
+      expect(normalizeSlug('Characters/Arkid_deedie')).toBe('characters/arkid-deedie');
+      expect(normalizeSlug('Locations/New York City')).toBe('locations/new-york-city');
+    });
+
+    it('handles deeply nested paths', () => {
+      expect(normalizeSlug('world/places/cities/new-york')).toBe('world/places/cities/new-york');
+    });
+
+    it('strips empty path segments', () => {
+      expect(normalizeSlug('/characters/alice')).toBe('characters/alice');
+      expect(normalizeSlug('characters//alice')).toBe('characters/alice');
+    });
   });
 
   describe('resolveWikiLink', () => {
@@ -133,6 +152,17 @@ describe('Wiki Link Utilities', () => {
       const result = resolveWikiLink('alice', pages);
       expect(result.found).toBe(false);
       expect(result.matches.length).toBeGreaterThan(0);
+    });
+
+    it('resolves subdirectory wiki link by exact slug match', () => {
+      const pages = [
+        { slug: 'characters/arkid-deedie', title: 'Arkid Deedie', filepath: '' },
+        { slug: 'locations/landfall', title: 'Landfall', filepath: '' },
+        { slug: 'alice', title: 'Alice', filepath: '' },
+      ];
+      const result = resolveWikiLink('characters/arkid-deedie', pages);
+      expect(result.found).toBe(true);
+      expect(result.matches[0].slug).toBe('characters/arkid-deedie');
     });
   });
 

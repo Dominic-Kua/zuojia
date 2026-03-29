@@ -86,18 +86,28 @@ export async function listWikiPages(novelPath) {
       };
     }
 
-    // Read directory contents
-    const files = await fs.readdir(wikiDir);
+    // Read directory contents recursively
+    const files = await fs.readdir(wikiDir, { recursive: true });
 
-    // Filter for markdown files (not hidden)
+    // Filter for markdown files (not hidden, no hidden ancestor directories)
     const mdFiles = files.filter(file => {
-      return file.endsWith('.md') && !file.startsWith('.');
+      if (!file.endsWith('.md')) return false;
+      const segments = file.split(path.sep);
+      return segments.every(seg => !seg.startsWith('.'));
     });
 
     // Process each file
     const pages = await Promise.all(
       mdFiles.map(async (file) => {
-        const slug = path.basename(file, '.md');
+        // Build slug from relative path: normalize each segment, join with '/'
+        const relPath = file.replace(/\.md$/, '');
+        const segments = relPath.split(path.sep);
+        const slug = segments.map(seg =>
+          seg.toLowerCase().trim()
+            .replace(/[^\p{L}\p{N}\s_-]/gu, '')
+            .replace(/[-\s_]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+        ).filter(Boolean).join('/');
         const filePath = path.join(wikiDir, file);
 
         // Read content
