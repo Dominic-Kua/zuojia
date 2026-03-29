@@ -10,6 +10,22 @@ import { rebuildSpellcheckDict } from './rebuild-dict.js';
 
 const FRONTMATTER_BOUNDARY = '---';
 
+/**
+ * Validate a wiki page slug.
+ * Allows forward slashes for subdirectory paths but blocks path traversal.
+ * @param {string} slug - The slug to validate
+ * @returns {boolean} - true if valid, false otherwise
+ */
+function isValidSlug(slug) {
+  if (!slug) return false;
+  if (slug.includes('\\')) return false;
+  if (slug.includes('..')) return false;
+  if (slug.startsWith('/')) return false;
+  if (slug.endsWith('/')) return false;
+  if (slug.includes('//')) return false;
+  return true;
+}
+
 function normalizeTags(inputTags) {
   if (!Array.isArray(inputTags)) {
     return [];
@@ -170,7 +186,7 @@ export async function createWikiPage(novelPath, title, content, tags = []) {
 export async function readWikiPage(novelPath, slug) {
   try {
     // Validate slug (prevent path traversal)
-    if (!slug || slug.includes('/') || slug.includes('\\') || slug.includes('..')) {
+    if (!isValidSlug(slug)) {
       return createError('INVALID_SLUG', 'Invalid slug format');
     }
 
@@ -207,7 +223,7 @@ export async function readWikiPage(novelPath, slug) {
 export async function updateWikiPage(novelPath, slug, content, tags = []) {
   try {
     // Validate slug
-    if (!slug || slug.includes('/') || slug.includes('\\') || slug.includes('..')) {
+    if (!isValidSlug(slug)) {
       return createError('INVALID_SLUG', 'Invalid slug format');
     }
 
@@ -253,7 +269,7 @@ export async function updateWikiPage(novelPath, slug, content, tags = []) {
 export async function deleteWikiPage(novelPath, slug) {
   try {
     // Validate slug
-    if (!slug || slug.includes('/') || slug.includes('\\') || slug.includes('..')) {
+    if (!isValidSlug(slug)) {
       return createError('INVALID_SLUG', 'Invalid slug format');
     }
 
@@ -289,7 +305,7 @@ export async function deleteWikiPage(novelPath, slug) {
 export async function renameWikiPage(novelPath, oldSlug, newTitle) {
   try {
     // Validate old slug
-    if (!oldSlug || oldSlug.includes('/') || oldSlug.includes('\\') || oldSlug.includes('..')) {
+    if (!isValidSlug(oldSlug)) {
       return createError('INVALID_SLUG', 'Invalid slug format');
     }
 

@@ -54,10 +54,15 @@ export async function rebuildSpellcheckDict(novelPath) {
     // Ensure meta directory exists
     await fs.mkdir(metaDir, { recursive: true });
 
-    // Read wiki directory
+    // Read wiki directory recursively
     let wikiFiles = [];
     try {
-      wikiFiles = await fs.readdir(wikiDir);
+      const allFiles = await fs.readdir(wikiDir, { recursive: true });
+      wikiFiles = allFiles.filter(file => {
+        if (!file.endsWith('.md')) return false;
+        const segments = file.split(path.sep);
+        return segments.every(seg => !seg.startsWith('.'));
+      });
     } catch (err) {
       if (err.code !== 'ENOENT') {
         throw err;
@@ -69,22 +74,20 @@ export async function rebuildSpellcheckDict(novelPath) {
     const allWords = new Set();
 
     for (const file of wikiFiles) {
-      if (file.endsWith('.md')) {
-        try {
-          const filePath = path.join(wikiDir, file);
-          const content = await fs.readFile(filePath, 'utf-8');
+      try {
+        const filePath = path.join(wikiDir, file);
+        const content = await fs.readFile(filePath, 'utf-8');
 
-          // Extract title from first H1 heading
-          const title = extractTitle(content);
+        // Extract title from first H1 heading
+        const title = extractTitle(content);
 
-          if (title) {
-            const words = extractWordsFromTitle(title);
-            words.forEach((word) => allWords.add(word));
-          }
-        } catch (err) {
-          // Skip files that can't be read
-          console.warn(`Failed to read wiki page ${file}:`, err.message);
+        if (title) {
+          const words = extractWordsFromTitle(title);
+          words.forEach((word) => allWords.add(word));
         }
+      } catch (err) {
+        // Skip files that can't be read
+        console.warn(`Failed to read wiki page ${file}:`, err.message);
       }
     }
 
