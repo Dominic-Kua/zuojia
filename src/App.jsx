@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import Manuscript from './components/Manuscript'
 import Sidebar from './components/Sidebar'
+import { CommitButton } from './components/CommitButton'
 import { NovelSelector } from './components/Navigation/NovelSelector'
 import { SnapshotButton } from './components/SnapshotButton'
 import { gitHandlers } from './lib/ipc-client'
@@ -89,6 +90,7 @@ export default function App(){
         <div className="brand">作家</div>
         <div className="top-actions">
           <SnapshotButton novelPath={novelPath} />
+          <CommitButton novelPath={novelPath} />
           <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>
           <button className="btn primary" data-testid="push-button" onClick={handleBackup} disabled={isBackingUp}>
             {isBackingUp ? 'Backing up...' : 'Backup'}
