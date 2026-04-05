@@ -35,26 +35,54 @@ export function CommitButton({ novelPath }) {
     setShowDialog(false);
     setError(null);
     setMessage('');
+    setFiles([]);
+    setSelectedFiles([]);
+    setIsLoading(false);
   };
 
-  const openDialog = async () => {
+  const openDialog = () => {
     setShowDialog(true);
     setError(null);
     setMessage('');
-    setIsLoading(true);
-    try {
-      const result = await gitHandlers.listChanges(novelPath);
-      const nextFiles = result.files || [];
-      setFiles(nextFiles);
-      setSelectedFiles(nextFiles);
-    } catch (err) {
-      setFiles([]);
-      setSelectedFiles([]);
-      setError(err.message || 'Failed to load changed files');
-    } finally {
-      setIsLoading(false);
-    }
   };
+
+  useEffect(() => {
+    if (!showDialog) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const loadChanges = async () => {
+      setIsLoading(true);
+      try {
+        const result = await gitHandlers.listChanges(novelPath);
+        if (cancelled) {
+          return;
+        }
+        const nextFiles = result.files || [];
+        setFiles(nextFiles);
+        setSelectedFiles(nextFiles);
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+        setFiles([]);
+        setSelectedFiles([]);
+        setError(err.message || 'Failed to load changed files');
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadChanges();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [novelPath, showDialog]);
 
   const toggleFile = (file) => {
     setSelectedFiles((current) => (
