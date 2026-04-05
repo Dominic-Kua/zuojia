@@ -130,6 +130,11 @@ export async function createManualCommit(novelPath, files, message) {
       return novelPathError;
     }
 
+    const initError = ensureGitRepo(novelPath);
+    if (initError) {
+      return initError;
+    }
+
     const selectedFileError = validateSelectedFiles(novelPath, files);
     if (selectedFileError) {
       return selectedFileError;
@@ -152,11 +157,6 @@ export async function createManualCommit(novelPath, files, message) {
         'Commit message is required',
         'Enter a clear commit message before confirming'
       );
-    }
-
-    const initError = ensureGitRepo(novelPath);
-    if (initError) {
-      return initError;
     }
 
     const snapshotResult = await createSnapshot(novelPath, `pre-commit: ${commitMessage}`);
