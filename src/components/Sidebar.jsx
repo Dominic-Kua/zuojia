@@ -499,7 +499,7 @@ export default function Sidebar({ novelPath, openPageSlug }){
         {!isLoadingHistory && !historyError && commits.length > 0 && (
           <div className="commit-history-list" data-testid="commit-history-list">
             {commits.map((commit) => (
-              <div key={`${commit.hash}-${commit.message}`} className="commit-history-item">
+              <div key={commit.hash} className="commit-history-item">
                 <span className="commit-history-hash">{commit.hash}</span>
                 <span className="commit-history-message">{commit.message}</span>
               </div>
