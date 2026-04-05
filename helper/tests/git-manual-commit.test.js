@@ -100,6 +100,20 @@ describe('manual git commit helpers', () => {
     expect(result.error.code).toBe('INVALID_SELECTED_FILE');
   });
 
+  it('rejects path traversal via sibling directory prefix trick', async () => {
+    const result = await createManualCommit(testDir, ['manuscript-evil/secret.md'], 'Save work');
+
+    expect(result.status).toBe('error');
+    expect(result.error.code).toBe('INVALID_PATH_TRAVERSAL');
+  });
+
+  it('rejects path traversal via parent directory escape', async () => {
+    const result = await createManualCommit(testDir, ['manuscript/../outside.md'], 'Save work');
+
+    expect(result.status).toBe('error');
+    expect(result.error.code).toBe('INVALID_PATH_TRAVERSAL');
+  });
+
   it('returns snapshot failure without attempting git commit', async () => {
     createSnapshot.mockResolvedValue({
       status: 'error',
