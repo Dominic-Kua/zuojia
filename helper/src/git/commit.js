@@ -51,6 +51,15 @@ function parseChangedFiles(output) {
     .filter((file) => file.startsWith('manuscript/') && file.endsWith('.md'));
 }
 
+function getChangedManuscriptFiles(novelPath) {
+  const output = execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], {
+    cwd: novelPath,
+    encoding: 'utf-8',
+  });
+
+  return parseChangedFiles(output);
+}
+
 function validateSelectedFiles(novelPath, files) {
   if (!Array.isArray(files) || files.length === 0) {
     return createError(
@@ -97,15 +106,10 @@ export async function listChangedFiles(novelPath) {
       return initError;
     }
 
-    const output = execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], {
-      cwd: novelPath,
-      encoding: 'utf-8',
-    });
-
     return {
       status: 'ok',
       data: {
-        files: parseChangedFiles(output),
+        files: getChangedManuscriptFiles(novelPath),
       },
       timestamp: new Date().toISOString(),
     };
@@ -129,6 +133,16 @@ export async function createManualCommit(novelPath, files, message) {
     const selectedFileError = validateSelectedFiles(novelPath, files);
     if (selectedFileError) {
       return selectedFileError;
+    }
+
+    const changedFiles = getChangedManuscriptFiles(novelPath);
+    const hasInvalidSelection = files.some((file) => !changedFiles.includes(file));
+    if (hasInvalidSelection) {
+      return createError(
+        'INVALID_SELECTED_FILE',
+        'Selected files are no longer available to commit',
+        'Refresh the changed file list and try again'
+      );
     }
 
     const commitMessage = typeof message === 'string' ? message.trim() : '';

@@ -58,6 +58,7 @@ describe('manual git commit helpers', () => {
       if (cmd !== 'git') {
         throw new Error('unexpected command');
       }
+      if (args[0] === 'status') return ' M manuscript/chapter-01.md\n';
       if (args[0] === 'add') return '';
       if (args[0] === 'commit') return '';
       if (args[0] === 'rev-parse') return 'abc1234def5678\n';
@@ -90,17 +91,28 @@ describe('manual git commit helpers', () => {
     expect(result.error.code).toBe('INVALID_COMMIT_MESSAGE');
   });
 
+  it('rejects files that are not currently changed', async () => {
+    execFileSync.mockReturnValue(' M manuscript/chapter-01.md\n');
+
+    const result = await createManualCommit(testDir, ['manuscript/chapter-02.md'], 'Save work');
+
+    expect(result.status).toBe('error');
+    expect(result.error.code).toBe('INVALID_SELECTED_FILE');
+  });
+
   it('returns snapshot failure without attempting git commit', async () => {
     createSnapshot.mockResolvedValue({
       status: 'error',
       error: { code: 'SNAPSHOT_CREATE_FAILED', message: 'snapshot failed' },
     });
+    execFileSync.mockReturnValue(' M manuscript/chapter-01.md\n');
 
     const result = await createManualCommit(testDir, ['manuscript/chapter-01.md'], 'Save work');
 
     expect(result.status).toBe('error');
     expect(result.error.code).toBe('SNAPSHOT_CREATE_FAILED');
-    expect(execFileSync).not.toHaveBeenCalled();
+    const gitCommands = execFileSync.mock.calls.map((call) => call[1][0]);
+    expect(gitCommands).toEqual(['status']);
   });
 
   it('returns recent commit history', async () => {
