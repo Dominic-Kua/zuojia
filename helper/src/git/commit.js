@@ -82,7 +82,8 @@ function validateSelectedFiles(novelPath, files) {
     }
 
     const resolved = path.resolve(novelRoot, file);
-    if (!resolved.startsWith(manuscriptRoot) || !resolved.startsWith(novelRoot)) {
+    const relative = path.relative(manuscriptRoot, resolved);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
       return createError(
         'INVALID_PATH_TRAVERSAL',
         'Path traversal detected',
