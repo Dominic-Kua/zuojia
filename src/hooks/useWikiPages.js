@@ -18,6 +18,13 @@ export function useWikiPages(novelPath) {
 
   // Load pages from IPC
   const loadPages = useCallback(async () => {
+    if (!novelPath) {
+      setPages([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);

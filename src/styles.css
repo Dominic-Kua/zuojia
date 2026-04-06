@@ -113,11 +113,20 @@ body{margin:0;font-family:'PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','N
 .top-actions{display:flex;align-items:center;gap:8px}
 .snapshot-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:100}
 .snapshot-dialog{background:var(--manuscript-surface);border-radius:12px;padding:24px;width:400px;max-width:90vw;box-shadow:0 12px 40px rgba(0,0,0,0.15)}
+.commit-dialog{width:460px}
 .snapshot-dialog h3{margin:0 0 8px 0;font-size:16px}
 .snapshot-dialog p{margin:0 0 16px 0;font-size:13px;color:var(--text-secondary)}
 .snapshot-label-input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--divider);font-size:14px;box-sizing:border-box}
 .snapshot-label-input:focus{outline:none;border-color:var(--accent)}
+.commit-file-list{display:flex;flex-direction:column;gap:8px;max-height:180px;overflow:auto;margin-bottom:12px;padding:2px}
+.commit-file-option{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary)}
+.commit-message-input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--divider);font-size:14px;resize:vertical;font-family:inherit;box-sizing:border-box}
+.commit-empty-state,.commit-loading,.sidebar-muted-copy{font-size:13px;color:var(--text-secondary)}
 .snapshot-dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
 .snapshot-error{margin-top:8px;padding:8px 12px;border-radius:8px;background:#fff5f5;color:#c53030;font-size:13px}
 .snapshot-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--accent);color:white;padding:10px 20px;border-radius:8px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:200;animation:toast-in 0.3s ease}
 @keyframes toast-in{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.commit-history-list{display:flex;flex-direction:column;gap:8px}
+.commit-history-item{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.65)}
+.commit-history-hash{font-family:'SFMono-Regular', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;font-size:12px;color:var(--text-secondary)}
+.commit-history-message{font-size:13px;color:var(--text-primary)}
