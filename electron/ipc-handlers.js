@@ -3,7 +3,7 @@ import fs from 'fs'
 import { readdir, readFile, stat, writeFile } from 'fs/promises'
 import path from 'path'
 import { createNovel, getIndex, validateNovel, rebuildIndex, readChapter, writeChapter } from '../helper/src/index/index.js'
-import { commitChapter } from '../helper/src/git/commit.js';
+import { commitChapter, createManualCommit, getCommitHistory, listChangedFiles } from '../helper/src/git/commit.js';
 import { backupAndPush } from '../helper/src/git/backup.js';
 import { calculateWordCount } from '../helper/src/stats/word-count.js';
 import { getManuscriptWordCount } from '../helper/src/stats/manuscript-count.js';
@@ -73,6 +73,27 @@ export function registerHandlers() {
     'helper:git:commit',
     wrapHandler(async ({ novelPath, filename, content }) => {
       return await commitChapter(novelPath, filename, content);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:git:listChanges',
+    wrapHandler(async ({ novelPath }) => {
+      return await listChangedFiles(novelPath);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:git:manualCommit',
+    wrapHandler(async ({ novelPath, files, message }) => {
+      return await createManualCommit(novelPath, files, message);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:git:history',
+    wrapHandler(async ({ novelPath, limit }) => {
+      return await getCommitHistory(novelPath, limit);
     })
   );
 
