@@ -3,13 +3,12 @@ import Manuscript from './components/Manuscript'
 import Sidebar from './components/Sidebar'
 import { CommitButton } from './components/CommitButton'
 import { NovelSelector } from './components/Navigation/NovelSelector'
+import { PushButton } from './components/PushButton'
 import { SnapshotButton } from './components/SnapshotButton'
-import { gitHandlers } from './lib/ipc-client'
 import { useWikiPages } from './hooks/useWikiPages'
 
 export default function App(){
   const [novelPath, setNovelPath] = useState(null);
-  const [isBackingUp, setIsBackingUp] = useState(false);
   const [wikiPageToOpen, setWikiPageToOpen] = useState(null);
   const sidebarRef = useRef(null);
   const wikiPageTimeoutRef = useRef(null);
@@ -35,22 +34,6 @@ export default function App(){
 
   const handleCloseNovel = () => {
     setNovelPath(null);
-  };
-
-  const handleBackup = async () => {
-    if (!novelPath || isBackingUp) {
-      return;
-    }
-
-    setIsBackingUp(true);
-    try {
-      await gitHandlers.push(novelPath);
-    } catch (error) {
-      console.error('Backup failed:', error);
-      window.alert(error?.message || 'Backup failed. Check the console for details.');
-    } finally {
-      setIsBackingUp(false);
-    }
   };
 
   // Handle opening a wiki page from the manuscript
@@ -91,10 +74,8 @@ export default function App(){
         <div className="top-actions">
           <SnapshotButton novelPath={novelPath} />
           <CommitButton novelPath={novelPath} />
+          <PushButton novelPath={novelPath} />
           <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>
-          <button className="btn primary" data-testid="push-button" onClick={handleBackup} disabled={isBackingUp}>
-            {isBackingUp ? 'Backing up...' : 'Backup'}
-          </button>
         </div>
       </header>
       <main className="main-grid">
