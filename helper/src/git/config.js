@@ -188,7 +188,7 @@ async function validateRemoteReachable(novelPath, remoteUrl, sshKeyPath) {
       },
     };
   } catch (err) {
-    if (err.code === 'ABORT_ERR') {
+    if (err.code === 'ABORT_ERR' || err.name === 'AbortError') {
       return createError(
         'REMOTE_TIMEOUT',
         'Remote validation timed out',
