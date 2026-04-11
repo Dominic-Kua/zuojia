@@ -1,9 +1,14 @@
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
-import { execFileSync } from 'child_process';
+import { execFileSync, execFile as execFileRaw } from 'child_process';
+import { promisify } from 'util';
 import { createError } from '../util/error.js';
 import { expandHome } from '../util/path-helpers.js';
+
+const execFile = promisify(execFileRaw);
+
+const REMOTE_VALIDATION_TIMEOUT_MS = 15000;
 
 export const DEFAULT_GIT_SETTINGS = {
   remoteUrl: '',
@@ -67,14 +72,20 @@ function normalizeGitSettings(settings = {}) {
   };
 }
 
-function serializeGitSettings(settings) {
-  return [
-    'git:',
-    `  remoteUrl: ${settings.remoteUrl}`,
-    `  branch: ${settings.branch}`,
-    `  sshKeyPath: ${settings.sshKeyPath}`,
-    '',
-  ].join('\n');
+function serializeConfig(config) {
+  const lines = [];
+  for (const [key, value] of Object.entries(config)) {
+    if (value !== null && typeof value === 'object') {
+      lines.push(`${key}:`);
+      for (const [subKey, subValue] of Object.entries(value)) {
+        lines.push(`  ${subKey}: ${subValue}`);
+      }
+    } else {
+      lines.push(`${key}: ${value}`);
+    }
+  }
+  lines.push('');
+  return lines.join('\n');
 }
 
 export function getGitConfigPath(novelPath) {
@@ -140,7 +151,7 @@ export function ensureGitAvailable() {
   }
 }
 
-function validateRemoteReachable(novelPath, remoteUrl, sshKeyPath) {
+async function validateRemoteReachable(novelPath, remoteUrl, sshKeyPath) {
   const gitError = ensureGitAvailable();
   if (gitError) {
     return gitError;
@@ -162,8 +173,14 @@ function validateRemoteReachable(novelPath, remoteUrl, sshKeyPath) {
     }
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REMOTE_VALIDATION_TIMEOUT_MS);
+
   try {
-    execFileSync('git', ['ls-remote', remoteUrl], getExecOptions(novelPath, effectiveSshKeyPath));
+    await execFile('git', ['ls-remote', remoteUrl], {
+      ...getExecOptions(novelPath, effectiveSshKeyPath),
+      signal: controller.signal,
+    });
     return {
       status: 'ok',
       data: {
@@ -171,12 +188,22 @@ function validateRemoteReachable(novelPath, remoteUrl, sshKeyPath) {
       },
     };
   } catch (err) {
+    if (err.code === 'ABORT_ERR') {
+      return createError(
+        'REMOTE_TIMEOUT',
+        'Remote validation timed out',
+        'Check the remote URL, SSH key, and network connectivity',
+        { error: 'Connection timed out' }
+      );
+    }
     return createError(
       'REMOTE_UNREACHABLE',
       'Remote could not be reached',
       'Check the remote URL, SSH key, and network connectivity',
       { error: err.message }
     );
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -253,14 +280,27 @@ export async function saveGitSettings(novelPath, settings) {
     );
   }
 
-  const remoteValidation = validateRemoteReachable(novelPath, normalized.remoteUrl, normalized.sshKeyPath);
+  const remoteValidation = await validateRemoteReachable(novelPath, normalized.remoteUrl, normalized.sshKeyPath);
   if (remoteValidation.status === 'error') {
     return remoteValidation;
   }
 
   const configPath = getGitConfigPath(novelPath);
   await fsPromises.mkdir(path.dirname(configPath), { recursive: true });
-  await fsPromises.writeFile(configPath, serializeGitSettings(normalized), 'utf-8');
+
+  let existingConfig = {};
+  if (fs.existsSync(configPath)) {
+    const content = await fsPromises.readFile(configPath, 'utf-8');
+    existingConfig = parseConfig(content);
+  }
+
+  existingConfig.git = {
+    remoteUrl: normalized.remoteUrl,
+    branch: normalized.branch,
+    sshKeyPath: normalized.sshKeyPath,
+  };
+
+  await fsPromises.writeFile(configPath, serializeConfig(existingConfig), 'utf-8');
 
   return {
     status: 'ok',

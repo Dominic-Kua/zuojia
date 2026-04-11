@@ -94,7 +94,7 @@ This list reflects what is currently wired in the app code.
 npm install
 ```
 
-1. Start development mode:
+2. Start development mode:
 
 ```bash
 npm run dev
@@ -102,7 +102,7 @@ npm run dev
 
 This starts Vite and Electron together using `scripts/dev.sh`.
 
-1. In the app:
+3. In the app:
 
 - Click `+ New Novel` to create a project, or
 - Click `Open Novel` to load an existing novel folder
