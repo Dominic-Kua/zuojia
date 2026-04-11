@@ -4,7 +4,7 @@ import { readdir, readFile, stat, writeFile } from 'fs/promises'
 import path from 'path'
 import { createNovel, getIndex, validateNovel, rebuildIndex, readChapter, writeChapter } from '../helper/src/index/index.js'
 import { commitChapter, createManualCommit, getCommitHistory, listChangedFiles } from '../helper/src/git/commit.js';
-import { backupAndPush } from '../helper/src/git/backup.js';
+import { pushToRemote } from '../helper/src/git/push.js';
 import { calculateWordCount } from '../helper/src/stats/word-count.js';
 import { getManuscriptWordCount } from '../helper/src/stats/manuscript-count.js';
 import { getWordsWrittenToday } from '../helper/src/git/history.js';
@@ -100,7 +100,7 @@ export function registerHandlers() {
   ipcMain.handle(
     'helper:git:push',
     wrapHandler(async ({ novelPath }) => {
-      return await backupAndPush(novelPath);
+      return await pushToRemote(novelPath);
     })
   );
 
