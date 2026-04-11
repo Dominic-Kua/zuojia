@@ -144,7 +144,7 @@ describe('pushToRemote', () => {
     ['spaces', '/home/user/.ssh/id rsa'],
     // Note: newlines cannot be injected via the YAML config file (the parser
     // treats them as line terminators), but validateSshKeyPath still rejects
-    // them for defence-in-depth.
+    // them for defense-in-depth.
   ])('returns INVALID_SSH_KEY_PATH for path containing %s', async (_, badPath) => {
     const metaDir = path.join(TEST_DIR, 'meta');
     await fs.mkdir(metaDir, { recursive: true });
