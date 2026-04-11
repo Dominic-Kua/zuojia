@@ -113,10 +113,28 @@ function ensureSshAgentAvailable() {
     execFileSync('ssh-add', ['-l'], { stdio: 'ignore' });
     return null;
   } catch (err) {
+    if (err && err.status === 1) {
+      return createError(
+        'SSH_AGENT_NO_IDENTITIES',
+        'SSH agent has no identities loaded',
+        'Add your SSH key to the running agent, for example: ssh-add ~/.ssh/id_rsa',
+        { error: err.message }
+      );
+    }
+
+    if (err && err.status === 2) {
+      return createError(
+        'SSH_AGENT_UNAVAILABLE',
+        'SSH agent is not available',
+        'Start an SSH agent and add your key, for example: ssh-add ~/.ssh/id_rsa',
+        { error: err.message }
+      );
+    }
+
     return createError(
-      'SSH_AGENT_UNAVAILABLE',
-      'SSH agent is not available',
-      'Start an SSH agent and add your key, for example: ssh-add ~/.ssh/id_rsa',
+      'SSH_AGENT_CHECK_FAILED',
+      'Unable to verify SSH agent status',
+      'Check that ssh-add is available and that your SSH agent is configured correctly',
       { error: err.message }
     );
   }
@@ -134,14 +152,26 @@ function ensureSshKeyExists(sshKeyPath) {
   return null;
 }
 
-function getExecOptions(novelPath, sshKeyPath) {
+function validateSshKeyPath(sshKeyPath) {
+  if (/['"\\`$\n\r\0]/.test(sshKeyPath)) {
+    return createError(
+      'INVALID_SSH_KEY_PATH',
+      'SSH key path contains invalid characters',
+      'The SSH key path must not contain quotes, backslashes, backticks, dollar signs, or newlines'
+    );
+  }
+  return null;
+}
+
+function getExecOptions(novelPath, sshKeyPath = null) {
+  const env = { ...process.env };
+  if (sshKeyPath) {
+    env.GIT_SSH_COMMAND = `ssh -i "${sshKeyPath}" -o IdentitiesOnly=yes`;
+  }
   return {
     cwd: novelPath,
     encoding: 'utf-8',
-    env: {
-      ...process.env,
-      GIT_SSH_COMMAND: `ssh -i "${sshKeyPath}" -o IdentitiesOnly=yes`,
-    },
+    env,
   };
 }
 
@@ -171,6 +201,22 @@ function ensureCleanWorkingTree(novelPath) {
       { error: err.message }
     );
   }
+}
+
+function isSshRemote(remoteUrl) {
+  return remoteUrl.startsWith('git@') || remoteUrl.startsWith('ssh://');
+}
+
+function ensureGitRepoExists(novelPath) {
+  const gitDir = path.join(novelPath, '.git');
+  if (!fs.existsSync(gitDir)) {
+    return createError(
+      'GIT_REPO_NOT_FOUND',
+      'No git repository found in the novel directory',
+      'Create a commit first to initialize the git repository before pushing'
+    );
+  }
+  return null;
 }
 
 function getPushCountForRemote(novelPath, remoteUrl, branch, sshKeyPath) {
@@ -204,6 +250,11 @@ export async function pushToRemote(novelPath) {
       return novelPathError;
     }
 
+    const repoError = ensureGitRepoExists(novelPath);
+    if (repoError) {
+      return repoError;
+    }
+
     const configResult = loadGitConfig(novelPath);
     if (configResult.status === 'error') {
       return configResult;
@@ -216,14 +267,23 @@ export async function pushToRemote(novelPath) {
       return gitError;
     }
 
-    const sshAgentError = ensureSshAgentAvailable();
-    if (sshAgentError) {
-      return sshAgentError;
-    }
+    const useSsh = isSshRemote(remoteUrl);
 
-    const sshKeyError = ensureSshKeyExists(sshKeyPath);
-    if (sshKeyError) {
-      return sshKeyError;
+    if (useSsh) {
+      const keyPathError = validateSshKeyPath(sshKeyPath);
+      if (keyPathError) {
+        return keyPathError;
+      }
+
+      const sshAgentError = ensureSshAgentAvailable();
+      if (sshAgentError) {
+        return sshAgentError;
+      }
+
+      const sshKeyError = ensureSshKeyExists(sshKeyPath);
+      if (sshKeyError) {
+        return sshKeyError;
+      }
     }
 
     const workingTreeError = ensureCleanWorkingTree(novelPath);
@@ -231,8 +291,9 @@ export async function pushToRemote(novelPath) {
       return workingTreeError;
     }
 
-    const pushedCommits = getPushCountForRemote(novelPath, remoteUrl, branch, sshKeyPath);
-    const options = getExecOptions(novelPath, sshKeyPath);
+    const effectiveSshKeyPath = useSsh ? sshKeyPath : null;
+    const pushedCommits = getPushCountForRemote(novelPath, remoteUrl, branch, effectiveSshKeyPath);
+    const options = getExecOptions(novelPath, effectiveSshKeyPath);
     execFileSync('git', getGitArgs(remoteUrl, ['push', 'origin', branch]), options);
 
     return {
