@@ -33,6 +33,13 @@ describe('pushToRemote', () => {
     expect(result.error.code).toBe('INVALID_NOVEL_PATH');
   });
 
+  it('returns error when working directory has no git repository', async () => {
+    await fs.rm(path.join(TEST_DIR, '.git'), { recursive: true, force: true });
+    const result = await pushToRemote(TEST_DIR);
+    expect(result.status).toBe('error');
+    expect(result.error.code).toBe('GIT_REPO_NOT_FOUND');
+  });
+
   it('returns error when git config file is missing', async () => {
     const result = await pushToRemote(TEST_DIR);
     expect(result.status).toBe('error');
@@ -64,7 +71,9 @@ describe('pushToRemote', () => {
     execFileSync.mockImplementation((cmd, args) => {
       if (cmd === 'git' && args[0] === '--version') return 'git version 2.42.0';
       if (cmd === 'ssh-add' && args[0] === '-l') {
-        throw new Error('Could not open a connection to your authentication agent.');
+        const err = new Error('Could not open a connection to your authentication agent.');
+        err.status = 2;
+        throw err;
       }
       throw new Error('unexpected command');
     });
@@ -72,6 +81,38 @@ describe('pushToRemote', () => {
     const result = await pushToRemote(TEST_DIR);
     expect(result.status).toBe('error');
     expect(result.error.code).toBe('SSH_AGENT_UNAVAILABLE');
+  });
+
+  it('returns error when ssh agent has no identities loaded', async () => {
+    await writeConfig('git:\n  remoteUrl: git@github.com:user/repo.git\n  branch: main\n  sshKeyPath: ~/.ssh/id_test\n');
+    execFileSync.mockImplementation((cmd, args) => {
+      if (cmd === 'git' && args[0] === '--version') return 'git version 2.42.0';
+      if (cmd === 'ssh-add' && args[0] === '-l') {
+        const err = new Error('The agent has no identities.');
+        err.status = 1;
+        throw err;
+      }
+      throw new Error('unexpected command');
+    });
+
+    const result = await pushToRemote(TEST_DIR);
+    expect(result.status).toBe('error');
+    expect(result.error.code).toBe('SSH_AGENT_NO_IDENTITIES');
+  });
+
+  it('returns SSH_AGENT_CHECK_FAILED when ssh-add exits with unexpected error', async () => {
+    await writeConfig('git:\n  remoteUrl: git@github.com:user/repo.git\n  branch: main\n  sshKeyPath: ~/.ssh/id_test\n');
+    execFileSync.mockImplementation((cmd, args) => {
+      if (cmd === 'git' && args[0] === '--version') return 'git version 2.42.0';
+      if (cmd === 'ssh-add' && args[0] === '-l') {
+        throw new Error('Unexpected failure');
+      }
+      throw new Error('unexpected command');
+    });
+
+    const result = await pushToRemote(TEST_DIR);
+    expect(result.status).toBe('error');
+    expect(result.error.code).toBe('SSH_AGENT_CHECK_FAILED');
   });
 
   it('returns error when working tree has uncommitted changes', async () => {
@@ -89,6 +130,53 @@ describe('pushToRemote', () => {
     const result = await pushToRemote(TEST_DIR);
     expect(result.status).toBe('error');
     expect(result.error.code).toBe('WORKING_TREE_DIRTY');
+  });
+
+  it('returns error when ssh key path contains invalid characters', async () => {
+    await writeConfig('git:\n  remoteUrl: git@github.com:user/repo.git\n  branch: main\n  sshKeyPath: /home/user/.ssh/id_rsa\n');
+    execFileSync.mockImplementation((cmd, args) => {
+      if (cmd === 'git' && args[0] === '--version') return 'git version 2.42.0';
+      throw new Error('unexpected command');
+    });
+
+    // Manually inject a malicious path by writing a config with a quoted path
+    const metaDir = path.join(TEST_DIR, 'meta');
+    await fs.mkdir(metaDir, { recursive: true });
+    await fs.writeFile(
+      path.join(metaDir, 'config.yml'),
+      'git:\n  remoteUrl: git@github.com:user/repo.git\n  branch: main\n  sshKeyPath: /home/user/.ssh/id_rsa"; echo pwned\n',
+      'utf-8'
+    );
+
+    const result = await pushToRemote(TEST_DIR);
+    expect(result.status).toBe('error');
+    expect(result.error.code).toBe('INVALID_SSH_KEY_PATH');
+  });
+
+  it('skips SSH checks and does not set GIT_SSH_COMMAND for HTTPS remote', async () => {
+    await writeConfig('git:\n  remoteUrl: https://github.com/user/repo.git\n  branch: main\n');
+
+    execFileSync.mockImplementation((cmd, args) => {
+      if (cmd === 'git' && args[0] === '--version') return 'git version 2.42.0';
+      if (cmd === 'git' && args[0] === 'status') return '';
+      if (cmd === 'git' && args[0] === '-c' && args[2] === 'ls-remote') return 'abc123\trefs/heads/main\n';
+      if (cmd === 'git' && args[0] === 'rev-list') return '2\n';
+      if (cmd === 'git' && args[0] === '-c' && args[2] === 'push') return '';
+      return '';
+    });
+
+    const result = await pushToRemote(TEST_DIR);
+
+    expect(result.status).toBe('ok');
+    expect(result.data.remoteUrl).toBe('https://github.com/user/repo.git');
+    // ssh-add must never be called for HTTPS remotes
+    expect(execFileSync).not.toHaveBeenCalledWith('ssh-add', expect.any(Array), expect.anything());
+    // GIT_SSH_COMMAND must not be set in the push call
+    const pushCall = execFileSync.mock.calls.find(
+      (c) => c[0] === 'git' && c[1].includes('push')
+    );
+    expect(pushCall).toBeDefined();
+    expect(pushCall[2].env.GIT_SSH_COMMAND).toBeUndefined();
   });
 
   it('pushes commits to configured branch and returns pushed commit count', async () => {
