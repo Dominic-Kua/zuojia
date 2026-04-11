@@ -153,11 +153,11 @@ function ensureSshKeyExists(sshKeyPath) {
 }
 
 function validateSshKeyPath(sshKeyPath) {
-  if (/['"\\`$\n\r\0]/.test(sshKeyPath)) {
+  if (!/^[a-zA-Z0-9._/~-]+$/.test(sshKeyPath)) {
     return createError(
       'INVALID_SSH_KEY_PATH',
       'SSH key path contains invalid characters',
-      'The SSH key path must not contain quotes, backslashes, backticks, dollar signs, or newlines'
+      'The SSH key path must only contain letters, digits, dots, hyphens, underscores, forward slashes, and tildes'
     );
   }
   return null;
@@ -204,6 +204,9 @@ function ensureCleanWorkingTree(novelPath) {
 }
 
 function isSshRemote(remoteUrl) {
+  if (!remoteUrl || typeof remoteUrl !== 'string') {
+    return false;
+  }
   return remoteUrl.startsWith('git@') || remoteUrl.startsWith('ssh://');
 }
 

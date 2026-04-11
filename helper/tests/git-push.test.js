@@ -132,21 +132,31 @@ describe('pushToRemote', () => {
     expect(result.error.code).toBe('WORKING_TREE_DIRTY');
   });
 
-  it('returns error when ssh key path contains invalid characters', async () => {
-    await writeConfig('git:\n  remoteUrl: git@github.com:user/repo.git\n  branch: main\n  sshKeyPath: /home/user/.ssh/id_rsa\n');
-    execFileSync.mockImplementation((cmd, args) => {
-      if (cmd === 'git' && args[0] === '--version') return 'git version 2.42.0';
-      throw new Error('unexpected command');
-    });
-
-    // Manually inject a malicious path by writing a config with a quoted path
+  it.each([
+    ['double quote', '/home/user/.ssh/id_rsa"; echo pwned'],
+    ['single quote', "/home/user/.ssh/id_rsa'; echo pwned"],
+    ['backslash', '/home/user/.ssh/id_rsa\\evil'],
+    ['backtick', '/home/user/.ssh/id_rsa`echo pwned`'],
+    ['dollar sign', '/home/user/.ssh/id_rsa$HOME'],
+    ['semicolon', '/home/user/.ssh/id_rsa;echo pwned'],
+    ['pipe', '/home/user/.ssh/id_rsa|echo pwned'],
+    ['ampersand', '/home/user/.ssh/id_rsa&echo pwned'],
+    ['spaces', '/home/user/.ssh/id rsa'],
+    // Note: newlines cannot be injected via the YAML config file (the parser
+    // treats them as line terminators), but validateSshKeyPath still rejects
+    // them for defence-in-depth.
+  ])('returns INVALID_SSH_KEY_PATH for path containing %s', async (_, badPath) => {
     const metaDir = path.join(TEST_DIR, 'meta');
     await fs.mkdir(metaDir, { recursive: true });
     await fs.writeFile(
       path.join(metaDir, 'config.yml'),
-      'git:\n  remoteUrl: git@github.com:user/repo.git\n  branch: main\n  sshKeyPath: /home/user/.ssh/id_rsa"; echo pwned\n',
+      `git:\n  remoteUrl: git@github.com:user/repo.git\n  branch: main\n  sshKeyPath: ${badPath}\n`,
       'utf-8'
     );
+    execFileSync.mockImplementation((cmd, args) => {
+      if (cmd === 'git' && args[0] === '--version') return 'git version 2.42.0';
+      throw new Error('unexpected command');
+    });
 
     const result = await pushToRemote(TEST_DIR);
     expect(result.status).toBe('error');
