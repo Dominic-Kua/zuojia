@@ -166,6 +166,9 @@ function validateSshKeyPath(sshKeyPath) {
 function getExecOptions(novelPath, sshKeyPath = null) {
   const env = { ...process.env };
   if (sshKeyPath) {
+    // sshKeyPath has already been validated by validateSshKeyPath() to contain
+    // only [a-zA-Z0-9._/~-], so no shell-special characters can appear inside
+    // the double-quoted argument here.
     env.GIT_SSH_COMMAND = `ssh -i "${sshKeyPath}" -o IdentitiesOnly=yes`;
   }
   return {
