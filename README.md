@@ -75,7 +75,8 @@ This list reflects what is currently wired in the app code.
 ### Git and Backup Helpers
 
 - Helper endpoint for chapter Git commits (`helper:git:commit`)
-- Backup-and-push flow from UI `Backup` button
+- Validated remote push flow from the UI `Push` button
+- Git remote configuration from the UI `Settings` button
 - Local snapshot helper APIs (create, list, restore)
 
 ## Requirements
@@ -93,7 +94,7 @@ This list reflects what is currently wired in the app code.
 npm install
 ```
 
-2. Start development mode:
+1. Start development mode:
 
 ```bash
 npm run dev
@@ -101,7 +102,7 @@ npm run dev
 
 This starts Vite and Electron together using `scripts/dev.sh`.
 
-3. In the app:
+1. In the app:
 
 - Click `+ New Novel` to create a project, or
 - Click `Open Novel` to load an existing novel folder
@@ -146,7 +147,8 @@ The editor tracks:
 
 ### 6. Backup / Push
 
-Use the top-bar `Backup` button to run the backup-and-push Git workflow.
+Use the top-bar `Settings` button to configure your remote URL, branch, and SSH key path.
+Use `Push` to send committed work to that configured remote.
 
 ## Developer Commands
 
