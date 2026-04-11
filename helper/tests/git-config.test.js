@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs/promises';
 import path from 'path';
-import { execFileSync } from 'child_process';
+import { execFileSync, execFile } from 'child_process';
 import { getGitSettings, saveGitSettings } from '../src/git/config.js';
 
 vi.mock('child_process', () => ({
   execFileSync: vi.fn(),
+  execFile: vi.fn(),
 }));
 
 const TEST_DIR = path.join(process.cwd(), `test-git-config-${Date.now()}`);
@@ -34,8 +35,14 @@ describe('git config helpers', () => {
   it('saves validated git settings to meta/config.yml', async () => {
     execFileSync.mockImplementation((cmd, args) => {
       if (cmd === 'git' && args[0] === '--version') return 'git version 2.42.0';
-      if (cmd === 'git' && args[0] === 'ls-remote') return 'abc123\trefs/heads/main\n';
       throw new Error(`unexpected command ${cmd} ${args.join(' ')}`);
+    });
+    execFile.mockImplementation((cmd, args, opts, cb) => {
+      if (cmd === 'git' && args[0] === 'ls-remote') {
+        cb(null, 'abc123\trefs/heads/main\n', '');
+      } else {
+        cb(new Error(`unexpected command ${cmd} ${args.join(' ')}`));
+      }
     });
 
     const result = await saveGitSettings(TEST_DIR, {
@@ -57,10 +64,14 @@ describe('git config helpers', () => {
   it('does not persist config when remote validation fails', async () => {
     execFileSync.mockImplementation((cmd, args) => {
       if (cmd === 'git' && args[0] === '--version') return 'git version 2.42.0';
-      if (cmd === 'git' && args[0] === 'ls-remote') {
-        throw new Error('fatal: repository not found');
-      }
       throw new Error(`unexpected command ${cmd} ${args.join(' ')}`);
+    });
+    execFile.mockImplementation((cmd, args, opts, cb) => {
+      if (cmd === 'git' && args[0] === 'ls-remote') {
+        cb(new Error('fatal: repository not found'));
+      } else {
+        cb(new Error(`unexpected command ${cmd} ${args.join(' ')}`));
+      }
     });
 
     const result = await saveGitSettings(TEST_DIR, {

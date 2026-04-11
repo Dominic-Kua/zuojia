@@ -1,10 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SettingsModal } from '../../../src/components/SettingsModal';
-
-let consoleErrorSpy;
-const originalConsoleError = console.error;
 
 vi.mock('../../../src/lib/ipc-client', () => ({
   gitHandlers: {
@@ -18,17 +15,6 @@ describe('SettingsModal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((...args) => {
-      const [firstArg] = args;
-      if (typeof firstArg === 'string' && firstArg.includes('not wrapped in act')) {
-        return;
-      }
-      originalConsoleError(...args);
-    });
-  });
-
-  afterEach(() => {
-    consoleErrorSpy?.mockRestore();
   });
 
   it('renders the Settings button', () => {
