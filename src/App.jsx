@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar'
 import { CommitButton } from './components/CommitButton'
 import { NovelSelector } from './components/Navigation/NovelSelector'
 import { PushButton } from './components/PushButton'
+import { SettingsModal } from './components/SettingsModal'
 import { SnapshotButton } from './components/SnapshotButton'
 import { useWikiPages } from './hooks/useWikiPages'
 
@@ -75,6 +76,7 @@ export default function App(){
           <SnapshotButton novelPath={novelPath} />
           <CommitButton novelPath={novelPath} />
           <PushButton novelPath={novelPath} />
+          <SettingsModal novelPath={novelPath} />
           <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>
         </div>
       </header>

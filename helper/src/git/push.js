@@ -2,6 +2,14 @@ import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { createError } from '../util/error.js';
+import {
+  ensureGitAvailable,
+  ensureSshKeyExists,
+  getExecOptions,
+  isSshRemote,
+  loadGitConfig,
+  validateSshKeyPath,
+} from './config.js';
 
 function validateNovelPath(novelPath) {
   if (!novelPath || !fs.existsSync(novelPath)) {
@@ -13,99 +21,6 @@ function validateNovelPath(novelPath) {
   }
 
   return null;
-}
-
-function parseConfig(content) {
-  const config = {};
-  let currentSection = null;
-
-  for (const rawLine of content.split('\n')) {
-    const line = rawLine.replace(/\t/g, '    ');
-    const trimmed = line.trim();
-
-    if (!trimmed || trimmed.startsWith('#')) {
-      continue;
-    }
-
-    if (!line.startsWith(' ')) {
-      const [key, ...rest] = trimmed.split(':');
-      const value = rest.join(':').trim();
-      if (value === '') {
-        currentSection = key.trim();
-        config[currentSection] = config[currentSection] || {};
-      } else {
-        currentSection = null;
-        config[key.trim()] = value.replace(/^['"]|['"]$/g, '');
-      }
-      continue;
-    }
-
-    if (!currentSection) {
-      continue;
-    }
-
-    const [key, ...rest] = trimmed.split(':');
-    config[currentSection][key.trim()] = rest.join(':').trim().replace(/^['"]|['"]$/g, '');
-  }
-
-  return config;
-}
-
-function expandHome(filePath) {
-  if (!filePath) {
-    return filePath;
-  }
-  if (filePath === '~') {
-    return process.env.HOME || filePath;
-  }
-  if (filePath.startsWith('~/')) {
-    return path.join(process.env.HOME || '', filePath.slice(2));
-  }
-  return filePath;
-}
-
-function loadGitConfig(novelPath) {
-  const configPath = path.join(novelPath, 'meta', 'config.yml');
-  if (!fs.existsSync(configPath)) {
-    return createError(
-      'GIT_CONFIG_MISSING',
-      'Git configuration file not found',
-      'Create meta/config.yml with git remote settings before pushing'
-    );
-  }
-
-  const parsed = parseConfig(fs.readFileSync(configPath, 'utf-8'));
-  const gitConfig = parsed.git || {};
-  const remoteUrl = gitConfig.remoteUrl || gitConfig.remote || null;
-  const branch = gitConfig.branch || 'main';
-  const sshKeyPath = expandHome(gitConfig.sshKeyPath || '~/.ssh/id_rsa');
-
-  if (!remoteUrl) {
-    return createError(
-      'REMOTE_NOT_CONFIGURED',
-      'Git remote is not configured',
-      'Set git.remoteUrl in meta/config.yml before pushing'
-    );
-  }
-
-  return {
-    status: 'ok',
-    data: { remoteUrl, branch, sshKeyPath },
-  };
-}
-
-function ensureGitAvailable() {
-  try {
-    execFileSync('git', ['--version'], { stdio: 'ignore' });
-    return null;
-  } catch (err) {
-    return createError(
-      'GIT_UNAVAILABLE',
-      'Git is not available on this system',
-      'Install Git and ensure it is available in your shell PATH',
-      { error: err.message }
-    );
-  }
 }
 
 function ensureSshAgentAvailable() {
@@ -140,44 +55,6 @@ function ensureSshAgentAvailable() {
   }
 }
 
-function ensureSshKeyExists(sshKeyPath) {
-  if (!sshKeyPath || !fs.existsSync(sshKeyPath)) {
-    return createError(
-      'SSH_KEY_NOT_FOUND',
-      'Configured SSH key was not found',
-      `Check that the SSH key exists at ${sshKeyPath}`
-    );
-  }
-
-  return null;
-}
-
-function validateSshKeyPath(sshKeyPath) {
-  if (!/^[a-zA-Z0-9._/~-]+$/.test(sshKeyPath)) {
-    return createError(
-      'INVALID_SSH_KEY_PATH',
-      'SSH key path contains invalid characters',
-      'The SSH key path must only contain letters, digits, dots, hyphens, underscores, forward slashes, and tildes'
-    );
-  }
-  return null;
-}
-
-function getExecOptions(novelPath, sshKeyPath = null) {
-  const env = { ...process.env };
-  if (sshKeyPath) {
-    // sshKeyPath has already been validated by validateSshKeyPath() to contain
-    // only [a-zA-Z0-9._/~-], so no shell-special characters can appear inside
-    // the double-quoted argument here.
-    env.GIT_SSH_COMMAND = `ssh -i "${sshKeyPath}" -o IdentitiesOnly=yes`;
-  }
-  return {
-    cwd: novelPath,
-    encoding: 'utf-8',
-    env,
-  };
-}
-
 function getGitArgs(remoteUrl, args = []) {
   return ['-c', `remote.origin.url=${remoteUrl}`, ...args];
 }
@@ -204,13 +81,6 @@ function ensureCleanWorkingTree(novelPath) {
       { error: err.message }
     );
   }
-}
-
-function isSshRemote(remoteUrl) {
-  if (!remoteUrl || typeof remoteUrl !== 'string') {
-    return false;
-  }
-  return remoteUrl.startsWith('git@') || remoteUrl.startsWith('ssh://');
 }
 
 function ensureGitRepoExists(novelPath) {
