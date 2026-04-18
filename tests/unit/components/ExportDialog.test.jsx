@@ -74,6 +74,8 @@ describe('ExportDialog', () => {
       await user.click(screen.getByTestId('export-button'));
     });
 
+    await screen.findByText('Chapter 1');
+
     await user.clear(await screen.findByTestId('export-title-input'));
     await user.type(screen.getByTestId('export-title-input'), 'My Novel');
     await user.type(screen.getByTestId('export-author-input'), 'Dom');
@@ -106,6 +108,8 @@ describe('ExportDialog', () => {
     await act(async () => {
       await user.click(screen.getByTestId('export-button'));
     });
+
+    await screen.findByText('Chapter 1');
 
     await act(async () => {
       await user.click(screen.getByTestId('export-confirm'));
