@@ -212,7 +212,6 @@ export function ExportDialog({ novelPath }) {
                           id={`export-chapter-${chapter.filename}`}
                           checked={selectedFilenames.has(chapter.filename)}
                           onChange={() => handleToggleChapter(chapter.filename)}
-                          aria-label={`Include ${chapter.title}`}
                         />
                         <label htmlFor={`export-chapter-${chapter.filename}`} className="export-chapter-label">
                           {chapter.title}
