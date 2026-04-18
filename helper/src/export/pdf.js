@@ -31,6 +31,22 @@ function createExportLog(payload) {
   ].join('\n');
 }
 
+function sanitizeChapterOrder(chapterOrder, indexChapters) {
+  const validFilenames = new Set(indexChapters.map((c) => c.filename));
+  const seen = new Set();
+  return chapterOrder.filter((entry) => {
+    if (!entry || typeof entry.filename !== 'string') return false;
+    const fn = entry.filename;
+    if (path.isAbsolute(fn) || fn.includes('..') || fn.includes('/') || fn.includes('\\')) {
+      return false;
+    }
+    if (!validFilenames.has(fn)) return false;
+    if (seen.has(fn)) return false;
+    seen.add(fn);
+    return true;
+  });
+}
+
 function normalizeMetadata(novelPath, metadata = {}) {
   return {
     title: String(metadata.title || path.basename(novelPath)).trim(),
@@ -65,11 +81,20 @@ export async function exportManuscriptToPdf(novelPath, metadata = {}) {
     }
 
     // Use caller-specified chapter order (from UI selection/reorder) when provided;
-    // fall back to the full index order.
+    // fall back to the full index order.  Sanitize to reject path traversal attempts
+    // and filenames not present in the index.
     const exportChapters =
       Array.isArray(metadata.chapterOrder) && metadata.chapterOrder.length > 0
-        ? metadata.chapterOrder
+        ? sanitizeChapterOrder(metadata.chapterOrder, chapters)
         : chapters;
+
+    if (exportChapters.length === 0) {
+      return createError(
+        'NO_CHAPTERS_TO_EXPORT',
+        'No chapters are available for export',
+        'Create at least one manuscript chapter before exporting'
+      );
+    }
 
     const timestamp = toFileTimestamp();
     const metadataValue = normalizeMetadata(novelPath, metadata);

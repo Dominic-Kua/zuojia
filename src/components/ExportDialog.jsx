@@ -205,15 +205,15 @@ export function ExportDialog({ novelPath }) {
                         onDragStart={() => handleDragStart(index)}
                         onDragOver={handleDragOver}
                         onDrop={() => handleDrop(index)}
-                        data-testid={`export-chapter-item-${chapter.filename}`}
+                        data-testid={`export-chapter-item-${encodeURIComponent(chapter.filename)}`}
                       >
                         <input
                           type="checkbox"
-                          id={`export-chapter-${chapter.filename}`}
+                          id={`export-chapter-${index}`}
                           checked={selectedFilenames.has(chapter.filename)}
                           onChange={() => handleToggleChapter(chapter.filename)}
                         />
-                        <label htmlFor={`export-chapter-${chapter.filename}`} className="export-chapter-label">
+                        <label htmlFor={`export-chapter-${index}`} className="export-chapter-label">
                           {chapter.title}
                         </label>
                       </div>

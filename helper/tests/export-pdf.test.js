@@ -115,7 +115,7 @@ describe('exportManuscriptToPdf', () => {
 
     runSubprocess.mockResolvedValue({ stdout: '', stderr: '', exitCode: 0, durationMs: 100 });
 
-    // Only export chapter-02 first, then chapter-01 (reversed order, chapter-01 deselected last)
+    // Export only chapter-02; chapter-01 is omitted from chapterOrder
     const result = await exportManuscriptToPdf(TEST_DIR, {
       title: 'Novel',
       author: 'Dom',

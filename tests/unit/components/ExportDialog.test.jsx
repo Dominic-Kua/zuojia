@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ExportDialog } from '../../../src/components/ExportDialog';
 
@@ -206,6 +206,49 @@ describe('ExportDialog', () => {
           chapterOrder: [
             { filename: 'chapter-01.md', title: 'Chapter 1' },
             { filename: 'chapter-03.md', title: 'Chapter 3' },
+          ],
+        })
+      );
+    });
+  });
+
+  it('sends chapterOrder in reordered sequence after drag-and-drop', async () => {
+    const { indexHandlers, exportHandlers } = await import('../../../src/lib/ipc-client');
+    indexHandlers.getIndex.mockResolvedValue({
+      chapters: [
+        { filename: 'chapter-01.md', title: 'Chapter 1' },
+        { filename: 'chapter-02.md', title: 'Chapter 2' },
+      ],
+    });
+    exportHandlers.pdf.mockResolvedValue({ outputPath: '/tmp/novel.pdf' });
+
+    const user = userEvent.setup();
+    render(<ExportDialog novelPath={novelPath} />);
+
+    await act(async () => {
+      await user.click(screen.getByTestId('export-button'));
+    });
+
+    await screen.findByText('Chapter 1');
+
+    // Drag chapter-01 (index 0) onto chapter-02 (index 1) — result: [chapter-02, chapter-01]
+    const item1 = screen.getByTestId(`export-chapter-item-${encodeURIComponent('chapter-01.md')}`);
+    const item2 = screen.getByTestId(`export-chapter-item-${encodeURIComponent('chapter-02.md')}`);
+    fireEvent.dragStart(item1);
+    fireEvent.dragOver(item2);
+    fireEvent.drop(item2);
+
+    await act(async () => {
+      await user.click(screen.getByTestId('export-confirm'));
+    });
+
+    await waitFor(() => {
+      expect(exportHandlers.pdf).toHaveBeenCalledWith(
+        novelPath,
+        expect.objectContaining({
+          chapterOrder: [
+            { filename: 'chapter-02.md', title: 'Chapter 2' },
+            { filename: 'chapter-01.md', title: 'Chapter 1' },
           ],
         })
       );
