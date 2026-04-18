@@ -79,12 +79,20 @@ This list reflects what is currently wired in the app code.
 - Git remote configuration from the UI `Settings` button
 - Local snapshot helper APIs (create, list, restore)
 
+### Export
+
+- PDF export from the top-bar `Export` button
+- Export dialog with title, author, and publication date metadata
+- Chapter-order export driven by the manuscript index
+- Export logs written under `meta/logs/`
+
 ## Requirements
 
 - macOS
 - Node.js and npm
 - Git available in your shell
 - Electron runtime dependencies installed via npm
+- Pandoc and a TeX engine (`xelatex` or `pdflatex`) for PDF export
 
 ## Getting Started
 
@@ -94,7 +102,7 @@ This list reflects what is currently wired in the app code.
 npm install
 ```
 
-2. Start development mode:
+1. Start development mode:
 
 ```bash
 npm run dev
@@ -102,7 +110,7 @@ npm run dev
 
 This starts Vite and Electron together using `scripts/dev.sh`.
 
-3. In the app:
+1. In the app:
 
 - Click `+ New Novel` to create a project, or
 - Click `Open Novel` to load an existing novel folder
@@ -150,6 +158,11 @@ The editor tracks:
 Use the top-bar `Settings` button to configure your remote URL, branch, and SSH key path.
 Use `Push` to send committed work to that configured remote.
 
+### 7. Export PDF
+
+Use the top-bar `Export` button to review chapter order, set export metadata, and generate a PDF.
+Exported PDFs are written to `meta/exports/`, and export logs are written to `meta/logs/`.
+
 ## Developer Commands
 
 ```bash
@@ -185,4 +198,4 @@ _bmad-output/        Planning and implementation artifacts
 
 ## Current Scope Notes
 
-Some helper endpoints and roadmap items exist in planning docs but are not fully surfaced in the UI yet (for example pull/merge UX and export pipeline wiring). The README above describes the functionality currently implemented in code and available in the running app.
+Some helper endpoints and roadmap items exist in planning docs but are not fully surfaced in the UI yet (for example pull/merge UX). The README above describes the functionality currently implemented in code and available in the running app.
