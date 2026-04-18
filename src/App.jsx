@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react'
 import Manuscript from './components/Manuscript'
 import Sidebar from './components/Sidebar'
 import { CommitButton } from './components/CommitButton'
+import { ExportDialog } from './components/ExportDialog'
 import { NovelSelector } from './components/Navigation/NovelSelector'
 import { PushButton } from './components/PushButton'
 import { SettingsModal } from './components/SettingsModal'
@@ -73,6 +74,7 @@ export default function App(){
       <header className="topbar" data-testid="topbar">
         <div className="brand">作家</div>
         <div className="top-actions">
+          <ExportDialog novelPath={novelPath} />
           <SnapshotButton novelPath={novelPath} />
           <CommitButton novelPath={novelPath} />
           <PushButton novelPath={novelPath} />

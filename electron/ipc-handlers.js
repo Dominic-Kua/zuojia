@@ -9,6 +9,8 @@ import { pushToRemote } from '../helper/src/git/push.js';
 import { calculateWordCount } from '../helper/src/stats/word-count.js';
 import { getManuscriptWordCount } from '../helper/src/stats/manuscript-count.js';
 import { getWordsWrittenToday } from '../helper/src/git/history.js';
+import { exportManuscriptToPdf } from '../helper/src/export/pdf.js';
+import { validateExportDependencies } from '../helper/src/export/validate-deps.js';
 import { createWikiPage, readWikiPage, updateWikiPage, deleteWikiPage, renameWikiPage } from '../helper/src/wiki/crud.js';
 import { listWikiPages } from '../helper/src/wiki/list-pages.js';
 import { rebuildSpellcheckDict } from '../helper/src/wiki/rebuild-dict.js';
@@ -116,6 +118,20 @@ export function registerHandlers() {
     'helper:git:push',
     wrapHandler(async ({ novelPath }) => {
       return await pushToRemote(novelPath);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:export:pdf',
+    wrapHandler(async ({ novelPath, metadata }) => {
+      return await exportManuscriptToPdf(novelPath, metadata);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:export:validateDeps',
+    wrapHandler(async () => {
+      return await validateExportDependencies();
     })
   );
 
@@ -399,11 +415,6 @@ export function registerHandlers() {
   });
 
   // TODO: Register other handlers as they're implemented
-  // - helper:git:commit
   // - helper:git:pull
-  // - helper:git:push
-  // - helper:git:history
-  // - helper:export:pdf
-  // - helper:export:validateDeps
-  // - helper:wiki:rebuildDict
 }
+
