@@ -1,0 +1,74 @@
+% Pandoc LaTeX template for 作家 PDF export
+% Produces a clean, readable single-column document suitable for manuscripts.
+% Works with both pdflatex and xelatex.
+\documentclass[12pt, $if(papersize)$$papersize$,$endif$oneside]{article}
+
+% ── Encoding & fonts ──────────────────────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+% xelatex/lualatex font support (no-op for pdflatex)
+\usepackage{iftex}
+\ifXeTeX
+  \usepackage{fontspec}
+  \setmainfont{Times New Roman}[Ligatures=TeX]
+\else\ifLuaTeX
+  \usepackage{fontspec}
+  \setmainfont{Times New Roman}[Ligatures=TeX]
+\else
+  \usepackage{lmodern}
+\fi\fi
+
+% ── Page geometry ─────────────────────────────────────────────────────────────
+\usepackage[top=1in, bottom=1in, left=1in, right=1in]{geometry}
+
+% ── Line spacing ──────────────────────────────────────────────────────────────
+\usepackage{setspace}
+\onehalfspacing
+
+% ── Paragraph formatting ──────────────────────────────────────────────────────
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+
+% ── Hyperlinks ────────────────────────────────────────────────────────────────
+\usepackage[hidelinks]{hyperref}
+
+% ── Pandoc required packages ──────────────────────────────────────────────────
+\usepackage{longtable, booktabs, array}
+\usepackage{calc}
+\usepackage{etoolbox}
+\usepackage{footnotehyper}
+\usepackage{graphicx}
+\usepackage{microtype}
+\usepackage{selnolig}
+\usepackage{xcolor}
+
+% ── Tightlist (required by Pandoc) ────────────────────────────────────────────
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+% ── Title block ───────────────────────────────────────────────────────────────
+$if(title)$
+\title{$title$$if(subtitle)$\\\vspace{0.5em}{\large $subtitle$}$endif$}
+$endif$
+$if(author)$
+\author{$for(author)$$author$$sep$ \and $endfor$}
+$endif$
+$if(date)$
+\date{$date$}
+$endif$
+
+\begin{document}
+
+$if(title)$
+\maketitle
+$endif$
+
+$if(toc)$
+\tableofcontents
+\newpage
+$endif$
+
+$body$
+
+\end{document}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { exportHandlers, indexHandlers } from '../lib/ipc-client';
 
 function getDefaultMetadata() {
@@ -14,9 +14,11 @@ export function ExportDialog({ novelPath }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [chapters, setChapters] = useState([]);
+  const [selectedFilenames, setSelectedFilenames] = useState(new Set());
   const [metadata, setMetadata] = useState(getDefaultMetadata);
   const [error, setError] = useState(null);
   const [toast, setToast] = useState(null);
+  const dragIndexRef = useRef(null);
 
   useEffect(() => {
     if (!toast) {
@@ -45,7 +47,9 @@ export function ExportDialog({ novelPath }) {
     setMetadata(getDefaultMetadata());
     try {
       const index = await indexHandlers.getIndex(novelPath);
-      setChapters(index.chapters || []);
+      const loaded = index.chapters || [];
+      setChapters(loaded);
+      setSelectedFilenames(new Set(loaded.map((c) => c.filename)));
       setMetadata((current) => ({
         ...current,
         title: current.title || novelPath.split(/[\\/]/).filter(Boolean).at(-1) || '',
@@ -56,6 +60,7 @@ export function ExportDialog({ novelPath }) {
         suggestion: err.suggestion || null,
       });
       setChapters([]);
+      setSelectedFilenames(new Set());
     } finally {
       setIsLoading(false);
     }
@@ -69,6 +74,42 @@ export function ExportDialog({ novelPath }) {
     setError(null);
   };
 
+  const handleToggleChapter = (filename) => {
+    setSelectedFilenames((current) => {
+      const next = new Set(current);
+      if (next.has(filename)) {
+        next.delete(filename);
+      } else {
+        next.add(filename);
+      }
+      return next;
+    });
+  };
+
+  const handleDragStart = (index) => {
+    dragIndexRef.current = index;
+  };
+
+  const handleDragOver = (event) => {
+    event.preventDefault();
+  };
+
+  const handleDrop = (dropIndex) => {
+    const dragIndex = dragIndexRef.current;
+    if (dragIndex === null || dragIndex === dropIndex) {
+      return;
+    }
+    setChapters((current) => {
+      const next = [...current];
+      const [dragged] = next.splice(dragIndex, 1);
+      next.splice(dropIndex, 0, dragged);
+      return next;
+    });
+    dragIndexRef.current = null;
+  };
+
+  const selectedCount = chapters.filter((c) => selectedFilenames.has(c.filename)).length;
+
   const handleExport = async () => {
     if (isExporting) {
       return;
@@ -77,7 +118,11 @@ export function ExportDialog({ novelPath }) {
     setIsExporting(true);
     setError(null);
     try {
-      const result = await exportHandlers.pdf(novelPath, metadata);
+      const chapterOrder = chapters
+        .filter((c) => selectedFilenames.has(c.filename))
+        .map(({ filename, title }) => ({ filename, title }));
+
+      const result = await exportHandlers.pdf(novelPath, { ...metadata, chapterOrder });
       setToast(`PDF exported: ${result.outputPath}`);
       setShowDialog(false);
     } catch (err) {
@@ -152,8 +197,27 @@ export function ExportDialog({ novelPath }) {
                 <div className="settings-field">
                   <span>Chapters included</span>
                   <div className="export-chapter-list" data-testid="export-chapter-list">
-                    {chapters.map((chapter) => (
-                      <div key={chapter.filename} className="export-chapter-item">{chapter.title}</div>
+                    {chapters.map((chapter, index) => (
+                      <div
+                        key={chapter.filename}
+                        className="export-chapter-item"
+                        draggable
+                        onDragStart={() => handleDragStart(index)}
+                        onDragOver={handleDragOver}
+                        onDrop={() => handleDrop(index)}
+                        data-testid={`export-chapter-item-${chapter.filename}`}
+                      >
+                        <input
+                          type="checkbox"
+                          id={`export-chapter-${chapter.filename}`}
+                          checked={selectedFilenames.has(chapter.filename)}
+                          onChange={() => handleToggleChapter(chapter.filename)}
+                          aria-label={`Include ${chapter.title}`}
+                        />
+                        <label htmlFor={`export-chapter-${chapter.filename}`} className="export-chapter-label">
+                          {chapter.title}
+                        </label>
+                      </div>
                     ))}
                     {chapters.length === 0 && (
                       <div className="commit-empty-state">No chapters available.</div>
@@ -178,7 +242,7 @@ export function ExportDialog({ novelPath }) {
                 className="btn primary"
                 data-testid="export-confirm"
                 onClick={handleExport}
-                disabled={isLoading || isExporting || chapters.length === 0}
+                disabled={isLoading || isExporting || selectedCount === 0}
               >
                 {isExporting ? 'Exporting...' : 'Export to PDF'}
               </button>
