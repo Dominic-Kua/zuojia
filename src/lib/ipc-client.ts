@@ -79,8 +79,8 @@ export const statsHandlers = {
 };
 
 export const exportHandlers = {
-  pdf: (novelPath, format, metadata) =>
-    invokeHandler('helper:export:pdf', { novelPath, format, metadata }),
+  pdf: (novelPath, metadata) =>
+    invokeHandler('helper:export:pdf', { novelPath, metadata }),
   validateDeps: () => invokeHandler('helper:export:validateDeps'),
 };
 

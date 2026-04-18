@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
  * Launch the Electron app for E2E testing
  * @returns {Promise<{app: ElectronApplication, page: Page}>}
  */
-export async function launchElectronApp() {
+export async function launchElectronApp(options = {}) {
   const electronPath = path.join(__dirname, '../../../node_modules/.bin/electron');
   const appPath = path.join(__dirname, '../../../electron/main.cjs');
 
@@ -18,6 +18,7 @@ export async function launchElectronApp() {
     args: [appPath],
     env: {
       ...process.env,
+      ...(options.env || {}),
       NODE_ENV: 'production'
     }
   });

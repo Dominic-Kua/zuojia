@@ -486,9 +486,6 @@ export default function Sidebar({ novelPath, openPageSlug }){
           )}
         </div>
       </div>
-      <div className="sidebar-section">
-        <button className="btn">Export PDF</button>
-      </div>
       <div className="sidebar-section muted">
         <h3>Version</h3>
         {isLoadingHistory && <div className="sidebar-muted-copy">Loading commits...</div>}

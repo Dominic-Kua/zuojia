@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs/promises';
 import path from 'path';
-import { execFileSync } from 'child_process';
+import { execFileSync, execFile } from 'child_process';
 import { pushToRemote } from '../src/git/push.js';
 
 vi.mock('child_process', () => ({
   execFileSync: vi.fn(),
+  execFile: vi.fn(),
 }));
 
 const TEST_DIR = path.join(process.cwd(), 'test-push-' + Date.now());
