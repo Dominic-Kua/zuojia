@@ -1,11 +1,15 @@
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { createError } from '../util/error.js';
 import { validateExportDependencies } from './validate-deps.js';
 import { buildPdfExportCommand } from './command-builder.js';
 import { runSubprocess } from '../util/subprocess.js';
 import { getIndex } from '../index/get.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const LATEX_TEMPLATE_PATH = path.join(__dirname, 'latex-template.tex');
 
 function toFileTimestamp(date = new Date()) {
   return date.toISOString().replace(/[:.]/g, '-');
@@ -25,6 +29,22 @@ function createExportLog(payload) {
     payload.stderr || '',
     '',
   ].join('\n');
+}
+
+function sanitizeChapterOrder(chapterOrder, indexChapters) {
+  const validFilenames = new Set(indexChapters.map((c) => c.filename));
+  const seen = new Set();
+  return chapterOrder.filter((entry) => {
+    if (!entry || typeof entry.filename !== 'string') return false;
+    const fn = entry.filename;
+    if (path.isAbsolute(fn) || fn.includes('..') || fn.includes('/') || fn.includes('\\')) {
+      return false;
+    }
+    if (!validFilenames.has(fn)) return false;
+    if (seen.has(fn)) return false;
+    seen.add(fn);
+    return true;
+  });
 }
 
 function normalizeMetadata(novelPath, metadata = {}) {
@@ -60,6 +80,22 @@ export async function exportManuscriptToPdf(novelPath, metadata = {}) {
       );
     }
 
+    // Use caller-specified chapter order (from UI selection/reorder) when provided;
+    // fall back to the full index order.  Sanitize to reject path traversal attempts
+    // and filenames not present in the index.
+    const exportChapters =
+      Array.isArray(metadata.chapterOrder) && metadata.chapterOrder.length > 0
+        ? sanitizeChapterOrder(metadata.chapterOrder, chapters)
+        : chapters;
+
+    if (exportChapters.length === 0) {
+      return createError(
+        'NO_CHAPTERS_TO_EXPORT',
+        'No chapters are available for export',
+        'Create at least one manuscript chapter before exporting'
+      );
+    }
+
     const timestamp = toFileTimestamp();
     const metadataValue = normalizeMetadata(novelPath, metadata);
     const exportsDir = path.join(novelPath, 'meta', 'exports');
@@ -69,7 +105,7 @@ export async function exportManuscriptToPdf(novelPath, metadata = {}) {
 
     const outputPath = path.join(exportsDir, `${path.basename(novelPath)}-${timestamp}.pdf`);
     const logPath = path.join(logsDir, `export-${timestamp}.log`);
-    const chapterPaths = chapters.map((chapter) => path.join(novelPath, 'manuscript', chapter.filename));
+    const chapterPaths = exportChapters.map((chapter) => path.join(novelPath, 'manuscript', chapter.filename));
 
     const missingChapters = chapterPaths.filter((p) => !fs.existsSync(p));
     if (missingChapters.length > 0) {
@@ -80,11 +116,14 @@ export async function exportManuscriptToPdf(novelPath, metadata = {}) {
       );
     }
 
+    const templatePath = fs.existsSync(LATEX_TEMPLATE_PATH) ? LATEX_TEMPLATE_PATH : null;
+
     const command = buildPdfExportCommand({
       chapterPaths,
       metadata: metadataValue,
       outputPath,
       pdfEngine: depsResult.data.tex.engine,
+      templatePath,
     });
 
     const subprocessResult = await runSubprocess(command.command, command.args, { cwd: novelPath });
