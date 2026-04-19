@@ -100,4 +100,83 @@ describe('exportManuscriptToPdf', () => {
     expect(args.some((arg) => arg.endsWith('chapter-02.md'))).toBe(true);
     expect(args).toContain('--metadata');
   });
+
+  it('respects chapterOrder when provided — uses given order, skips omitted chapters', async () => {
+    const { validateExportDependencies } = await import('../src/export/validate-deps.js');
+    const { runSubprocess } = await import('../src/util/subprocess.js');
+
+    validateExportDependencies.mockResolvedValue({
+      status: 'ok',
+      data: {
+        pandoc: { available: true, version: 'pandoc 3.1.0' },
+        tex: { available: true, engine: 'xelatex', version: 'XeTeX 3.14' },
+      },
+    });
+
+    runSubprocess.mockResolvedValue({ stdout: '', stderr: '', exitCode: 0, durationMs: 100 });
+
+    // Export only chapter-02; chapter-01 is omitted from chapterOrder
+    const result = await exportManuscriptToPdf(TEST_DIR, {
+      title: 'Novel',
+      author: 'Dom',
+      date: '2026-04-18',
+      chapterOrder: [{ filename: 'chapter-02.md', title: 'Chapter 2' }],
+    });
+
+    expect(result.status).toBe('ok');
+    const [, args] = runSubprocess.mock.calls[0];
+    const chapterArgs = args.filter((a) => a.endsWith('.md'));
+    expect(chapterArgs).toHaveLength(1);
+    expect(chapterArgs[0]).toMatch(/chapter-02\.md$/);
+    expect(chapterArgs.some((a) => a.endsWith('chapter-01.md'))).toBe(false);
+  });
+
+  it('falls back to index order when chapterOrder is absent', async () => {
+    const { validateExportDependencies } = await import('../src/export/validate-deps.js');
+    const { runSubprocess } = await import('../src/util/subprocess.js');
+
+    validateExportDependencies.mockResolvedValue({
+      status: 'ok',
+      data: {
+        pandoc: { available: true, version: 'pandoc 3.1.0' },
+        tex: { available: true, engine: 'xelatex', version: 'XeTeX 3.14' },
+      },
+    });
+
+    runSubprocess.mockResolvedValue({ stdout: '', stderr: '', exitCode: 0, durationMs: 100 });
+
+    const result = await exportManuscriptToPdf(TEST_DIR, {
+      title: 'Novel',
+      author: 'Dom',
+      date: '2026-04-18',
+    });
+
+    expect(result.status).toBe('ok');
+    const [, args] = runSubprocess.mock.calls[0];
+    const chapterArgs = args.filter((a) => a.endsWith('.md'));
+    expect(chapterArgs).toHaveLength(2);
+  });
+
+  it('passes --template when latex template file exists', async () => {
+    const { validateExportDependencies } = await import('../src/export/validate-deps.js');
+    const { runSubprocess } = await import('../src/util/subprocess.js');
+
+    validateExportDependencies.mockResolvedValue({
+      status: 'ok',
+      data: {
+        pandoc: { available: true, version: 'pandoc 3.1.0' },
+        tex: { available: true, engine: 'xelatex', version: 'XeTeX 3.14' },
+      },
+    });
+
+    runSubprocess.mockResolvedValue({ stdout: '', stderr: '', exitCode: 0, durationMs: 100 });
+
+    await exportManuscriptToPdf(TEST_DIR, { title: 'Novel', author: 'Dom', date: '2026-04-18' });
+
+    const [, args] = runSubprocess.mock.calls[0];
+    // Template is present when the latex-template.tex file exists in the export directory
+    const templateArg = args.find((a) => a.startsWith('--template'));
+    expect(templateArg).toBeDefined();
+    expect(templateArg).toContain('latex-template.tex');
+  });
 });

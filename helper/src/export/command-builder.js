@@ -1,4 +1,4 @@
-export function buildPdfExportCommand({ chapterPaths, metadata, outputPath, pdfEngine }) {
+export function buildPdfExportCommand({ chapterPaths, metadata, outputPath, pdfEngine, templatePath }) {
   const args = [...chapterPaths];
 
   if (metadata.title) {
@@ -14,7 +14,13 @@ export function buildPdfExportCommand({ chapterPaths, metadata, outputPath, pdfE
   }
 
   args.push('--pdf-engine=' + pdfEngine);
-  args.push('--standalone');
+
+  if (templatePath) {
+    args.push(`--template=${templatePath}`);
+  } else {
+    args.push('--standalone');
+  }
+
   args.push('-o', outputPath);
 
   return {
