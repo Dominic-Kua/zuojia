@@ -9,6 +9,7 @@ const originalConsoleError = console.error;
 vi.mock('../../../src/lib/ipc-client', () => ({
   exportHandlers: {
     pdf: vi.fn(),
+    getLogs: vi.fn(),
   },
   indexHandlers: {
     getIndex: vi.fn(),
@@ -253,5 +254,62 @@ describe('ExportDialog', () => {
         })
       );
     });
+  });
+});
+
+describe('ExportDialog — logs viewer', () => {
+  const novelPath = '/path/to/novel';
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  async function openDialogWithChapters() {
+    const { indexHandlers } = await import('../../../src/lib/ipc-client');
+    indexHandlers.getIndex.mockResolvedValue({
+      chapters: [{ filename: 'ch-01.md', title: 'Chapter 1' }],
+    });
+    const user = userEvent.setup();
+    render(<ExportDialog novelPath={novelPath} />);
+    await act(async () => {
+      await user.click(screen.getByTestId('export-button'));
+    });
+    await screen.findByText('Chapter 1');
+    return user;
+  }
+
+  it('shows a "View Logs" button in the export dialog', async () => {
+    const { exportHandlers } = await import('../../../src/lib/ipc-client');
+    exportHandlers.getLogs.mockResolvedValue([]);
+    await openDialogWithChapters();
+    expect(screen.getByTestId('export-view-logs-button')).toBeInTheDocument();
+  });
+
+  it('shows "No export logs yet" when there are no logs', async () => {
+    const { exportHandlers } = await import('../../../src/lib/ipc-client');
+    exportHandlers.getLogs.mockResolvedValue([]);
+
+    const user = await openDialogWithChapters();
+    await act(async () => {
+      await user.click(screen.getByTestId('export-view-logs-button'));
+    });
+
+    await screen.findByTestId('export-logs-panel');
+    expect(screen.getByText(/no export logs yet/i)).toBeInTheDocument();
+  });
+
+  it('renders log filenames when logs are available', async () => {
+    const { exportHandlers } = await import('../../../src/lib/ipc-client');
+    exportHandlers.getLogs.mockResolvedValue([
+      { filename: 'export-2026-04-18T12-00-00-000Z.log', content: 'timestamp: ...\nexitCode: 0' },
+    ]);
+
+    const user = await openDialogWithChapters();
+    await act(async () => {
+      await user.click(screen.getByTestId('export-view-logs-button'));
+    });
+
+    await screen.findByTestId('export-logs-panel');
+    expect(screen.getByText('export-2026-04-18T12-00-00-000Z.log')).toBeInTheDocument();
   });
 });

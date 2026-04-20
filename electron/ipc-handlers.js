@@ -11,6 +11,7 @@ import { getManuscriptWordCount } from '../helper/src/stats/manuscript-count.js'
 import { getWordsWrittenToday } from '../helper/src/git/history.js';
 import { exportManuscriptToPdf } from '../helper/src/export/pdf.js';
 import { validateExportDependencies } from '../helper/src/export/validate-deps.js';
+import { getExportLogs } from '../helper/src/export/logs.js';
 import { createWikiPage, readWikiPage, updateWikiPage, deleteWikiPage, renameWikiPage } from '../helper/src/wiki/crud.js';
 import { listWikiPages } from '../helper/src/wiki/list-pages.js';
 import { rebuildSpellcheckDict } from '../helper/src/wiki/rebuild-dict.js';
@@ -132,6 +133,13 @@ export function registerHandlers() {
     'helper:export:validateDeps',
     wrapHandler(async () => {
       return await validateExportDependencies();
+    })
+  );
+
+  ipcMain.handle(
+    'helper:export:getLogs',
+    wrapHandler(async ({ novelPath, limit }) => {
+      return await getExportLogs(novelPath, limit);
     })
   );
 

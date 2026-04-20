@@ -55,6 +55,23 @@ function normalizeMetadata(novelPath, metadata = {}) {
   };
 }
 
+async function pruneExportLogs(logsDir, maxLogs = 10) {
+  let files;
+  try {
+    files = await fsPromises.readdir(logsDir);
+  } catch {
+    return;
+  }
+  const logFiles = files.filter((f) => f.startsWith('export-') && f.endsWith('.log')).sort();
+  const excess = logFiles.length - maxLogs;
+  if (excess <= 0) {
+    return;
+  }
+  await Promise.all(
+    logFiles.slice(0, excess).map((f) => fsPromises.unlink(path.join(logsDir, f)).catch(() => {}))
+  );
+}
+
 export async function exportManuscriptToPdf(novelPath, metadata = {}) {
   try {
     if (!novelPath || !fs.existsSync(novelPath)) {
@@ -136,6 +153,7 @@ export async function exportManuscriptToPdf(novelPath, metadata = {}) {
       }),
       'utf-8'
     );
+    await pruneExportLogs(logsDir);
 
     if (subprocessResult.exitCode !== 0) {
       return createError(
