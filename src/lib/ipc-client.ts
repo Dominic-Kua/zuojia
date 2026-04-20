@@ -82,6 +82,8 @@ export const exportHandlers = {
   pdf: (novelPath, metadata) =>
     invokeHandler('helper:export:pdf', { novelPath, metadata }),
   validateDeps: () => invokeHandler('helper:export:validateDeps'),
+  getLogs: (novelPath, limit = 10) =>
+    invokeHandler('helper:export:getLogs', { novelPath, limit }),
 };
 
 export const wikiHandlers = {

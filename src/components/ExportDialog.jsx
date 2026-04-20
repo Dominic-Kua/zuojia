@@ -18,6 +18,8 @@ export function ExportDialog({ novelPath }) {
   const [metadata, setMetadata] = useState(getDefaultMetadata);
   const [error, setError] = useState(null);
   const [toast, setToast] = useState(null);
+  const [showLogs, setShowLogs] = useState(false);
+  const [logs, setLogs] = useState([]);
   const dragIndexRef = useRef(null);
 
   useEffect(() => {
@@ -44,6 +46,8 @@ export function ExportDialog({ novelPath }) {
     setShowDialog(true);
     setIsLoading(true);
     setError(null);
+    setShowLogs(false);
+    setLogs([]);
     setMetadata(getDefaultMetadata());
     try {
       const index = await indexHandlers.getIndex(novelPath);
@@ -72,6 +76,17 @@ export function ExportDialog({ novelPath }) {
     }
     setShowDialog(false);
     setError(null);
+    setShowLogs(false);
+  };
+
+  const handleViewLogs = async () => {
+    setShowLogs(true);
+    try {
+      const logEntries = await exportHandlers.getLogs(novelPath);
+      setLogs(logEntries);
+    } catch {
+      setLogs([]);
+    }
   };
 
   const handleToggleChapter = (filename) => {
@@ -234,6 +249,9 @@ export function ExportDialog({ novelPath }) {
             )}
 
             <div className="snapshot-dialog-actions">
+              <button className="btn ghost" data-testid="export-view-logs-button" onClick={handleViewLogs}>
+                View Logs
+              </button>
               <button className="btn ghost" data-testid="export-cancel" onClick={handleClose} disabled={isExporting}>
                 Cancel
               </button>
@@ -246,6 +264,21 @@ export function ExportDialog({ novelPath }) {
                 {isExporting ? 'Exporting...' : 'Export to PDF'}
               </button>
             </div>
+
+            {showLogs && (
+              <div className="export-logs-panel" data-testid="export-logs-panel">
+                {logs.length === 0 ? (
+                  <div className="commit-empty-state">No export logs yet.</div>
+                ) : (
+                  logs.map((log) => (
+                    <details key={log.filename} className="export-log-entry">
+                      <summary className="export-log-filename">{log.filename}</summary>
+                      <pre className="export-log-content">{log.content}</pre>
+                    </details>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
