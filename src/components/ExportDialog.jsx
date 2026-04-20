@@ -81,11 +81,13 @@ export function ExportDialog({ novelPath }) {
 
   const handleViewLogs = async () => {
     setShowLogs(true);
+    setError(null);
     try {
       const logEntries = await exportHandlers.getLogs(novelPath);
       setLogs(logEntries);
-    } catch {
+    } catch (err) {
       setLogs([]);
+      setError({ message: err.message || 'Failed to load export logs', suggestion: null });
     }
   };
 
