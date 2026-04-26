@@ -20,6 +20,7 @@ export function ExportDialog({ novelPath }) {
   const [toast, setToast] = useState(null);
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState([]);
+  const [isLogsLoading, setIsLogsLoading] = useState(false);
   const dragIndexRef = useRef(null);
 
   useEffect(() => {
@@ -81,6 +82,7 @@ export function ExportDialog({ novelPath }) {
 
   const handleViewLogs = async () => {
     setShowLogs(true);
+    setIsLogsLoading(true);
     setError(null);
     try {
       const logEntries = await exportHandlers.getLogs(novelPath);
@@ -88,6 +90,8 @@ export function ExportDialog({ novelPath }) {
     } catch (err) {
       setLogs([]);
       setError({ message: err.message || 'Failed to load export logs', suggestion: null });
+    } finally {
+      setIsLogsLoading(false);
     }
   };
 
@@ -269,7 +273,14 @@ export function ExportDialog({ novelPath }) {
 
             {showLogs && (
               <div className="export-logs-panel" data-testid="export-logs-panel">
-                {logs.length === 0 ? (
+                {isLogsLoading ? (
+                  <div className="commit-loading" data-testid="export-logs-loading">Loading logs...</div>
+                ) : error ? (
+                  <div className="snapshot-error" data-testid="export-logs-error">
+                    <div>{error.message}</div>
+                    {error.suggestion && <div className="push-guidance export-guidance">{error.suggestion}</div>}
+                  </div>
+                ) : logs.length === 0 ? (
                   <div className="commit-empty-state">No export logs yet.</div>
                 ) : (
                   logs.map((log) => (
