@@ -157,6 +157,36 @@ describe('exportManuscriptToPdf', () => {
     expect(chapterArgs).toHaveLength(2);
   });
 
+  it('prunes export logs to keep only the 10 most recent after a successful export', async () => {
+    const { validateExportDependencies } = await import('../src/export/validate-deps.js');
+    const { runSubprocess } = await import('../src/util/subprocess.js');
+
+    validateExportDependencies.mockResolvedValue({
+      status: 'ok',
+      data: {
+        pandoc: { available: true, version: 'pandoc 3.1.0' },
+        tex: { available: true, engine: 'xelatex', version: 'XeTeX 3.14' },
+      },
+    });
+    runSubprocess.mockResolvedValue({ stdout: '', stderr: '', exitCode: 0, durationMs: 100 });
+
+    // Pre-populate the logs dir with 10 old log files
+    const logsDir = path.join(TEST_DIR, 'meta', 'logs');
+    await fs.mkdir(logsDir, { recursive: true });
+    for (let i = 1; i <= 10; i++) {
+      const ts = `2026-01-${String(i).padStart(2, '0')}T00-00-00-000Z`;
+      await fs.writeFile(path.join(logsDir, `export-${ts}.log`), `log ${i}`, 'utf-8');
+    }
+
+    const result = await exportManuscriptToPdf(TEST_DIR, { title: 'Novel', author: 'Dom', date: '2026-04-18' });
+    expect(result.status).toBe('ok');
+
+    const remaining = (await fs.readdir(logsDir)).filter((f) => f.startsWith('export-'));
+    expect(remaining).toHaveLength(10);
+    // Oldest (2026-01-01) should be pruned; the new log plus 2026-01-02 through 10 remain
+    expect(remaining.some((f) => f.includes('2026-01-01'))).toBe(false);
+  });
+
   it('passes --template when latex template file exists', async () => {
     const { validateExportDependencies } = await import('../src/export/validate-deps.js');
     const { runSubprocess } = await import('../src/util/subprocess.js');
