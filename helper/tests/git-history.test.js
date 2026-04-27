@@ -7,63 +7,48 @@ import { getWordsWrittenToday } from '../src/git/history.js';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { execSync } from 'child_process';
 
 describe('getWordsWrittenToday', () => {
   let testDir;
 
   beforeEach(async () => {
-    // Create temp directory with git repo
-    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ä½å®¶-test-'));
+    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'zuojia-test-'));
     await fs.mkdir(path.join(testDir, 'manuscript'), { recursive: true });
-    
-    // Initialize git repo
-    execSync('git init', { cwd: testDir });
-    execSync('git config user.email "test@example.com"', { cwd: testDir });
-    execSync('git config user.name "Test User"', { cwd: testDir });
+    await fs.mkdir(path.join(testDir, 'meta'), { recursive: true });
   });
 
   afterEach(async () => {
-    // Clean up
     await fs.rm(testDir, { recursive: true, force: true });
   });
 
-  it('returns 0 when no commits exist', async () => {
+  /**
+   * Write a today-baseline.json with the given word count
+   */
+  async function writeBaseline(novelPath, wordCount) {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const baselineFile = path.join(novelPath, 'meta', 'today-baseline.json');
+    await fs.writeFile(baselineFile, JSON.stringify({ date: dateStr, wordCount }), 'utf-8');
+  }
+
+  it('returns 0 when no baseline exists (creates baseline at current state)', async () => {
     const count = await getWordsWrittenToday(testDir);
     expect(count).toBe(0);
   });
 
-  it('counts words added in commits today', async () => {
-    // Create initial file
-    const chapterPath = path.join(testDir, 'manuscript', 'chapter-1.md');
-    await fs.writeFile(chapterPath, 'Initial five words in file.');
-    execSync('git add . && git commit -m "initial"', { cwd: testDir });
-
-    // Modify file to add words
-    await fs.writeFile(chapterPath, 'Initial five words in file. Added five more words here.');
-    execSync('git add . && git commit -m "update"', { cwd: testDir });
+  it('counts words added since baseline', async () => {
+    await writeBaseline(testDir, 5);
+    await fs.writeFile(
+      path.join(testDir, 'manuscript', 'chapter-1.md'),
+      'Ten words in this brand new chapter file here.'
+    );
 
     const count = await getWordsWrittenToday(testDir);
-    expect(count).toBe(10); // Entire new line counted (git diff shows full line as +)
+    expect(count).toBe(4); // 9 current - 5 baseline = 4
   });
 
-  it('counts words from modified lines', async () => {
-    // Create initial file
-    const chapterPath = path.join(testDir, 'manuscript', 'chapter-1.md');
-    await fs.writeFile(chapterPath, 'Start with ten words in this chapter file here.');
-    execSync('git add . && git commit -m "initial"', { cwd: testDir });
-
-    // Remove some words, add some words
-    await fs.writeFile(chapterPath, 'Start with ten words. Added three words.');
-    execSync('git add . && git commit -m "edit"', { cwd: testDir });
-
-    const count = await getWordsWrittenToday(testDir);
-    // Git shows entire new line as +: "Start with ten words. Added three words." (7 words)
-    expect(count).toBe(7);
-  });
-
-  it('counts words across multiple files', async () => {
-    // Create two files with initial content
+  it('counts words added across multiple files since baseline', async () => {
+    await writeBaseline(testDir, 0);
     await fs.writeFile(
       path.join(testDir, 'manuscript', 'chapter-1.md'),
       'Five words in chapter one.'
@@ -72,42 +57,26 @@ describe('getWordsWrittenToday', () => {
       path.join(testDir, 'manuscript', 'chapter-2.md'),
       'Five words in chapter two.'
     );
-    execSync('git add . && git commit -m "initial"', { cwd: testDir });
 
-    // Add words to both files
+    const count = await getWordsWrittenToday(testDir);
+    expect(count).toBe(10); // 10 - 0 = 10
+  });
+
+  it('handles new files added since baseline', async () => {
+    await writeBaseline(testDir, 0);
     await fs.writeFile(
       path.join(testDir, 'manuscript', 'chapter-1.md'),
-      'Five words in chapter one. Three more words.'
+      'Ten words in this brand new chapter file here.'
     );
-    await fs.writeFile(
-      path.join(testDir, 'manuscript', 'chapter-2.md'),
-      'Five words in chapter two. Four more words here.'
-    );
-    execSync('git add . && git commit -m "update both"', { cwd: testDir });
 
     const count = await getWordsWrittenToday(testDir);
-    expect(count).toBe(17); // 8 words in ch1 line + 9 words in ch2 line
-  });
-
-  it('excludes commits before midnight', async () => {
-    // This test would need to manipulate git commit dates
-    // For now, we'll test that it at least doesn't error
-    const count = await getWordsWrittenToday(testDir);
-    expect(typeof count).toBe('number');
-  });
-
-  it('handles new files created today', async () => {
-    const chapterPath = path.join(testDir, 'manuscript', 'chapter-1.md');
-    await fs.writeFile(chapterPath, 'Ten words in this brand new chapter file here.');
-    execSync('git add . && git commit -m "new file"', { cwd: testDir });
-
-    const count = await getWordsWrittenToday(testDir);
-    expect(count).toBe(9); // Actual: "Ten words in this brand new chapter file here" = 9 words
+    expect(count).toBe(9); // "Ten words in this brand new chapter file here" = 9 words
   });
 
   it('excludes wiki files from today count', async () => {
     await fs.mkdir(path.join(testDir, 'wiki'), { recursive: true });
-    
+    await writeBaseline(testDir, 0);
+
     await fs.writeFile(
       path.join(testDir, 'manuscript', 'chapter-1.md'),
       'Five words in chapter file.'
@@ -116,27 +85,55 @@ describe('getWordsWrittenToday', () => {
       path.join(testDir, 'wiki', 'character.md'),
       'Ten words in wiki file should not count.'
     );
-    execSync('git add . && git commit -m "add files"', { cwd: testDir });
 
     const count = await getWordsWrittenToday(testDir);
-    expect(count).toBe(5);
+    expect(count).toBe(5); // only manuscript words count
   });
 
-  it('returns 0 if git repo does not exist', async () => {
-    // Create non-git directory
-    const nonGitDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ä½å®¶-nogit-'));
-    await fs.mkdir(path.join(nonGitDir, 'manuscript'), { recursive: true });
+  it('returns 0 when word count equals baseline', async () => {
+    await fs.writeFile(
+      path.join(testDir, 'manuscript', 'chapter-1.md'),
+      'Five words in chapter file.'
+    );
+    await writeBaseline(testDir, 5);
 
-    const count = await getWordsWrittenToday(nonGitDir);
-    expect(count).toBe(0);
-
-    await fs.rm(nonGitDir, { recursive: true, force: true });
-  });
-
-  it('handles empty commits gracefully', async () => {
-    execSync('git commit --allow-empty -m "empty"', { cwd: testDir });
-    
     const count = await getWordsWrittenToday(testDir);
     expect(count).toBe(0);
+  });
+
+  it('returns 0 when word count is less than baseline (words deleted)', async () => {
+    await fs.writeFile(
+      path.join(testDir, 'manuscript', 'chapter-1.md'),
+      'Three words.'
+    );
+    await writeBaseline(testDir, 10);
+
+    const count = await getWordsWrittenToday(testDir);
+    expect(count).toBe(0); // Math.max(0, 2 - 10) = 0
+  });
+
+  it('returns 0 when no manuscript directory exists', async () => {
+    const noManuscriptDir = await fs.mkdtemp(path.join(os.tmpdir(), 'zuojia-nodir-'));
+
+    const count = await getWordsWrittenToday(noManuscriptDir);
+    expect(count).toBe(0);
+
+    await fs.rm(noManuscriptDir, { recursive: true, force: true });
+  });
+
+  it('returns 0 and resets baseline when baseline is from a previous day', async () => {
+    await fs.writeFile(
+      path.join(testDir, 'manuscript', 'chapter-1.md'),
+      'Five words in chapter file.'
+    );
+    const baselineFile = path.join(testDir, 'meta', 'today-baseline.json');
+    await fs.writeFile(
+      baselineFile,
+      JSON.stringify({ date: '2000-01-01', wordCount: 0 }),
+      'utf-8'
+    );
+
+    const count = await getWordsWrittenToday(testDir);
+    expect(count).toBe(0); // New day resets baseline -> returns 0
   });
 });

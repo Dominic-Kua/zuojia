@@ -16,6 +16,11 @@ export async function createNovel(novelName, novelRootPath = path.join(process.e
       return createError('INVALID_NOVEL_NAME', 'Novel name cannot be empty');
     }
 
+    // Reject names with path separator or colon characters (path traversal / filesystem risk)
+    if (/[/\\:]/.test(novelName)) {
+      return createError('INVALID_NOVEL_NAME', 'Novel name cannot contain /, \\, or : characters');
+    }
+
     // Convert novel name to safe directory slug
     // Remove leading/trailing whitespace, convert to lowercase, replace spaces with hyphens,
     // and remove any characters that aren't alphanumeric, hyphens, or underscores
