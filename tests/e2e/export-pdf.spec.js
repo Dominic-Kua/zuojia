@@ -74,4 +74,35 @@ test.describe('Story 5.1: PDF Export', () => {
     await expect(page.getByTestId('export-error')).toContainText('TeX');
     await expect(page.getByTestId('export-error')).toContainText('mactex-no-gui');
   });
+
+  test('shows empty state when no export logs exist', async () => {
+    await page.getByTestId('export-button').click();
+    await expect(page.getByTestId('export-dialog')).toBeVisible({ timeout: 5000 });
+
+    await page.getByTestId('export-view-logs-button').click();
+
+    const logsPanel = page.getByTestId('export-logs-panel');
+    await expect(logsPanel).toBeVisible({ timeout: 3000 });
+    await expect(logsPanel).toContainText('No export logs yet.');
+  });
+
+  test('shows log entries when export logs exist on disk', async () => {
+    // Pre-seed a log file so we can verify the UI without running a real export
+    const logsDir = path.join(testNovelPath, 'meta', 'logs');
+    await fs.mkdir(logsDir, { recursive: true });
+    await fs.writeFile(
+      path.join(logsDir, 'export-2026-04-01T00-00-00-000Z.log'),
+      'command: pandoc ...\nexit: 0',
+      'utf-8'
+    );
+
+    await page.getByTestId('export-button').click();
+    await expect(page.getByTestId('export-dialog')).toBeVisible({ timeout: 5000 });
+
+    await page.getByTestId('export-view-logs-button').click();
+
+    const logsPanel = page.getByTestId('export-logs-panel');
+    await expect(logsPanel).toBeVisible({ timeout: 3000 });
+    await expect(logsPanel).toContainText('export-2026-04-01T00-00-00-000Z.log');
+  });
 });
