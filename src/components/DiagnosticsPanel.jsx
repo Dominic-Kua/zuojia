@@ -8,7 +8,7 @@ function formatBytes(bytes) {
 }
 
 function formatTimestamp(ts) {
-  return new Date(typeof ts === 'number' ? ts : ts).toLocaleString();
+  return new Date(ts).toLocaleString();
 }
 
 export function DiagnosticsPanel({ novelPath, onIndexRebuilt }) {
@@ -29,23 +29,17 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt }) {
   const loadData = async () => {
     setIsLoading(true);
     setError(null);
-    try {
-      const [logsResult, snapshotsResult, indexResult, depsResult] = await Promise.allSettled([
-        exportHandlers.getLogs(novelPath),
-        backupHandlers.listSnapshots(novelPath),
-        indexHandlers.getIndex(novelPath),
-        exportHandlers.validateDeps(),
-      ]);
-
-      setLogs(logsResult.status === 'fulfilled' ? (logsResult.value ?? []) : []);
-      setSnapshots(snapshotsResult.status === 'fulfilled' ? (snapshotsResult.value ?? []) : []);
-      setIndexInfo(indexResult.status === 'fulfilled' ? indexResult.value : null);
-      setDeps(depsResult.status === 'fulfilled' ? depsResult.value : null);
-    } catch (err) {
-      setError(err.message || 'Failed to load diagnostics data');
-    } finally {
-      setIsLoading(false);
-    }
+    const [logsResult, snapshotsResult, indexResult, depsResult] = await Promise.allSettled([
+      exportHandlers.getLogs(novelPath),
+      backupHandlers.listSnapshots(novelPath),
+      indexHandlers.getIndex(novelPath),
+      exportHandlers.validateDeps(),
+    ]);
+    setLogs(logsResult.status === 'fulfilled' ? (logsResult.value ?? []) : []);
+    setSnapshots(snapshotsResult.status === 'fulfilled' ? (snapshotsResult.value ?? []) : []);
+    setIndexInfo(indexResult.status === 'fulfilled' ? indexResult.value : null);
+    setDeps(depsResult.status === 'fulfilled' ? depsResult.value : null);
+    setIsLoading(false);
   };
 
   const handleOpen = async () => {
