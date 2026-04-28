@@ -35,6 +35,7 @@ describe('getWordsWrittenToday', () => {
   });
 
   it('returns 0 when no baseline or manuscript exists', async () => {
+    await fs.rm(path.join(testDir, 'manuscript'), { recursive: true, force: true });
     const count = await getWordsWrittenToday(testDir);
     expect(count).toBe(0);
   });
