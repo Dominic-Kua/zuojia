@@ -6,6 +6,7 @@ import { ExportDialog } from './components/ExportDialog'
 import { NovelSelector } from './components/Navigation/NovelSelector'
 import { PushButton } from './components/PushButton'
 import { SettingsModal } from './components/SettingsModal'
+import { DiagnosticsPanel } from './components/DiagnosticsPanel'
 import { SnapshotButton } from './components/SnapshotButton'
 import { useWikiPages } from './hooks/useWikiPages'
 
@@ -78,6 +79,7 @@ export default function App(){
           <SnapshotButton novelPath={novelPath} />
           <CommitButton novelPath={novelPath} />
           <PushButton novelPath={novelPath} />
+          <DiagnosticsPanel novelPath={novelPath} onIndexRebuilt={() => window.dispatchEvent(new CustomEvent('zuojia:index-rebuilt'))} />
           <SettingsModal novelPath={novelPath} />
           <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>
         </div>
