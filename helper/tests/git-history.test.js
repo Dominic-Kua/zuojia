@@ -7,107 +7,96 @@ import { getWordsWrittenToday } from '../src/git/history.js';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { execSync } from 'child_process';
+
+/**
+ * Write a today-baseline.json with the given word count into the novel's meta dir.
+ */
+async function writeBaseline(novelPath, wordCount) {
+  const metaDir = path.join(novelPath, 'meta');
+  await fs.mkdir(metaDir, { recursive: true });
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  await fs.writeFile(
+    path.join(metaDir, 'today-baseline.json'),
+    JSON.stringify({ date: dateStr, wordCount }, null, 2)
+  );
+}
 
 describe('getWordsWrittenToday', () => {
   let testDir;
 
   beforeEach(async () => {
-    // Create temp directory with git repo
-    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ä½å®¶-test-'));
+    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'zuojia-test-'));
     await fs.mkdir(path.join(testDir, 'manuscript'), { recursive: true });
-    
-    // Initialize git repo
-    execSync('git init', { cwd: testDir });
-    execSync('git config user.email "test@example.com"', { cwd: testDir });
-    execSync('git config user.name "Test User"', { cwd: testDir });
   });
 
   afterEach(async () => {
-    // Clean up
     await fs.rm(testDir, { recursive: true, force: true });
   });
 
-  it('returns 0 when no commits exist', async () => {
+  it('returns 0 when no baseline or manuscript exists', async () => {
+    await fs.rm(path.join(testDir, 'manuscript'), { recursive: true, force: true });
     const count = await getWordsWrittenToday(testDir);
     expect(count).toBe(0);
   });
 
-  it('counts words added in commits today', async () => {
-    // Create initial file
-    const chapterPath = path.join(testDir, 'manuscript', 'chapter-1.md');
-    await fs.writeFile(chapterPath, 'Initial five words in file.');
-    execSync('git add . && git commit -m "initial"', { cwd: testDir });
-
-    // Modify file to add words
-    await fs.writeFile(chapterPath, 'Initial five words in file. Added five more words here.');
-    execSync('git add . && git commit -m "update"', { cwd: testDir });
-
+  it('counts words added since baseline', async () => {
+    await writeBaseline(testDir, 5);
+    await fs.writeFile(
+      path.join(testDir, 'manuscript', 'chapter-1.md'),
+      'Initial five words in file. Added five more words here.'
+    );
     const count = await getWordsWrittenToday(testDir);
-    expect(count).toBe(10); // Entire new line counted (git diff shows full line as +)
+    expect(count).toBe(5); // 10 words - 5 baseline = 5 net
   });
 
-  it('counts words from modified lines', async () => {
-    // Create initial file
-    const chapterPath = path.join(testDir, 'manuscript', 'chapter-1.md');
-    await fs.writeFile(chapterPath, 'Start with ten words in this chapter file here.');
-    execSync('git add . && git commit -m "initial"', { cwd: testDir });
-
-    // Remove some words, add some words
-    await fs.writeFile(chapterPath, 'Start with ten words. Added three words.');
-    execSync('git add . && git commit -m "edit"', { cwd: testDir });
-
+  it('returns 0 when current word count matches baseline', async () => {
+    await writeBaseline(testDir, 7);
+    await fs.writeFile(
+      path.join(testDir, 'manuscript', 'chapter-1.md'),
+      'Start with ten words. Added three words.'
+    );
     const count = await getWordsWrittenToday(testDir);
-    // Git shows entire new line as +: "Start with ten words. Added three words." (7 words)
-    expect(count).toBe(7);
+    expect(count).toBe(0);
   });
 
   it('counts words across multiple files', async () => {
-    // Create two files with initial content
+    await writeBaseline(testDir, 0);
     await fs.writeFile(
       path.join(testDir, 'manuscript', 'chapter-1.md'),
-      'Five words in chapter one.'
+      'Five words in chapter one. Three more.'
     );
     await fs.writeFile(
       path.join(testDir, 'manuscript', 'chapter-2.md'),
-      'Five words in chapter two.'
+      'Five words in chapter two. Four more here.'
     );
-    execSync('git add . && git commit -m "initial"', { cwd: testDir });
+    const count = await getWordsWrittenToday(testDir);
+    expect(count).toBe(15); // 7 + 8 words across files - 0 baseline = 15 net
+  });
 
-    // Add words to both files
+  it('returns 0 when word count has decreased since baseline', async () => {
+    await writeBaseline(testDir, 20);
     await fs.writeFile(
       path.join(testDir, 'manuscript', 'chapter-1.md'),
-      'Five words in chapter one. Three more words.'
+      'Five words in file.'
     );
+    const count = await getWordsWrittenToday(testDir);
+    expect(count).toBe(0);
+  });
+
+  it('handles new files with no prior baseline', async () => {
+    await writeBaseline(testDir, 0);
     await fs.writeFile(
-      path.join(testDir, 'manuscript', 'chapter-2.md'),
-      'Five words in chapter two. Four more words here.'
+      path.join(testDir, 'manuscript', 'chapter-1.md'),
+      'Nine words in this brand new chapter file here.'
     );
-    execSync('git add . && git commit -m "update both"', { cwd: testDir });
-
     const count = await getWordsWrittenToday(testDir);
-    expect(count).toBe(17); // 8 words in ch1 line + 9 words in ch2 line
-  });
-
-  it('excludes commits before midnight', async () => {
-    // This test would need to manipulate git commit dates
-    // For now, we'll test that it at least doesn't error
-    const count = await getWordsWrittenToday(testDir);
-    expect(typeof count).toBe('number');
-  });
-
-  it('handles new files created today', async () => {
-    const chapterPath = path.join(testDir, 'manuscript', 'chapter-1.md');
-    await fs.writeFile(chapterPath, 'Ten words in this brand new chapter file here.');
-    execSync('git add . && git commit -m "new file"', { cwd: testDir });
-
-    const count = await getWordsWrittenToday(testDir);
-    expect(count).toBe(9); // Actual: "Ten words in this brand new chapter file here" = 9 words
+    expect(count).toBe(9);
   });
 
   it('excludes wiki files from today count', async () => {
+    await writeBaseline(testDir, 0);
     await fs.mkdir(path.join(testDir, 'wiki'), { recursive: true });
-    
     await fs.writeFile(
       path.join(testDir, 'manuscript', 'chapter-1.md'),
       'Five words in chapter file.'
@@ -116,26 +105,15 @@ describe('getWordsWrittenToday', () => {
       path.join(testDir, 'wiki', 'character.md'),
       'Ten words in wiki file should not count.'
     );
-    execSync('git add . && git commit -m "add files"', { cwd: testDir });
-
     const count = await getWordsWrittenToday(testDir);
     expect(count).toBe(5);
   });
 
-  it('returns 0 if git repo does not exist', async () => {
-    // Create non-git directory
-    const nonGitDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ä½å®¶-nogit-'));
-    await fs.mkdir(path.join(nonGitDir, 'manuscript'), { recursive: true });
-
-    const count = await getWordsWrittenToday(nonGitDir);
-    expect(count).toBe(0);
-
-    await fs.rm(nonGitDir, { recursive: true, force: true });
-  });
-
-  it('handles empty commits gracefully', async () => {
-    execSync('git commit --allow-empty -m "empty"', { cwd: testDir });
-    
+  it('creates baseline when none exists and returns 0', async () => {
+    await fs.writeFile(
+      path.join(testDir, 'manuscript', 'chapter-1.md'),
+      'Five words in file.'
+    );
     const count = await getWordsWrittenToday(testDir);
     expect(count).toBe(0);
   });
