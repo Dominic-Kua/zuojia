@@ -134,6 +134,24 @@ body{margin:0;font-family:'PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','N
 .export-chapter-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-primary);cursor:grab;user-select:none}
 .export-chapter-item:active{cursor:grabbing}
 .export-logs-panel{margin-top:12px;border-top:1px solid var(--border-color, var(--divider));padding-top:10px;max-height:220px;overflow-y:auto}
+.diagnostics-dialog{max-width:560px;width:100%;max-height:80vh;overflow-y:auto}
+.diagnostics-section{margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border-color,var(--divider))}
+.diagnostics-section:last-of-type{border-bottom:none;margin-bottom:0}
+.diagnostics-section h4{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--text-primary)}
+.diagnostics-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.diagnostics-section-header h4{margin:0}
+.diagnostics-index-info{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.diagnostics-deps-list{display:flex;flex-direction:column;gap:4px;font-size:13px;font-family:monospace}
+.diagnostics-ok{color:#2d9e5c}
+.diagnostics-error{color:#d94848}
+.diagnostics-muted{font-size:11px;color:var(--text-secondary)}
+.diagnostics-backup-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.diagnostics-backup-item{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px}
+.diagnostics-backup-info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.diagnostics-backup-label{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.diagnostics-logs-list{display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto}
+.btn-sm{padding:2px 8px;font-size:12px}
+.btn-danger{color:#d94848}
 .export-log-entry{margin-bottom:6px}
 .export-log-filename{font-size:12px;font-family:monospace;cursor:pointer;color:var(--text-secondary)}
 .export-log-content{font-size:11px;font-family:monospace;white-space:pre-wrap;background:var(--bg-secondary, var(--sidebar-surface));padding:6px 8px;border-radius:4px;margin:4px 0 0;overflow-x:auto}
