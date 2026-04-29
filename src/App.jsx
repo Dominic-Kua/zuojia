@@ -6,6 +6,7 @@ import { ExportDialog } from './components/ExportDialog'
 import { NovelSelector } from './components/Navigation/NovelSelector'
 import { PushButton } from './components/PushButton'
 import { SettingsModal } from './components/SettingsModal'
+import { DiagnosticsPanel } from './components/DiagnosticsPanel'
 import { SnapshotButton } from './components/SnapshotButton'
 import { useWikiPages } from './hooks/useWikiPages'
 
@@ -24,7 +25,7 @@ export default function App(){
   }, []);
 
   // Get wiki pages for the manuscript component
-  const { pages: wikiPages } = useWikiPages(novelPath);
+  const { pages: wikiPages, refresh: refreshWikiPages } = useWikiPages(novelPath);
 
   const handleNovelCreated = (path) => {
     setNovelPath(path);
@@ -78,6 +79,7 @@ export default function App(){
           <SnapshotButton novelPath={novelPath} />
           <CommitButton novelPath={novelPath} />
           <PushButton novelPath={novelPath} />
+          <DiagnosticsPanel novelPath={novelPath} onIndexRebuilt={refreshWikiPages} />
           <SettingsModal novelPath={novelPath} />
           <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>
         </div>
