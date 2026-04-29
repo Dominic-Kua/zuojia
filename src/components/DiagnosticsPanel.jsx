@@ -36,7 +36,7 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt }) {
       exportHandlers.validateDeps(),
     ]);
     setLogs(logsResult.status === 'fulfilled' ? (logsResult.value ?? []) : []);
-    setSnapshots(snapshotsResult.status === 'fulfilled' ? (snapshotsResult.value ?? []) : []);
+    setSnapshots(snapshotsResult.status === 'fulfilled' ? (snapshotsResult.value?.snapshots ?? []) : []);
     setIndexInfo(indexResult.status === 'fulfilled' ? indexResult.value : null);
     setDeps(depsResult.status === 'fulfilled' ? depsResult.value : null);
     setIsLoading(false);
@@ -52,11 +52,11 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt }) {
     setError(null);
   };
 
-  const handleDeleteBackup = async (snapshotId) => {
+  const handleDeleteBackup = async (timestamp) => {
     try {
-      await backupHandlers.deleteSnapshot(novelPath, snapshotId);
+      await backupHandlers.deleteSnapshot(novelPath, timestamp);
       const updated = await backupHandlers.listSnapshots(novelPath);
-      setSnapshots(updated ?? []);
+      setSnapshots(updated?.snapshots ?? []);
     } catch (err) {
       setError(err.message || 'Failed to delete backup');
     }
@@ -177,15 +177,15 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt }) {
                   ) : (
                     <ul className="diagnostics-backup-list">
                       {snapshots.map((snap) => (
-                        <li key={snap.id} className="diagnostics-backup-item">
+                        <li key={snap.timestamp} className="diagnostics-backup-item">
                           <div className="diagnostics-backup-info">
                             <span className="diagnostics-backup-label">{snap.label || '(unlabelled)'}</span>
                             <span className="diagnostics-muted">{formatTimestamp(snap.timestamp)} · {formatBytes(snap.size)}</span>
                           </div>
                           <button
                             className="btn ghost btn-sm btn-danger"
-                            data-testid={`diagnostics-delete-backup-${snap.id}`}
-                            onClick={() => handleDeleteBackup(snap.id)}
+                            data-testid={`diagnostics-delete-backup-${snap.timestamp}`}
+                            onClick={() => handleDeleteBackup(snap.timestamp)}
                           >
                             Delete
                           </button>
