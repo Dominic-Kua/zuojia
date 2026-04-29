@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DiagnosticsPanel } from '../../../src/components/DiagnosticsPanel';
 
@@ -46,7 +46,7 @@ describe('DiagnosticsPanel', () => {
           tex: { available: true, engine: 'xelatex', version: 'XeTeX 3.14' },
         }
       );
-      backupHandlers.listSnapshots.mockResolvedValue(snapshots);
+      backupHandlers.listSnapshots.mockResolvedValue({ snapshots });
       indexHandlers.getIndex.mockResolvedValue(
         index ?? { chapters: [{ filename: 'ch-01.md', title: 'Ch 1' }], wiki: [], lastRebuild: '2026-04-18T10:00:00.000Z' }
       );
@@ -104,8 +104,8 @@ describe('DiagnosticsPanel', () => {
   it('shows backups list with delete button per entry', async () => {
     await setupMocks({
       snapshots: [
-        { id: 'snap-1', label: 'Before edit', timestamp: 1713441600000, size: 2048 },
-        { id: 'snap-2', label: null, timestamp: 1713528000000, size: 1024 },
+        { timestamp: 1713441600000, label: 'Before edit', size: 2048 },
+        { timestamp: 1713528000000, label: null, size: 1024 },
       ],
     });
     const user = userEvent.setup();
@@ -123,12 +123,12 @@ describe('DiagnosticsPanel', () => {
   it('deletes a backup when delete button clicked', async () => {
     const { backupHandlers } = await import('../../../src/lib/ipc-client');
     await setupMocks({
-      snapshots: [{ id: 'snap-1', label: 'Draft', timestamp: 1713441600000, size: 512 }],
+      snapshots: [{ timestamp: 1713441600000, label: 'Draft', size: 512 }],
     });
     backupHandlers.deleteSnapshot.mockResolvedValue(undefined);
     backupHandlers.listSnapshots
-      .mockResolvedValueOnce([{ id: 'snap-1', label: 'Draft', timestamp: 1713441600000, size: 512 }])
-      .mockResolvedValueOnce([]);
+      .mockResolvedValueOnce({ snapshots: [{ timestamp: 1713441600000, label: 'Draft', size: 512 }] })
+      .mockResolvedValueOnce({ snapshots: [] });
 
     const user = userEvent.setup();
     render(<DiagnosticsPanel novelPath={novelPath} />);
@@ -137,13 +137,13 @@ describe('DiagnosticsPanel', () => {
       await user.click(screen.getByTestId('diagnostics-button'));
     });
 
-    await screen.findByTestId('diagnostics-delete-backup-snap-1');
+    await screen.findByTestId('diagnostics-delete-backup-1713441600000');
     await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-delete-backup-snap-1'));
+      await user.click(screen.getByTestId('diagnostics-delete-backup-1713441600000'));
     });
 
     await waitFor(() => {
-      expect(backupHandlers.deleteSnapshot).toHaveBeenCalledWith(novelPath, 'snap-1');
+      expect(backupHandlers.deleteSnapshot).toHaveBeenCalledWith(novelPath, 1713441600000);
     });
   });
 

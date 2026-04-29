@@ -23,6 +23,7 @@
     "@codemirror/language": "^6.12.2",
     "@codemirror/state": "^6.5.4",
     "@codemirror/view": "^6.39.15",
+    "@testing-library/dom": "^10.4.1",
     "dictionary-en": "^4.0.0",
     "dictionary-en-gb": "^3.0.0",
     "dompurify": "^3.0.8",

@@ -25,7 +25,7 @@ export default function App(){
   }, []);
 
   // Get wiki pages for the manuscript component
-  const { pages: wikiPages } = useWikiPages(novelPath);
+  const { pages: wikiPages, refresh: refreshWikiPages } = useWikiPages(novelPath);
 
   const handleNovelCreated = (path) => {
     setNovelPath(path);
@@ -79,7 +79,7 @@ export default function App(){
           <SnapshotButton novelPath={novelPath} />
           <CommitButton novelPath={novelPath} />
           <PushButton novelPath={novelPath} />
-          <DiagnosticsPanel novelPath={novelPath} onIndexRebuilt={() => window.dispatchEvent(new CustomEvent('zuojia:index-rebuilt'))} />
+          <DiagnosticsPanel novelPath={novelPath} onIndexRebuilt={refreshWikiPages} />
           <SettingsModal novelPath={novelPath} />
           <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>
         </div>
