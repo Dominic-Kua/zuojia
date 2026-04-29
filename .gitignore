@@ -14,4 +14,4 @@ release/
 .env.*.local
 *.log
 *.bak
-@testing-library/dom
+
