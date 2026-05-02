@@ -11,7 +11,7 @@ function formatTimestamp(ts) {
   return new Date(ts).toLocaleString();
 }
 
-export function DiagnosticsPanel({ novelPath, onIndexRebuilt }) {
+export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored }) {
   const [showDialog, setShowDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isRebuilding, setIsRebuilding] = useState(false);
@@ -115,6 +115,12 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt }) {
       setSnapshots(updated?.snapshots ?? []);
       if (onIndexRebuilt) {
         onIndexRebuilt();
+      }
+      window.dispatchEvent(new CustomEvent('zuojia:wiki-dictionary-updated', {
+        detail: { novelPath },
+      }));
+      if (onRestored) {
+        onRestored();
       }
       const label = snap.label || formatTimestamp(snap.timestamp);
       setRestoreToast(`Restored from ${label}`);
@@ -278,13 +284,14 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt }) {
 
       {/* Restore confirmation dialog */}
       {restoreTarget && (
-        <div className="snapshot-overlay" data-testid="restore-confirm-overlay">
+        <div className="snapshot-overlay" data-testid="restore-confirm-overlay" onClick={handleRestoreCancel}>
           <div
             className="snapshot-dialog"
             data-testid="restore-confirm-dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby="restore-confirm-title"
+            onClick={(e) => e.stopPropagation()}
           >
             <h3 id="restore-confirm-title">Restore Snapshot</h3>
             <p>Restore will replace current manuscript and wiki state with the selected snapshot.</p>

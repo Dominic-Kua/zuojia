@@ -262,9 +262,10 @@ describe('DiagnosticsPanel', () => {
       .mockResolvedValueOnce({ snapshots: [{ timestamp: 1713441600000, label: 'Before edit', size: 2048 }] })
       .mockResolvedValueOnce({ snapshots: [] });
     const onIndexRebuilt = vi.fn();
+    const onRestored = vi.fn();
 
     const user = userEvent.setup();
-    render(<DiagnosticsPanel novelPath={novelPath} onIndexRebuilt={onIndexRebuilt} />);
+    render(<DiagnosticsPanel novelPath={novelPath} onIndexRebuilt={onIndexRebuilt} onRestored={onRestored} />);
 
     await act(async () => {
       await user.click(screen.getByTestId('diagnostics-button'));
@@ -284,6 +285,7 @@ describe('DiagnosticsPanel', () => {
       expect(backupHandlers.createSnapshot).toHaveBeenCalledWith(novelPath, 'pre-restore safety backup');
       expect(backupHandlers.restore).toHaveBeenCalledWith(novelPath, 1713441600000);
       expect(onIndexRebuilt).toHaveBeenCalled();
+      expect(onRestored).toHaveBeenCalled();
     });
 
     expect(screen.getByTestId('restore-toast')).toBeInTheDocument();
@@ -345,5 +347,69 @@ describe('DiagnosticsPanel', () => {
     });
 
     expect(screen.queryByTestId('restore-confirm-dialog')).not.toBeInTheDocument();
+  });
+
+  it('dismisses restore confirmation when backdrop is clicked', async () => {
+    await setupMocks({
+      snapshots: [{ timestamp: 1713441600000, label: 'Test', size: 512 }],
+    });
+
+    const user = userEvent.setup();
+    render(<DiagnosticsPanel novelPath={novelPath} />);
+
+    await act(async () => {
+      await user.click(screen.getByTestId('diagnostics-button'));
+    });
+
+    await screen.findByTestId('diagnostics-restore-backup-1713441600000');
+    await act(async () => {
+      await user.click(screen.getByTestId('diagnostics-restore-backup-1713441600000'));
+    });
+
+    await screen.findByTestId('restore-confirm-dialog');
+    await act(async () => {
+      await user.click(screen.getByTestId('restore-confirm-overlay'));
+    });
+
+    expect(screen.queryByTestId('restore-confirm-dialog')).not.toBeInTheDocument();
+  });
+
+  it('dispatches zuojia:wiki-dictionary-updated after a successful restore', async () => {
+    const { backupHandlers } = await import('../../../src/lib/ipc-client');
+    await setupMocks({
+      snapshots: [{ timestamp: 1713441600000, label: 'Before edit', size: 2048 }],
+    });
+    backupHandlers.restore.mockResolvedValue({ timestamp: 1713441600000, restored: true });
+    backupHandlers.listSnapshots
+      .mockResolvedValueOnce({ snapshots: [{ timestamp: 1713441600000, label: 'Before edit', size: 2048 }] })
+      .mockResolvedValueOnce({ snapshots: [] });
+
+    const dispatchedEvents = [];
+    const listener = (e) => dispatchedEvents.push(e);
+    window.addEventListener('zuojia:wiki-dictionary-updated', listener);
+
+    const user = userEvent.setup();
+    render(<DiagnosticsPanel novelPath={novelPath} />);
+
+    await act(async () => {
+      await user.click(screen.getByTestId('diagnostics-button'));
+    });
+
+    await screen.findByTestId('diagnostics-restore-backup-1713441600000');
+    await act(async () => {
+      await user.click(screen.getByTestId('diagnostics-restore-backup-1713441600000'));
+    });
+
+    await screen.findByTestId('restore-confirm-dialog');
+    await act(async () => {
+      await user.click(screen.getByTestId('restore-confirm-no'));
+    });
+
+    await waitFor(() => {
+      expect(dispatchedEvents).toHaveLength(1);
+      expect(dispatchedEvents[0].detail.novelPath).toBe(novelPath);
+    });
+
+    window.removeEventListener('zuojia:wiki-dictionary-updated', listener);
   });
 });
