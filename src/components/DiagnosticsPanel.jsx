@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { exportHandlers, backupHandlers, indexHandlers } from '../lib/ipc-client';
 
 function formatBytes(bytes) {
@@ -24,6 +24,7 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt }) {
   const [error, setError] = useState(null);
   const [restoreTarget, setRestoreTarget] = useState(null); // snapshot being restored
   const [restoreToast, setRestoreToast] = useState(null);
+  const toastTimerRef = useRef(null);
 
   if (!novelPath) {
     return null;
@@ -117,7 +118,8 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt }) {
       }
       const label = snap.label || formatTimestamp(snap.timestamp);
       setRestoreToast(`Restored from ${label}`);
-      setTimeout(() => setRestoreToast(null), 4000);
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = setTimeout(() => setRestoreToast(null), 4000);
     } catch (err) {
       setError(err.message || 'Restore failed');
     } finally {
