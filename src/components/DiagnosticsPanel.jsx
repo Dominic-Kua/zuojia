@@ -16,11 +16,14 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isRebuilding, setIsRebuilding] = useState(false);
   const [isRefreshingDeps, setIsRefreshingDeps] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
   const [logs, setLogs] = useState([]);
   const [snapshots, setSnapshots] = useState([]);
   const [indexInfo, setIndexInfo] = useState(null);
   const [deps, setDeps] = useState(null);
   const [error, setError] = useState(null);
+  const [restoreTarget, setRestoreTarget] = useState(null); // snapshot being restored
+  const [restoreToast, setRestoreToast] = useState(null);
 
   if (!novelPath) {
     return null;
@@ -90,6 +93,40 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt }) {
     } finally {
       setIsRefreshingDeps(false);
     }
+  };
+
+  const handleRestoreClick = (snap) => {
+    setRestoreTarget(snap);
+  };
+
+  const handleRestoreConfirm = async (createSafetyBackup) => {
+    if (!restoreTarget) return;
+    const snap = restoreTarget;
+    setRestoreTarget(null);
+    setIsRestoring(true);
+    setError(null);
+    try {
+      if (createSafetyBackup) {
+        await backupHandlers.createSnapshot(novelPath, 'pre-restore safety backup');
+      }
+      await backupHandlers.restore(novelPath, snap.timestamp);
+      const updated = await backupHandlers.listSnapshots(novelPath);
+      setSnapshots(updated?.snapshots ?? []);
+      if (onIndexRebuilt) {
+        onIndexRebuilt();
+      }
+      const label = snap.label || formatTimestamp(snap.timestamp);
+      setRestoreToast(`Restored from ${label}`);
+      setTimeout(() => setRestoreToast(null), 4000);
+    } catch (err) {
+      setError(err.message || 'Restore failed');
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  const handleRestoreCancel = () => {
+    setRestoreTarget(null);
   };
 
   return (
@@ -182,13 +219,23 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt }) {
                             <span className="diagnostics-backup-label">{snap.label || '(unlabelled)'}</span>
                             <span className="diagnostics-muted">{formatTimestamp(snap.timestamp)} · {formatBytes(snap.size)}</span>
                           </div>
-                          <button
-                            className="btn ghost btn-sm btn-danger"
-                            data-testid={`diagnostics-delete-backup-${snap.timestamp}`}
-                            onClick={() => handleDeleteBackup(snap.timestamp)}
-                          >
-                            Delete
-                          </button>
+                          <div className="diagnostics-backup-actions">
+                            <button
+                              className="btn ghost btn-sm"
+                              data-testid={`diagnostics-restore-backup-${snap.timestamp}`}
+                              onClick={() => handleRestoreClick(snap)}
+                              disabled={isRestoring}
+                            >
+                              Restore
+                            </button>
+                            <button
+                              className="btn ghost btn-sm btn-danger"
+                              data-testid={`diagnostics-delete-backup-${snap.timestamp}`}
+                              onClick={() => handleDeleteBackup(snap.timestamp)}
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -225,6 +272,38 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Restore confirmation dialog */}
+      {restoreTarget && (
+        <div className="snapshot-overlay" data-testid="restore-confirm-overlay">
+          <div
+            className="snapshot-dialog"
+            data-testid="restore-confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="restore-confirm-title"
+          >
+            <h3 id="restore-confirm-title">Restore Snapshot</h3>
+            <p>Restore will replace current manuscript and wiki state with the selected snapshot.</p>
+            <p>Create backup first before restoring?</p>
+            <div className="snapshot-dialog-actions">
+              <button className="btn ghost" data-testid="restore-confirm-cancel" onClick={handleRestoreCancel}>
+                Cancel
+              </button>
+              <button className="btn ghost" data-testid="restore-confirm-no" onClick={() => handleRestoreConfirm(false)}>
+                No
+              </button>
+              <button className="btn primary" data-testid="restore-confirm-yes" onClick={() => handleRestoreConfirm(true)}>
+                Yes — Back Up First
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {restoreToast && (
+        <div className="snapshot-toast" data-testid="restore-toast">{restoreToast}</div>
       )}
     </>
   );
