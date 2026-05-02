@@ -385,7 +385,7 @@ describe('DiagnosticsPanel', () => {
       .mockResolvedValueOnce({ snapshots: [] });
 
     const dispatchedEvents = [];
-    const listener = (e) => dispatchedEvents.push(e);
+    const listener = (event) => dispatchedEvents.push(event);
     window.addEventListener('zuojia:wiki-dictionary-updated', listener);
 
     const user = userEvent.setup();
