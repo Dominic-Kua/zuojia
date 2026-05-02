@@ -157,8 +157,8 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
 
     // Restore the snapshot
     const restoreResult = await page.evaluate(
-      async ({ novelPath, snapshotId }) => window.electronAPI.invoke('helper:backup:restore', { novelPath, snapshotId }),
-      { novelPath: testNovelPath, snapshotId: timestamp }
+      async ({ novelPath, timestamp }) => window.electronAPI.invoke('helper:backup:restore', { novelPath, timestamp }),
+      { novelPath: testNovelPath, timestamp }
     );
     expect(restoreResult.status).toBe('ok');
     expect(restoreResult.data.restored).toBe(true);

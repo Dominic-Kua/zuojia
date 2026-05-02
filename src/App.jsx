@@ -27,6 +27,12 @@ export default function App(){
   // Get wiki pages for the manuscript component
   const { pages: wikiPages, refresh: refreshWikiPages } = useWikiPages(novelPath);
 
+  const [restoreKey, setRestoreKey] = useState(0);
+
+  const handleRestored = useCallback(() => {
+    setRestoreKey((k) => k + 1);
+  }, []);
+
   const handleNovelCreated = (path) => {
     setNovelPath(path);
   };
@@ -79,7 +85,7 @@ export default function App(){
           <SnapshotButton novelPath={novelPath} />
           <CommitButton novelPath={novelPath} />
           <PushButton novelPath={novelPath} />
-          <DiagnosticsPanel novelPath={novelPath} onIndexRebuilt={refreshWikiPages} />
+          <DiagnosticsPanel novelPath={novelPath} onIndexRebuilt={refreshWikiPages} onRestored={handleRestored} />
           <SettingsModal novelPath={novelPath} />
           <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>
         </div>
@@ -87,6 +93,7 @@ export default function App(){
       <main className="main-grid">
         <section className="manuscript" data-testid="manuscript-section">
           <Manuscript 
+            key={restoreKey}
             novelPath={novelPath} 
             wikiPages={wikiPages} 
             onOpenWikiPage={handleOpenWikiPage}
@@ -94,6 +101,7 @@ export default function App(){
         </section>
         <aside className="sidebar" data-testid="sidebar-section">
           <Sidebar 
+            key={restoreKey}
             ref={sidebarRef}
             novelPath={novelPath} 
             openPageSlug={wikiPageToOpen}

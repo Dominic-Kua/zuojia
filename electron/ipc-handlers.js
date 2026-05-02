@@ -287,8 +287,8 @@ export function registerHandlers() {
 
   ipcMain.handle(
     'helper:backup:restore',
-    wrapHandler(async ({ novelPath, snapshotId }) => {
-      return await restoreSnapshot(novelPath, snapshotId);
+    wrapHandler(async ({ novelPath, timestamp, snapshotId }) => {
+      return await restoreSnapshot(novelPath, timestamp ?? snapshotId);
     })
   );
 
