@@ -412,4 +412,43 @@ describe('DiagnosticsPanel', () => {
 
     window.removeEventListener('zuojia:wiki-dictionary-updated', listener);
   });
+
+  it('shows a toast with chapter and wiki counts after index rebuild', async () => {
+    const { indexHandlers } = await import('../../../src/lib/ipc-client');
+    await setupMocks({
+      index: {
+        chapters: [{ filename: 'ch-01.md', title: 'Ch 1' }, { filename: 'ch-02.md', title: 'Ch 2' }],
+        wiki: [{ slug: 'character' }],
+        lastRebuild: '2026-04-18T10:00:00.000Z',
+      },
+    });
+    indexHandlers.rebuildIndex.mockResolvedValue({});
+    // second getIndex call (after rebuild) returns the updated index
+    indexHandlers.getIndex.mockResolvedValueOnce({
+      chapters: [{ filename: 'ch-01.md', title: 'Ch 1' }, { filename: 'ch-02.md', title: 'Ch 2' }],
+      wiki: [{ slug: 'character' }],
+      lastRebuild: '2026-04-18T10:00:00.000Z',
+    }).mockResolvedValueOnce({
+      chapters: [{ filename: 'ch-01.md', title: 'Ch 1' }, { filename: 'ch-02.md', title: 'Ch 2' }],
+      wiki: [{ slug: 'character' }],
+      lastRebuild: '2026-05-02T10:00:00.000Z',
+    });
+
+    const user = userEvent.setup();
+    render(<DiagnosticsPanel novelPath={novelPath} />);
+
+    await act(async () => {
+      await user.click(screen.getByTestId('diagnostics-button'));
+    });
+
+    await screen.findByTestId('diagnostics-index-section');
+    await act(async () => {
+      await user.click(screen.getByTestId('diagnostics-rebuild-index-button'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('rebuild-toast')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('rebuild-toast')).toHaveTextContent('Index rebuilt: 2 chapters, 1 wiki pages');
+  });
 });
