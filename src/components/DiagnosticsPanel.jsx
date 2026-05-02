@@ -24,7 +24,9 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored }) {
   const [error, setError] = useState(null);
   const [restoreTarget, setRestoreTarget] = useState(null); // snapshot being restored
   const [restoreToast, setRestoreToast] = useState(null);
+  const [rebuildToast, setRebuildToast] = useState(null);
   const toastTimerRef = useRef(null);
+  const rebuildToastTimerRef = useRef(null);
 
   if (!novelPath) {
     return null;
@@ -76,6 +78,11 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored }) {
       if (onIndexRebuilt) {
         onIndexRebuilt();
       }
+      const chapterCount = updated?.chapters?.length ?? 0;
+      const wikiCount = updated?.wiki?.length ?? 0;
+      setRebuildToast(`Index rebuilt: ${chapterCount} chapters, ${wikiCount} wiki pages`);
+      if (rebuildToastTimerRef.current) clearTimeout(rebuildToastTimerRef.current);
+      rebuildToastTimerRef.current = setTimeout(() => setRebuildToast(null), 4000);
     } catch (err) {
       setError(err.message || 'Failed to rebuild index');
     } finally {
@@ -313,6 +320,10 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored }) {
 
       {restoreToast && (
         <div className="snapshot-toast" data-testid="restore-toast">{restoreToast}</div>
+      )}
+
+      {rebuildToast && (
+        <div className="snapshot-toast" data-testid="rebuild-toast">{rebuildToast}</div>
       )}
     </>
   );
