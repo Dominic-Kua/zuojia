@@ -449,6 +449,54 @@ describe('DiagnosticsPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('rebuild-toast')).toBeInTheDocument();
     });
-    expect(screen.getByTestId('rebuild-toast')).toHaveTextContent('Index rebuilt: 2 chapters, 1 wiki pages');
+    expect(screen.getByTestId('rebuild-toast')).toHaveTextContent('Index rebuilt: 2 chapters, 1 wiki page');
+  });
+
+  it('auto-dismisses the rebuild toast after 4 seconds', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { indexHandlers } = await import('../../../src/lib/ipc-client');
+    await setupMocks({
+      index: {
+        chapters: [{ filename: 'ch-01.md', title: 'Ch 1' }],
+        wiki: [{ slug: 'character' }, { slug: 'place' }],
+        lastRebuild: '2026-04-18T10:00:00.000Z',
+      },
+    });
+    indexHandlers.rebuildIndex.mockResolvedValue({});
+    indexHandlers.getIndex.mockResolvedValueOnce({
+      chapters: [{ filename: 'ch-01.md', title: 'Ch 1' }],
+      wiki: [{ slug: 'character' }, { slug: 'place' }],
+      lastRebuild: '2026-04-18T10:00:00.000Z',
+    }).mockResolvedValueOnce({
+      chapters: [{ filename: 'ch-01.md', title: 'Ch 1' }],
+      wiki: [{ slug: 'character' }, { slug: 'place' }],
+      lastRebuild: '2026-05-02T10:00:00.000Z',
+    });
+
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
+    render(<DiagnosticsPanel novelPath={novelPath} />);
+
+    await act(async () => {
+      await user.click(screen.getByTestId('diagnostics-button'));
+    });
+
+    await screen.findByTestId('diagnostics-index-section');
+    await act(async () => {
+      await user.click(screen.getByTestId('diagnostics-rebuild-index-button'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('rebuild-toast')).toBeInTheDocument();
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('rebuild-toast')).not.toBeInTheDocument();
+    });
+
+    vi.useRealTimers();
   });
 });
