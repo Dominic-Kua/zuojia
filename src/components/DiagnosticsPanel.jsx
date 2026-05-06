@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { exportHandlers, backupHandlers, indexHandlers } from '../lib/ipc-client';
 
 function formatBytes(bytes) {
@@ -24,7 +24,19 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored }) {
   const [error, setError] = useState(null);
   const [restoreTarget, setRestoreTarget] = useState(null); // snapshot being restored
   const [restoreToast, setRestoreToast] = useState(null);
-  const toastTimerRef = useRef(null);
+  const [rebuildToast, setRebuildToast] = useState(null);
+
+  useEffect(() => {
+    if (!restoreToast) return undefined;
+    const timer = setTimeout(() => setRestoreToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [restoreToast]);
+
+  useEffect(() => {
+    if (!rebuildToast) return undefined;
+    const timer = setTimeout(() => setRebuildToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [rebuildToast]);
 
   if (!novelPath) {
     return null;
@@ -76,6 +88,11 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored }) {
       if (onIndexRebuilt) {
         onIndexRebuilt();
       }
+      const chapterCount = updated?.chapters?.length ?? 0;
+      const wikiCount = updated?.wiki?.length ?? 0;
+      const chapterLabel = chapterCount === 1 ? 'chapter' : 'chapters';
+      const wikiLabel = wikiCount === 1 ? 'wiki page' : 'wiki pages';
+      setRebuildToast(`Index rebuilt: ${chapterCount} ${chapterLabel}, ${wikiCount} ${wikiLabel}`);
     } catch (err) {
       setError(err.message || 'Failed to rebuild index');
     } finally {
@@ -124,8 +141,6 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored }) {
       }
       const label = snap.label || formatTimestamp(snap.timestamp);
       setRestoreToast(`Restored from ${label}`);
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = setTimeout(() => setRestoreToast(null), 4000);
     } catch (err) {
       setError(err.message || 'Restore failed');
     } finally {
@@ -313,6 +328,10 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored }) {
 
       {restoreToast && (
         <div className="snapshot-toast" data-testid="restore-toast">{restoreToast}</div>
+      )}
+
+      {rebuildToast && (
+        <div className="snapshot-toast" data-testid="rebuild-toast">{rebuildToast}</div>
       )}
     </>
   );
