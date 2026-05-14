@@ -38,6 +38,33 @@ function normalizeTags(inputTags) {
   return Array.from(new Set(normalized));
 }
 
+function escapeYamlDoubleQuotedString(value) {
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t');
+}
+
+function unescapeYamlDoubleQuotedString(value) {
+  return String(value).replace(/\\(["\\nrt])/g, (_match, escaped) => {
+    switch (escaped) {
+      case 'n':
+        return '\n';
+      case 'r':
+        return '\r';
+      case 't':
+        return '\t';
+      case '"':
+      case '\\':
+        return escaped;
+      default:
+        return escaped;
+    }
+  });
+}
+
 function stripFrontmatter(content) {
   if (!content.startsWith(`${FRONTMATTER_BOUNDARY}\n`)) {
     return content;
@@ -109,7 +136,14 @@ function extractTitleFromFrontmatter(content) {
 
   if (!titleLine) return null;
 
-  return titleLine.split(':').slice(1).join(':').trim().replace(/^"|"$/g, '') || null;
+  const rawTitle = titleLine.split(':').slice(1).join(':').trim();
+  if (!rawTitle) return null;
+
+  if (rawTitle.startsWith('"') && rawTitle.endsWith('"')) {
+    return unescapeYamlDoubleQuotedString(rawTitle.slice(1, -1)) || null;
+  }
+
+  return rawTitle || null;
 }
 
 function extractH1FromContent(content) {
@@ -119,7 +153,7 @@ function extractH1FromContent(content) {
 
 function buildFrontmatter(title, tags) {
   const normalized = normalizeTags(tags);
-  const safeTitle = title ? String(title).replace(/"/g, '\\"') : null;
+  const safeTitle = title ? escapeYamlDoubleQuotedString(title) : null;
 
   if (!safeTitle && normalized.length === 0) {
     return '';
