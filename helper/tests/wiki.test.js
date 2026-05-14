@@ -55,13 +55,18 @@ describe('Wiki CRUD Operations', () => {
       expect(result.data.slug).toBe('city-1-new-york');
     });
 
-    it('writes content to wiki file', async () => {
+    it('writes content to wiki file with Obsidian-compatible frontmatter', async () => {
       const content = '# Alice\n\nProtagonist of the story.';
       await createWikiPage(testDir, 'Alice', content);
 
       const filePath = path.join(testDir, 'wiki', 'alice.md');
       const fileContent = await fs.readFile(filePath, 'utf-8');
-      expect(fileContent).toBe(content);
+      // File on disk includes Obsidian-compatible YAML frontmatter with title
+      expect(fileContent).toContain('---\ntitle: "Alice"');
+      expect(fileContent).toContain('# Alice\n\nProtagonist of the story.');
+      // readWikiPage strips frontmatter — callers receive clean content
+      const readResult = await readWikiPage(testDir, 'alice');
+      expect(readResult.data.content).toBe(content);
     });
 
     it('returns error if slug already exists', async () => {

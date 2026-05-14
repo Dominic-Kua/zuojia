@@ -35,17 +35,27 @@ function extractTags(content) {
     return [];
   }
 
-  const frontmatter = content.slice(4, endIndex).split('\n');
-  const tagsLine = frontmatter.find((line) => line.trim().toLowerCase().startsWith('tags:'));
-  if (!tagsLine) {
+  const frontmatterLines = content.slice(4, endIndex).split('\n');
+  const tagsLineIndex = frontmatterLines.findIndex((line) => line.trim().toLowerCase().startsWith('tags:'));
+  if (tagsLineIndex === -1) {
     return [];
   }
 
+  const tagsLine = frontmatterLines[tagsLineIndex];
   const rawValue = tagsLine.split(':').slice(1).join(':').trim();
+
+  // YAML list format: tags:\n  - tag1\n  - tag2
   if (!rawValue) {
-    return [];
+    const listTags = [];
+    for (let i = tagsLineIndex + 1; i < frontmatterLines.length; i++) {
+      const m = frontmatterLines[i].match(/^\s+-\s+(.+)$/);
+      if (!m) break;
+      listTags.push(m[1].trim());
+    }
+    return listTags.filter(Boolean);
   }
 
+  // Inline array (old or new): [tag1, tag2] or ["tag1", "tag2"]
   if (rawValue.startsWith('[') && rawValue.endsWith(']')) {
     const inner = rawValue.slice(1, -1);
     return inner.split(',').map((tag) => tag.replace(/^"|"$/g, '').trim()).filter(Boolean);
