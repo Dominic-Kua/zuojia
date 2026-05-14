@@ -94,6 +94,8 @@ export const wikiHandlers = {
   rename: (novelPath, oldSlug, newTitle) => invokeHandler('helper:wiki:rename', { novelPath, oldSlug, newTitle }),
   list: (novelPath) => invokeHandler('helper:wiki:list', { novelPath }),
   rebuildDict: (novelPath) => invokeHandler('helper:wiki:rebuildDict', { novelPath }),
+  getSpellcheckDict: (novelPath) => invokeHandler('helper:wiki:getSpellcheckDict', { novelPath }),
+  addToDict: (novelPath, word) => invokeHandler('helper:wiki:addToDict', { novelPath, word }),
 };
 
 export const backupHandlers = {

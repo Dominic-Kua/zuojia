@@ -5,7 +5,7 @@ import { useWordCount } from '../hooks/useWordCount'
 import { useWikiLinks } from '../hooks/useWikiLinks'
 import { WikiLinkPopover } from './WikiLinkPopover'
 import { findSpellingIssues, replaceMisspelledWord } from '../lib/spellcheck.js'
-import { indexHandlers } from '../lib/ipc-client'
+import { indexHandlers, wikiHandlers } from '../lib/ipc-client'
 
 const DEFAULT_CHAPTER_FILENAME = 'chapter-01.md'
 const DEFAULT_CHAPTER_CONTENT = '# Chapter 1\n\nStart writing here...'
@@ -634,6 +634,23 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
     }
   }, [content, escapeForRegex, onOpenWikiPage, refreshSpellcheckDictionary, wikiLinkHandlers])
 
+  const handleAddToDictionaryFromSpellcheckIssue = useCallback(async (word) => {
+    if (!word || !novelPath || typeof wikiHandlers.addToDict !== 'function') {
+      return
+    }
+
+    const issuePattern = new RegExp(`\\b${escapeForRegex(word)}\\b`, 'i')
+    const originalCasingMatch = content.match(issuePattern)
+    const dictionaryWord = originalCasingMatch?.[0] || word
+
+    try {
+      await wikiHandlers.addToDict(novelPath, dictionaryWord)
+      await refreshSpellcheckDictionary()
+    } catch (err) {
+      console.error('Failed to add word to spellcheck dictionary:', err)
+    }
+  }, [content, escapeForRegex, novelPath, refreshSpellcheckDictionary])
+
   const handleInput = (e) => {
     // Extract content from contentEditable, preserving wiki link markers and
     // line breaks, using the shared serializeEditorDom helper.
@@ -746,6 +763,14 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
                   onClick={() => handleCreateWikiFromSpellcheckIssue(issue.word)}
                 >
                   Create Wiki Page
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost spellcheck-create-wiki"
+                  data-testid="spellcheck-add-to-dictionary"
+                  onClick={() => handleAddToDictionaryFromSpellcheckIssue(issue.word)}
+                >
+                  Add to Dictionary
                 </button>
               </div>
             </div>
