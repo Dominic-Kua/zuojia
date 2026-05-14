@@ -60,6 +60,7 @@ function unescapeYamlDoubleQuotedString(value) {
       case '\\':
         return escaped;
       default:
+        // Preserve unsupported escapes verbatim so unexpected sequences don't corrupt titles.
         return `\\${escaped}`;
     }
   });
