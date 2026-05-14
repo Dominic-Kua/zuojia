@@ -5,6 +5,86 @@
 import fs from 'fs/promises';
 import path from 'path';
 
+const DICT_FILENAME = 'spellcheck-dict.json';
+
+function normalizeCustomWords(words) {
+  if (!Array.isArray(words)) return [];
+  const deduped = new Map();
+  for (const word of words) {
+    if (typeof word !== 'string') continue;
+    const trimmed = word.trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (!deduped.has(key)) {
+      deduped.set(key, trimmed);
+    }
+  }
+  return Array.from(deduped.values());
+}
+
+function mergeWords(baseWords, customWords) {
+  const merged = Array.from(new Set(baseWords));
+  const existingLowercase = new Set(merged.map((word) => word.toLowerCase()));
+
+  for (const word of customWords) {
+    const key = word.toLowerCase();
+    if (!existingLowercase.has(key)) {
+      merged.push(word);
+      existingLowercase.add(key);
+    }
+  }
+
+  return merged.sort((a, b) => a.localeCompare(b));
+}
+
+function validateDictionaryWord(word) {
+  if (typeof word !== 'string') return null;
+  const trimmed = word.trim();
+  if (!trimmed) return null;
+
+  // Match the same lexical shape as spellcheck tokenization.
+  if (!/^[A-Za-z][A-Za-z'-]*$/.test(trimmed)) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+async function readExistingDictionary(dictPath) {
+  try {
+    const raw = await fs.readFile(dictPath, 'utf-8');
+    const parsed = JSON.parse(raw);
+    return {
+      words: Array.isArray(parsed.words) ? parsed.words.filter((w) => typeof w === 'string') : [],
+      customWords: normalizeCustomWords(parsed.customWords || []),
+    };
+  } catch {
+    return {
+      words: [],
+      customWords: [],
+    };
+  }
+}
+
+async function writeDictionary(dictPath, words, customWords) {
+  const dictionary = {
+    words,
+    customWords,
+    count: words.length,
+    timestamp: Date.now(),
+  };
+
+  await fs.writeFile(dictPath, JSON.stringify(dictionary, null, 2), 'utf-8');
+
+  return {
+    words: dictionary.words,
+    customWords: dictionary.customWords,
+    count: dictionary.count,
+    timestamp: dictionary.timestamp,
+    path: dictPath,
+  };
+}
+
 /**
  * Extract title from markdown content (first H1)
  * @param {string} content - Markdown content
@@ -49,7 +129,7 @@ export async function rebuildSpellcheckDict(novelPath) {
   try {
     const wikiDir = path.join(novelPath, 'wiki');
     const metaDir = path.join(novelPath, 'meta');
-    const dictPath = path.join(metaDir, 'spellcheck-dict.json');
+    const dictPath = path.join(metaDir, DICT_FILENAME);
 
     // Ensure meta directory exists
     await fs.mkdir(metaDir, { recursive: true });
@@ -69,6 +149,10 @@ export async function rebuildSpellcheckDict(novelPath) {
       }
       // Wiki directory doesn't exist - return empty dictionary
     }
+
+    // Keep any previously added custom words so rebuilds do not discard them.
+    const existingDictionary = await readExistingDictionary(dictPath);
+    const customWords = existingDictionary.customWords;
 
     // Extract words from all wiki page titles
     const allWords = new Set();
@@ -91,24 +175,17 @@ export async function rebuildSpellcheckDict(novelPath) {
       }
     }
 
-    // Convert Set to sorted array
-    const words = Array.from(allWords).sort();
-
-    // Write dictionary
-    const dictionary = {
-      words,
-      count: words.length,
-      timestamp: Date.now(),
-    };
-
-    await fs.writeFile(dictPath, JSON.stringify(dictionary, null, 2), 'utf-8');
+    // Merge wiki-derived words with persisted custom words.
+    const words = mergeWords(Array.from(allWords), customWords);
+    const dictionary = await writeDictionary(dictPath, words, customWords);
 
     return {
       status: 'ok',
       data: {
-        words,
-        count: words.length,
-        path: dictPath,
+        words: dictionary.words,
+        customWords: dictionary.customWords,
+        count: dictionary.count,
+        path: dictionary.path,
       },
     };
   } catch (err) {
@@ -119,6 +196,110 @@ export async function rebuildSpellcheckDict(novelPath) {
         code: 'REBUILD_DICT_ERROR',
         message: err.message,
         suggestion: 'Check that the novel directory exists and is accessible',
+      },
+    };
+  }
+}
+
+/**
+ * Read spellcheck dictionary without rebuilding when possible.
+ * Rebuilds only when the dictionary file does not exist or is invalid.
+ *
+ * @param {string} novelPath - Path to the novel directory
+ * @returns {Promise<{status: string, data?: object, error?: object}>}
+ */
+export async function getSpellcheckDict(novelPath) {
+  try {
+    const metaDir = path.join(novelPath, 'meta');
+    const dictPath = path.join(metaDir, DICT_FILENAME);
+
+    await fs.mkdir(metaDir, { recursive: true });
+
+    const existing = await readExistingDictionary(dictPath);
+    if (existing.words.length > 0 || existing.customWords.length > 0) {
+      const words = mergeWords(existing.words, existing.customWords);
+      const dictionary = await writeDictionary(dictPath, words, existing.customWords);
+      return {
+        status: 'ok',
+        data: {
+          words: dictionary.words,
+          customWords: dictionary.customWords,
+          count: dictionary.count,
+          path: dictionary.path,
+        },
+      };
+    }
+
+    return await rebuildSpellcheckDict(novelPath);
+  } catch (err) {
+    return {
+      status: 'error',
+      error: {
+        code: 'GET_DICT_ERROR',
+        message: err.message,
+      },
+    };
+  }
+}
+
+/**
+ * Add a single custom word to spellcheck dictionary.
+ * The word is persisted separately as customWords and merged into words.
+ *
+ * @param {string} novelPath - Path to the novel directory
+ * @param {string} word - Word to add
+ * @returns {Promise<{status: string, data?: object, error?: object}>}
+ */
+export async function addWordToSpellcheckDict(novelPath, word) {
+  try {
+    const normalizedWord = validateDictionaryWord(word);
+    if (!normalizedWord) {
+      return {
+        status: 'error',
+        error: {
+          code: 'INVALID_DICTIONARY_WORD',
+          message: 'Word must start with a letter and contain only letters, apostrophes, or hyphens',
+        },
+      };
+    }
+
+    const base = await getSpellcheckDict(novelPath);
+    if (base.status === 'error') {
+      return base;
+    }
+
+    const metaDir = path.join(novelPath, 'meta');
+    const dictPath = path.join(metaDir, DICT_FILENAME);
+
+    const existingCustom = normalizeCustomWords(base.data.customWords || []);
+    const existingWords = Array.isArray(base.data.words) ? base.data.words : [];
+
+    const alreadyPresent = existingWords.some((w) => w.toLowerCase() === normalizedWord.toLowerCase());
+    let nextCustomWords = existingCustom;
+    if (!existingCustom.some((w) => w.toLowerCase() === normalizedWord.toLowerCase())) {
+      nextCustomWords = [...existingCustom, normalizedWord];
+    }
+
+    const nextWords = mergeWords(existingWords, nextCustomWords);
+    const dictionary = await writeDictionary(dictPath, nextWords, nextCustomWords);
+
+    return {
+      status: 'ok',
+      data: {
+        word: normalizedWord,
+        added: !alreadyPresent,
+        words: dictionary.words,
+        customWords: dictionary.customWords,
+        count: dictionary.count,
+        path: dictionary.path,
+      },
+    };
+  } catch (err) {
+    return {
+      status: 'error',
+      error: {
+        code: 'ADD_DICT_WORD_ERROR',
+        message: err.message,
       },
     };
   }
