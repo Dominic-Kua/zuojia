@@ -3,7 +3,11 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { rebuildSpellcheckDict } from '../src/wiki/rebuild-dict.js';
+import {
+  rebuildSpellcheckDict,
+  getSpellcheckDict,
+  addWordToSpellcheckDict,
+} from '../src/wiki/rebuild-dict.js';
 import { createWikiPage } from '../src/wiki/crud.js';
 import fs from 'fs/promises';
 import path from 'path';
@@ -143,6 +147,94 @@ describe('Spellcheck Dictionary Rebuild', () => {
       expect(dict.timestamp).toBeDefined();
       expect(typeof dict.timestamp).toBe('number');
       expect(dict.timestamp).toBeGreaterThan(0);
+    });
+
+    it('preserves custom dictionary words across rebuilds', async () => {
+      await createWikiPage(testDir, 'Aragorn', '# Aragorn\n\nContent');
+      await rebuildSpellcheckDict(testDir);
+
+      await addWordToSpellcheckDict(testDir, 'Eldorwyn');
+      const rebuilt = await rebuildSpellcheckDict(testDir);
+
+      expect(rebuilt.status).toBe('ok');
+      expect(rebuilt.data.words).toContain('Aragorn');
+      expect(rebuilt.data.words).toContain('Eldorwyn');
+
+      const dictPath = path.join(testDir, 'meta', 'spellcheck-dict.json');
+      const file = await fs.readFile(dictPath, 'utf-8');
+      const dict = JSON.parse(file);
+      expect(dict.customWords).toContain('Eldorwyn');
+    });
+  });
+
+  describe('getSpellcheckDict', () => {
+    it('returns existing dictionary when present', async () => {
+      await rebuildSpellcheckDict(testDir);
+
+      const result = await getSpellcheckDict(testDir);
+
+      expect(result.status).toBe('ok');
+      expect(Array.isArray(result.data.words)).toBe(true);
+    });
+
+    it('does not rewrite dictionary file when one already exists', async () => {
+      await createWikiPage(testDir, 'Rivendell', '# Rivendell\n\nElven city.');
+      await rebuildSpellcheckDict(testDir);
+
+      const dictPath = path.join(testDir, 'meta', 'spellcheck-dict.json');
+      const { mtimeMs: mtimeBefore } = await fs.stat(dictPath);
+
+      // Small delay to ensure mtime would differ if the file is rewritten.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      await getSpellcheckDict(testDir);
+
+      const { mtimeMs: mtimeAfter } = await fs.stat(dictPath);
+      expect(mtimeAfter).toBe(mtimeBefore);
+    });
+
+    it('creates dictionary if missing and returns it', async () => {
+      const result = await getSpellcheckDict(testDir);
+
+      expect(result.status).toBe('ok');
+      expect(Array.isArray(result.data.words)).toBe(true);
+
+      const dictPath = path.join(testDir, 'meta', 'spellcheck-dict.json');
+      const exists = await fs.access(dictPath).then(() => true).catch(() => false);
+      expect(exists).toBe(true);
+    });
+  });
+
+  describe('addWordToSpellcheckDict', () => {
+    it('adds a custom word and returns updated dictionary', async () => {
+      await rebuildSpellcheckDict(testDir);
+
+      const result = await addWordToSpellcheckDict(testDir, 'Eldorwyn');
+
+      expect(result.status).toBe('ok');
+      expect(result.data.word).toBe('Eldorwyn');
+      expect(result.data.words).toContain('Eldorwyn');
+      expect(result.data.customWords).toContain('Eldorwyn');
+    });
+
+    it('is idempotent for duplicate words (case-insensitive)', async () => {
+      await rebuildSpellcheckDict(testDir);
+      await addWordToSpellcheckDict(testDir, 'Eldorwyn');
+
+      const second = await addWordToSpellcheckDict(testDir, 'eldorwyn');
+      expect(second.status).toBe('ok');
+      expect(second.data.added).toBe(false);
+
+      const dict = await getSpellcheckDict(testDir);
+      const matches = dict.data.words.filter((w) => w.toLowerCase() === 'eldorwyn');
+      expect(matches).toHaveLength(1);
+    });
+
+    it('returns error for invalid words', async () => {
+      const result = await addWordToSpellcheckDict(testDir, '***');
+
+      expect(result.status).toBe('error');
+      expect(result.error.code).toBe('INVALID_DICTIONARY_WORD');
     });
   });
 });
