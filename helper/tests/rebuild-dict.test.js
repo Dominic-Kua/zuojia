@@ -177,6 +177,22 @@ describe('Spellcheck Dictionary Rebuild', () => {
       expect(Array.isArray(result.data.words)).toBe(true);
     });
 
+    it('does not rewrite dictionary file when one already exists', async () => {
+      await createWikiPage(testDir, 'Rivendell', '# Rivendell\n\nElven city.');
+      await rebuildSpellcheckDict(testDir);
+
+      const dictPath = path.join(testDir, 'meta', 'spellcheck-dict.json');
+      const { mtimeMs: mtimeBefore } = await fs.stat(dictPath);
+
+      // Small delay to ensure mtime would differ if the file is rewritten.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      await getSpellcheckDict(testDir);
+
+      const { mtimeMs: mtimeAfter } = await fs.stat(dictPath);
+      expect(mtimeAfter).toBe(mtimeBefore);
+    });
+
     it('creates dictionary if missing and returns it', async () => {
       const result = await getSpellcheckDict(testDir);
 
