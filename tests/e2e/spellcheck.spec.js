@@ -214,4 +214,22 @@ test.describe('Spellcheck Dictionary E2E', () => {
       return await page.locator('[data-testid="spellcheck-issue"]').allTextContents();
     }).toEqual([]);
   });
+
+  test('can add a spelling issue word to dictionary', async () => {
+    await clearAndTypeManuscript('Eldorwyn appears in the scene.');
+
+    const issue = page.locator('[data-testid="spellcheck-issue-item"]').filter({ hasText: 'Eldorwyn' });
+    await expect(issue).toBeVisible({ timeout: 5000 });
+
+    await page.getByTestId('spellcheck-add-to-dictionary').first().click();
+
+    await expect.poll(async () => {
+      return await page.locator('[data-testid="spellcheck-issue"]').allTextContents();
+    }).toEqual([]);
+
+    await clearAndTypeManuscript('Eldorwyn returns tonight.');
+    await expect.poll(async () => {
+      return await page.locator('[data-testid="spellcheck-issue"]').allTextContents();
+    }).toEqual([]);
+  });
 });

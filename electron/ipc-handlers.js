@@ -14,7 +14,7 @@ import { validateExportDependencies } from '../helper/src/export/validate-deps.j
 import { getExportLogs } from '../helper/src/export/logs.js';
 import { createWikiPage, readWikiPage, updateWikiPage, deleteWikiPage, renameWikiPage } from '../helper/src/wiki/crud.js';
 import { listWikiPages } from '../helper/src/wiki/list-pages.js';
-import { rebuildSpellcheckDict } from '../helper/src/wiki/rebuild-dict.js';
+import { rebuildSpellcheckDict, getSpellcheckDict, addWordToSpellcheckDict } from '../helper/src/wiki/rebuild-dict.js';
 import { createSnapshot, listSnapshots, deleteSnapshot, restoreSnapshot } from '../helper/src/backup/snapshot.js';
 /**
  * Register all IPC handlers
@@ -260,6 +260,20 @@ export function registerHandlers() {
     'helper:wiki:rebuildDict',
     wrapHandler(async ({ novelPath }) => {
       return await rebuildSpellcheckDict(novelPath);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:wiki:getSpellcheckDict',
+    wrapHandler(async ({ novelPath }) => {
+      return await getSpellcheckDict(novelPath);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:wiki:addToDict',
+    wrapHandler(async ({ novelPath, word }) => {
+      return await addWordToSpellcheckDict(novelPath, word);
     })
   );
 
