@@ -66,6 +66,7 @@ describe('Wiki CRUD Operations', () => {
       expect(fileContent).toContain('# Alice\n\nProtagonist of the story.');
       // readWikiPage strips frontmatter — callers receive clean content
       const readResult = await readWikiPage(testDir, 'alice');
+      expect(readResult.data.title).toBe('Alice');
       expect(readResult.data.content).toBe(content);
     });
 
