@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useChapters } from '../hooks/useChapters'
 import { useSpellcheck } from '../hooks/useSpellcheck'
+import { useWordCount } from '../hooks/useWordCount'
 import { useWikiLinks } from '../hooks/useWikiLinks'
 import { WikiLinkPopover } from './WikiLinkPopover'
 import { findSpellingIssues, replaceMisspelledWord } from '../lib/spellcheck.js'
@@ -135,16 +136,20 @@ const getSerializedOffset = (editor, targetNode, targetOffset) => {
   return length
 }
 
-export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }){
+export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, editorFontSize = 18 }){
   const editorRef = useRef(null)
   const saveTimerRef = useRef(null)
   const highlightTimerRef = useRef(null)
   const createdDefaultRef = useRef(false)
+  const spellcheckResizeStartYRef = useRef(0)
+  const spellcheckResizeStartHeightRef = useRef(0)
 
   const [content, setContent] = useState('')
   const [isLoadingChapter, setIsLoadingChapter] = useState(false)
   const [popoverState, setPopoverState] = useState(null)
   const [spellcheckIssues, setSpellcheckIssues] = useState([])
+  const [spellcheckPanelHeight, setSpellcheckPanelHeight] = useState(260)
+  const [isResizingSpellcheck, setIsResizingSpellcheck] = useState(false)
 
   const {
     chapters,
@@ -156,6 +161,12 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
     saveChapter,
     refresh
   } = useChapters(novelPath)
+
+  const {
+    manuscriptCount,
+    chapterCount,
+    todayCount,
+  } = useWordCount(novelPath, currentChapter, content)
 
   const {
     words: dictionaryWords,
@@ -541,6 +552,31 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
   }, [])
 
   useEffect(() => {
+    if (!isResizingSpellcheck) {
+      return undefined
+    }
+
+    const handleMouseMove = (event) => {
+      const deltaY = spellcheckResizeStartYRef.current - event.clientY
+      const nextHeight = spellcheckResizeStartHeightRef.current + deltaY
+      const clampedHeight = Math.max(160, Math.min(520, nextHeight))
+      setSpellcheckPanelHeight(clampedHeight)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizingSpellcheck(false)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizingSpellcheck])
+
+  useEffect(() => {
     let cancelled = false;
     findSpellingIssues(content, dictionaryWords)
       .then((issues) => {
@@ -622,6 +658,12 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
     }, 500)
   }
 
+  const handleSpellcheckResizeStart = (event) => {
+    spellcheckResizeStartYRef.current = event.clientY
+    spellcheckResizeStartHeightRef.current = spellcheckPanelHeight
+    setIsResizingSpellcheck(true)
+  }
+
   return (
     <div className="manuscript-inner">
       {popoverState && (
@@ -635,9 +677,15 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
         />
       )}
       {error && <div className="error-message">{error}</div>}
+      <div className="wordcounts" data-testid="manuscript-wordcounts">
+        <span>Manuscript: {manuscriptCount.toLocaleString()}</span>
+        <span>Open chapter: {chapterCount.toLocaleString()}</span>
+        <span>Today: {todayCount.toLocaleString()}</span>
+      </div>
       <article
         className="editor"
         ref={editorRef}
+        style={{ fontSize: `${editorFontSize}px` }}
         contentEditable
         spellCheck={false}
         autoCorrect="off"
@@ -647,7 +695,20 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
         aria-busy={loading || isLoadingChapter}
         data-testid="manuscript-editor"
       />
-      <section className="spellcheck-panel" data-testid="spellcheck-panel" aria-live="polite">
+      <section
+        className="spellcheck-panel"
+        data-testid="spellcheck-panel"
+        aria-live="polite"
+        style={{ height: `${spellcheckPanelHeight}px` }}
+      >
+        <div
+          className={`spellcheck-resize-handle${isResizingSpellcheck ? ' active' : ''}`}
+          data-testid="spellcheck-resize-handle"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize spellcheck panel"
+          onMouseDown={handleSpellcheckResizeStart}
+        />
         <div className="spellcheck-panel-header">
           <strong>Spellcheck</strong>
           <span data-testid="spellcheck-status">
