@@ -48,7 +48,7 @@ function escapeYamlDoubleQuotedString(value) {
 }
 
 function unescapeYamlDoubleQuotedString(value) {
-  return String(value).replace(/\\(["\\nrt])/g, (_match, escaped) => {
+  return String(value).replace(/\\(.)/g, (_match, escaped) => {
     switch (escaped) {
       case 'n':
         return '\n';
@@ -59,6 +59,8 @@ function unescapeYamlDoubleQuotedString(value) {
       case '"':
       case '\\':
         return escaped;
+      default:
+        return `\\${escaped}`;
     }
   });
 }
