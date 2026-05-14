@@ -55,13 +55,19 @@ describe('Wiki CRUD Operations', () => {
       expect(result.data.slug).toBe('city-1-new-york');
     });
 
-    it('writes content to wiki file', async () => {
+    it('writes content to wiki file with Obsidian-compatible frontmatter', async () => {
       const content = '# Alice\n\nProtagonist of the story.';
       await createWikiPage(testDir, 'Alice', content);
 
       const filePath = path.join(testDir, 'wiki', 'alice.md');
       const fileContent = await fs.readFile(filePath, 'utf-8');
-      expect(fileContent).toBe(content);
+      // File on disk includes Obsidian-compatible YAML frontmatter with title
+      expect(fileContent).toContain('---\ntitle: "Alice"');
+      expect(fileContent).toContain('# Alice\n\nProtagonist of the story.');
+      // readWikiPage strips frontmatter — callers receive clean content
+      const readResult = await readWikiPage(testDir, 'alice');
+      expect(readResult.data.title).toBe('Alice');
+      expect(readResult.data.content).toBe(content);
     });
 
     it('returns error if slug already exists', async () => {
@@ -96,6 +102,16 @@ describe('Wiki CRUD Operations', () => {
 
       expect(result.status).toBe('ok');
       expect(result.data.content).toBe(content);
+    });
+
+    it('unescapes quoted frontmatter titles when reading', async () => {
+      const rawContent = '---\ntitle: "Bob\\\"s \\\\ Path"\n---\n\n# Bob\n\nDetails.';
+      await fs.writeFile(path.join(testDir, 'wiki', 'bob.md'), rawContent, 'utf-8');
+
+      const result = await readWikiPage(testDir, 'bob');
+
+      expect(result.status).toBe('ok');
+      expect(result.data.title).toBe('Bob"s \\ Path');
     });
 
     it('returns error if page does not exist', async () => {
@@ -204,6 +220,17 @@ describe('Wiki CRUD Operations', () => {
 
       const readResult = await readWikiPage(testDir, 'alice-updated');
       expect(readResult.data.content).toBe('# Alice Updated\n\nOriginal content.');
+    });
+
+    it('preserves escaped title characters when renaming', async () => {
+      await createWikiPage(testDir, 'Alice', '# Alice\n\nOriginal content.');
+
+      const result = await renameWikiPage(testDir, 'alice', 'Bob "The Guide" \\ Route');
+
+      expect(result.status).toBe('ok');
+
+      const readResult = await readWikiPage(testDir, result.data.newSlug);
+      expect(readResult.data.title).toBe('Bob "The Guide" \\ Route');
     });
 
     it('returns error if old page does not exist', async () => {

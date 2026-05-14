@@ -38,6 +38,34 @@ function normalizeTags(inputTags) {
   return Array.from(new Set(normalized));
 }
 
+function escapeYamlDoubleQuotedString(value) {
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t');
+}
+
+function unescapeYamlDoubleQuotedString(value) {
+  return String(value).replace(/\\(.)/g, (_match, escaped) => {
+    switch (escaped) {
+      case 'n':
+        return '\n';
+      case 'r':
+        return '\r';
+      case 't':
+        return '\t';
+      case '"':
+      case '\\':
+        return escaped;
+      default:
+        // Preserve unsupported escapes verbatim so unexpected sequences don't corrupt titles.
+        return `\\${escaped}`;
+    }
+  });
+}
+
 function stripFrontmatter(content) {
   if (!content.startsWith(`${FRONTMATTER_BOUNDARY}\n`)) {
     return content;
@@ -61,34 +89,92 @@ function extractTagsFromFrontmatter(content) {
     return [];
   }
 
-  const frontmatter = content.slice(FRONTMATTER_BOUNDARY.length + 1, endIndex).split('\n');
-  const tagsLine = frontmatter.find((line) => line.trim().toLowerCase().startsWith('tags:'));
+  const frontmatterLines = content.slice(FRONTMATTER_BOUNDARY.length + 1, endIndex).split('\n');
+  const tagsLineIndex = frontmatterLines.findIndex((line) => line.trim().toLowerCase().startsWith('tags:'));
 
-  if (!tagsLine) {
+  if (tagsLineIndex === -1) {
     return [];
   }
 
+  const tagsLine = frontmatterLines[tagsLineIndex];
   const rawValue = tagsLine.split(':').slice(1).join(':').trim();
+
+  // Obsidian YAML list format: tags: followed by lines starting with "  - "
   if (!rawValue) {
-    return [];
+    const listTags = [];
+    for (let i = tagsLineIndex + 1; i < frontmatterLines.length; i++) {
+      const m = frontmatterLines[i].match(/^\s+-\s+(.+)$/);
+      if (!m) break;
+      listTags.push(m[1].trim());
+    }
+    return normalizeTags(listTags);
   }
 
+  // Inline array format (old or new): tags: [tag1, tag2] or tags: ["tag1", "tag2"]
   if (rawValue.startsWith('[') && rawValue.endsWith(']')) {
     const inner = rawValue.slice(1, -1);
     return normalizeTags(inner.split(',').map((tag) => tag.replace(/^"|"$/g, '').trim()));
   }
 
+  // Comma-separated plain text fallback
   return normalizeTags(rawValue.split(',').map((tag) => tag.trim()));
 }
 
-function buildFrontmatter(tags) {
+function extractTitleFromFrontmatter(content) {
+  if (!content.startsWith(`${FRONTMATTER_BOUNDARY}\n`)) {
+    return null;
+  }
+
+  const endIndex = content.indexOf(`\n${FRONTMATTER_BOUNDARY}`, FRONTMATTER_BOUNDARY.length + 1);
+  if (endIndex === -1) {
+    return null;
+  }
+
+  const titleLine = content
+    .slice(FRONTMATTER_BOUNDARY.length + 1, endIndex)
+    .split('\n')
+    .find((line) => line.trim().toLowerCase().startsWith('title:'));
+
+  if (!titleLine) return null;
+
+  const rawTitle = titleLine.split(':').slice(1).join(':').trim();
+  if (!rawTitle) return null;
+
+  if (rawTitle.startsWith('"') && rawTitle.endsWith('"')) {
+    return unescapeYamlDoubleQuotedString(rawTitle.slice(1, -1)) || null;
+  }
+
+  return rawTitle || null;
+}
+
+function extractH1FromContent(content) {
+  const match = content.match(/^#\s+(.+)$/m);
+  return match ? match[1].trim() : null;
+}
+
+function buildFrontmatter(title, tags) {
   const normalized = normalizeTags(tags);
-  if (normalized.length === 0) {
+  const safeTitle = title ? escapeYamlDoubleQuotedString(title) : null;
+
+  if (!safeTitle && normalized.length === 0) {
     return '';
   }
 
-  const quoted = normalized.map((tag) => `"${tag.replace(/"/g, '\\"')}"`).join(', ');
-  return `${FRONTMATTER_BOUNDARY}\n` + `tags: [${quoted}]\n` + `${FRONTMATTER_BOUNDARY}\n\n`;
+  let fm = `${FRONTMATTER_BOUNDARY}\n`;
+
+  if (safeTitle) {
+    fm += `title: "${safeTitle}"\n`;
+  }
+
+  if (normalized.length > 0) {
+    fm += `tags:\n`;
+    for (const tag of normalized) {
+      fm += `  - ${tag}\n`;
+    }
+  }
+
+  fm += `${FRONTMATTER_BOUNDARY}\n\n`;
+  return fm;
 }
 
 /**
@@ -159,9 +245,9 @@ export async function createWikiPage(novelPath, title, content, tags = []) {
       // File doesn't exist, which is what we want
     }
 
-    const frontmatter = buildFrontmatter(tags);
     const rawBody = stripFrontmatter(content || '');
     const body = rawBody.trim() ? rawBody : `# ${title}\n\n`;
+    const frontmatter = buildFrontmatter(title, tags);
 
     // Write content to file
     await fs.writeFile(filePath, `${frontmatter}${body}`, 'utf-8');
@@ -181,7 +267,7 @@ export async function createWikiPage(novelPath, title, content, tags = []) {
  * Read wiki page content
  * @param {string} novelPath - Path to novel directory
  * @param {string} slug - Page slug
- * @returns {Promise<Object>} - {status, data: {content}, error}
+ * @returns {Promise<Object>} - {status, data: {content, tags, title}, error}
  */
 export async function readWikiPage(novelPath, slug) {
   try {
@@ -201,11 +287,12 @@ export async function readWikiPage(novelPath, slug) {
 
     const rawContent = await fs.readFile(filePath, 'utf-8');
     const tags = extractTagsFromFrontmatter(rawContent);
+    const title = extractTitleFromFrontmatter(rawContent);
     const content = stripFrontmatter(rawContent);
 
     return {
       status: 'ok',
-      data: { content, tags },
+      data: { content, tags, title },
       timestamp: new Date().toISOString()
     };
   } catch (error) {
@@ -236,8 +323,22 @@ export async function updateWikiPage(novelPath, slug, content, tags = []) {
       return createError('WIKI_PAGE_NOT_FOUND', `Wiki page "${slug}" not found`);
     }
 
-    const frontmatter = buildFrontmatter(tags);
-    const body = stripFrontmatter(content || '');
+    // Derive title: prefer H1 from new content body, fall back to existing frontmatter title
+    const strippedBody = stripFrontmatter(content || '');
+    const titleFromH1 = extractH1FromContent(strippedBody);
+    let pageTitle = titleFromH1;
+    if (!pageTitle) {
+      // Preserve existing title from frontmatter if no H1 in new content
+      try {
+        const existing = await fs.readFile(filePath, 'utf-8');
+        pageTitle = extractTitleFromFrontmatter(existing);
+      } catch {
+        // Non-fatal
+      }
+    }
+
+    const frontmatter = buildFrontmatter(pageTitle, tags);
+    const body = strippedBody;
     const nextContent = `${frontmatter}${body}`;
 
     // Atomic write: write to temp file, then rename
@@ -344,13 +445,14 @@ export async function renameWikiPage(novelPath, oldSlug, newTitle) {
     // Rename file (atomic operation on most filesystems)
     await fs.rename(oldPath, newPath);
 
-    // Update the H1 title heading inside the file to match the new title
+    // Update the H1 heading and frontmatter title to match the new title
     try {
       const existingContent = await fs.readFile(newPath, 'utf-8');
-      const updatedContent = existingContent.replace(/^# .+$/m, `# ${newTitle}`);
-      if (updatedContent !== existingContent) {
-        await fs.writeFile(newPath, updatedContent, 'utf-8');
-      }
+      const existingTags = extractTagsFromFrontmatter(existingContent);
+      const existingBody = stripFrontmatter(existingContent);
+      const updatedBody = existingBody.replace(/^# .+$/m, `# ${newTitle}`);
+      const newFrontmatter = buildFrontmatter(newTitle, existingTags);
+      await fs.writeFile(newPath, `${newFrontmatter}${updatedBody}`, 'utf-8');
     } catch {
       // Non-fatal: dictionary rebuild still uses the new file
     }
