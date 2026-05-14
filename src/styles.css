@@ -22,15 +22,17 @@
 body{margin:0;font-family:'PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','Noto Sans SC','Microsoft YaHei',Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial;font-size:14px;color:var(--text-primary);background:var(--bg-app)}
 .topbar{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid var(--divider);background:transparent}
 .brand{font-family:'PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','Noto Sans SC','Microsoft YaHei','Merriweather',Georgia,serif;font-size:18px;font-weight:700;color:var(--text-primary)}
-.btn{padding:8px 12px;border-radius:8px;border:1px solid transparent;background:transparent;cursor:pointer}
+.btn{padding:8px 12px;border-radius:8px;border:1px solid transparent;background:transparent;cursor:pointer;color:var(--text-primary)}
 .btn.primary{background:var(--accent);color:white}
 .btn.ghost{border:1px solid var(--muted-accent);background:transparent}
+.btn.ghost:hover{background:color-mix(in srgb, var(--muted-accent) 30%, transparent)}
 .main-grid{display:flex;gap:16px;padding:24px;align-items:stretch;min-height:calc(100vh - 56px)}
 .manuscript{background:transparent;flex:1 1 auto;min-width:0;height:calc(100vh - 56px - 48px)}
 .manuscript-inner{background:var(--manuscript-surface);padding:32px;border-radius:12px;box-shadow:0 6px 18px rgba(32,38,40,0.06);height:100%;display:flex;flex-direction:column}
 .manuscript-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
 .chapter-select{font-family:Inter;padding:6px 8px;border-radius:8px;border:1px solid var(--divider)}
 .wordcounts span{margin-left:12px;color:var(--text-secondary);font-size:13px}
+.wordcounts span:first-child{margin-left:0}
 .editor{font-family:'Merriweather', Georgia, serif;font-size:18px;line-height:1.6;color:var(--text-primary);min-height:0;flex:1;overflow:auto;padding-bottom:16px;white-space:pre-wrap}
 .editor:focus{outline:none}
 .sidebar{padding-top:8px;flex:0 0 auto;min-width:280px;max-width:720px;height:calc(100vh - 56px - 48px)}
@@ -84,7 +86,10 @@ body{margin:0;font-family:'PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','N
 .muted{opacity:0.95;color:var(--text-secondary)}
 .conflict-note{margin-top:6px;color:var(--accent)}
 
-.spellcheck-panel{margin-top:16px;padding-top:16px;border-top:1px solid var(--divider);display:flex;flex-direction:column;gap:12px;resize:vertical;overflow:auto;min-height:160px;max-height:60vh}
+.spellcheck-panel{margin-top:16px;border-top:1px solid var(--divider);display:flex;flex-direction:column;gap:12px;overflow:hidden;min-height:160px;max-height:70vh}
+.spellcheck-resize-handle{height:16px;cursor:ns-resize;position:relative;flex:0 0 16px;border-radius:8px 8px 0 0;background:transparent}
+.spellcheck-resize-handle::after{content:'';position:absolute;left:50%;top:7px;transform:translateX(-50%);width:56px;height:2px;border-radius:2px;background:var(--divider)}
+.spellcheck-resize-handle:hover::after,.spellcheck-resize-handle.active::after{background:var(--accent)}
 .spellcheck-panel-header{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .spellcheck-issues{display:flex;flex-direction:column;gap:10px;flex:1 1 auto;min-height:120px;overflow-y:auto;padding-right:4px}
 .spellcheck-issue-item{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 12px;border:1px solid var(--divider);border-radius:10px;background:var(--manuscript-surface)}
@@ -125,6 +130,8 @@ body{margin:0;font-family:'PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','N
 
 /* Snapshot dialog */
 .top-actions{display:flex;align-items:center;gap:8px}
+.font-size-controls{display:flex;align-items:center;gap:4px}
+.font-size-controls .btn{padding:6px 10px;min-width:32px;line-height:1}
 .snapshot-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;z-index:100}
 .snapshot-dialog{background:var(--manuscript-surface);border-radius:12px;padding:24px;width:400px;max-width:90vw;box-shadow:0 12px 40px rgba(0,0,0,0.15)}
 .commit-dialog{width:460px}

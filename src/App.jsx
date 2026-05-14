@@ -36,6 +36,17 @@ export default function App(){
     return 360;
   });
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  const [editorFontSize, setEditorFontSize] = useState(() => {
+    try {
+      const stored = Number(window.localStorage.getItem('zuojia-editor-font-size'));
+      if (Number.isFinite(stored) && stored >= 14 && stored <= 30) {
+        return stored;
+      }
+    } catch {
+      // Ignore storage failures and use default.
+    }
+    return 18;
+  });
 
   useEffect(() => {
     return () => {
@@ -61,6 +72,14 @@ export default function App(){
       // Ignore storage failures.
     }
   }, [sidebarWidth]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('zuojia-editor-font-size', String(editorFontSize));
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [editorFontSize]);
 
   useEffect(() => {
     if (!isResizingSidebar) {
@@ -116,6 +135,18 @@ export default function App(){
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
+  const decreaseFontSize = () => {
+    setEditorFontSize((prev) => Math.max(14, prev - 1));
+  };
+
+  const resetFontSize = () => {
+    setEditorFontSize(18);
+  };
+
+  const increaseFontSize = () => {
+    setEditorFontSize((prev) => Math.min(30, prev + 1));
+  };
+
   // Handle opening a wiki page from the manuscript
   const handleOpenWikiPage = useCallback((slug) => {
     if (wikiPageTimeoutRef.current !== null) {
@@ -162,6 +193,37 @@ export default function App(){
       <header className="topbar" data-testid="topbar">
         <div className="brand">作家</div>
         <div className="top-actions">
+          <div className="font-size-controls" data-testid="font-size-controls">
+            <button
+              type="button"
+              className="btn ghost"
+              data-testid="font-size-decrease"
+              aria-label="Decrease editor font size"
+              onClick={decreaseFontSize}
+              disabled={editorFontSize <= 14}
+            >
+              -
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              data-testid="font-size-reset"
+              aria-label="Reset editor font size"
+              onClick={resetFontSize}
+            >
+              aA
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              data-testid="font-size-increase"
+              aria-label="Increase editor font size"
+              onClick={increaseFontSize}
+              disabled={editorFontSize >= 30}
+            >
+              +
+            </button>
+          </div>
           <button
             type="button"
             className="btn ghost"
@@ -186,6 +248,7 @@ export default function App(){
             novelPath={novelPath} 
             wikiPages={wikiPages} 
             onOpenWikiPage={handleOpenWikiPage}
+            editorFontSize={editorFontSize}
           />
         </section>
         <div
