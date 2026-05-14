@@ -59,8 +59,6 @@ function unescapeYamlDoubleQuotedString(value) {
       case '"':
       case '\\':
         return escaped;
-      default:
-        return escaped;
     }
   });
 }
