@@ -217,15 +217,15 @@ export async function getSpellcheckDict(novelPath) {
 
     const existing = await readExistingDictionary(dictPath);
     if (existing.words.length > 0 || existing.customWords.length > 0) {
+      // Merge in memory only — do not write; avoids dirty metadata on every read.
       const words = mergeWords(existing.words, existing.customWords);
-      const dictionary = await writeDictionary(dictPath, words, existing.customWords);
       return {
         status: 'ok',
         data: {
-          words: dictionary.words,
-          customWords: dictionary.customWords,
-          count: dictionary.count,
-          path: dictionary.path,
+          words,
+          customWords: existing.customWords,
+          count: words.length,
+          path: dictPath,
         },
       };
     }
