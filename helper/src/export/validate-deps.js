@@ -7,6 +7,7 @@ function getToolVersion(command) {
 
 export async function validateExportDependencies() {
   let pandocVersion;
+  const enginesTried = [];
 
   try {
     pandocVersion = getToolVersion('pandoc');
@@ -20,12 +21,14 @@ export async function validateExportDependencies() {
   }
 
   try {
+    enginesTried.push('xelatex');
     const version = getToolVersion('xelatex');
     return {
       status: 'ok',
       data: {
         pandoc: { available: true, version: pandocVersion },
         tex: { available: true, engine: 'xelatex', version },
+        enginesTried,
       },
       timestamp: new Date().toISOString(),
     };
@@ -34,12 +37,14 @@ export async function validateExportDependencies() {
   }
 
   try {
+    enginesTried.push('pdflatex');
     const version = getToolVersion('pdflatex');
     return {
       status: 'ok',
       data: {
         pandoc: { available: true, version: pandocVersion },
         tex: { available: true, engine: 'pdflatex', version },
+        enginesTried,
       },
       timestamp: new Date().toISOString(),
     };
@@ -48,7 +53,7 @@ export async function validateExportDependencies() {
       'TEX_UNAVAILABLE',
       'A TeX engine is not installed',
       'Install via: brew install --cask mactex-no-gui',
-      { error: error.message }
+      { error: error.message, enginesTried }
     );
   }
 }

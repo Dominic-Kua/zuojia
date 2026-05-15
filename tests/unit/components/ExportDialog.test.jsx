@@ -10,6 +10,7 @@ vi.mock('../../../src/lib/ipc-client', () => ({
   exportHandlers: {
     pdf: vi.fn(),
     getLogs: vi.fn(),
+    validateDeps: vi.fn(),
   },
   indexHandlers: {
     getIndex: vi.fn(),
@@ -19,8 +20,13 @@ vi.mock('../../../src/lib/ipc-client', () => ({
 describe('ExportDialog', () => {
   const novelPath = '/path/to/novel';
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const { exportHandlers } = await import('../../../src/lib/ipc-client');
+    exportHandlers.validateDeps.mockResolvedValue({
+      pandoc: { available: true, version: 'pandoc 3.1.0' },
+      tex: { available: true, engine: 'xelatex', version: 'XeTeX 3.14' },
+    });
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((...args) => {
       const [firstArg] = args;
       if (typeof firstArg === 'string' && firstArg.includes('not wrapped in act')) {
@@ -40,7 +46,7 @@ describe('ExportDialog', () => {
   });
 
   it('loads chapters and opens the export dialog', async () => {
-    const { indexHandlers } = await import('../../../src/lib/ipc-client');
+    const { indexHandlers, exportHandlers } = await import('../../../src/lib/ipc-client');
     indexHandlers.getIndex.mockResolvedValue({
       chapters: [
         { filename: 'chapter-01.md', title: 'Chapter 1' },
@@ -56,9 +62,54 @@ describe('ExportDialog', () => {
     });
 
     expect(indexHandlers.getIndex).toHaveBeenCalledWith(novelPath);
+    expect(exportHandlers.validateDeps).toHaveBeenCalled();
     expect(await screen.findByTestId('export-dialog')).toBeInTheDocument();
     expect(screen.getByTestId('export-chapter-list')).toHaveTextContent('Chapter 1');
     expect(screen.getByTestId('export-chapter-list')).toHaveTextContent('Chapter 2');
+  });
+
+  it('shows dependency guidance and disables export when preflight fails', async () => {
+    const { indexHandlers, exportHandlers } = await import('../../../src/lib/ipc-client');
+    indexHandlers.getIndex.mockResolvedValue({
+      chapters: [{ filename: 'chapter-01.md', title: 'Chapter 1' }],
+    });
+    const depError = new Error('Pandoc is not installed');
+    depError.suggestion = 'Install via: brew install pandoc';
+    exportHandlers.validateDeps.mockRejectedValue(depError);
+
+    const user = userEvent.setup();
+    render(<ExportDialog novelPath={novelPath} />);
+
+    await act(async () => {
+      await user.click(screen.getByTestId('export-button'));
+    });
+
+    await screen.findByTestId('export-dialog');
+    expect(screen.getByTestId('export-error')).toHaveTextContent('Pandoc is not installed');
+    expect(screen.getByTestId('export-error')).toHaveTextContent('brew install pandoc');
+    expect(screen.getByTestId('export-confirm')).toBeDisabled();
+  });
+
+  it('shows export readiness details when preflight succeeds', async () => {
+    const { indexHandlers, exportHandlers } = await import('../../../src/lib/ipc-client');
+    indexHandlers.getIndex.mockResolvedValue({
+      chapters: [{ filename: 'chapter-01.md', title: 'Chapter 1' }],
+    });
+    exportHandlers.validateDeps.mockResolvedValue({
+      pandoc: { available: true, version: 'pandoc 3.1.0' },
+      tex: { available: true, engine: 'xelatex', version: 'XeTeX 3.14' },
+    });
+
+    const user = userEvent.setup();
+    render(<ExportDialog novelPath={novelPath} />);
+
+    await act(async () => {
+      await user.click(screen.getByTestId('export-button'));
+    });
+
+    await screen.findByTestId('export-dialog');
+    expect(screen.getByTestId('export-preflight-ready')).toHaveTextContent('xelatex');
+    expect(screen.getByTestId('export-confirm')).not.toBeDisabled();
   });
 
   it('submits metadata to the PDF export handler', async () => {
