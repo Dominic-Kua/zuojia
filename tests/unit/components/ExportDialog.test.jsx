@@ -62,7 +62,7 @@ describe('ExportDialog', () => {
     });
 
     expect(indexHandlers.getIndex).toHaveBeenCalledWith(novelPath);
-    expect(exportHandlers.validateDeps).toHaveBeenCalled();
+    await waitFor(() => expect(exportHandlers.validateDeps).toHaveBeenCalled());
     expect(await screen.findByTestId('export-dialog')).toBeInTheDocument();
     expect(screen.getByTestId('export-chapter-list')).toHaveTextContent('Chapter 1');
     expect(screen.getByTestId('export-chapter-list')).toHaveTextContent('Chapter 2');
@@ -85,7 +85,7 @@ describe('ExportDialog', () => {
     });
 
     await screen.findByTestId('export-dialog');
-    expect(screen.getByTestId('export-error')).toHaveTextContent('Pandoc is not installed');
+    expect(await screen.findByTestId('export-error')).toHaveTextContent('Pandoc is not installed');
     expect(screen.getByTestId('export-error')).toHaveTextContent('brew install pandoc');
     expect(screen.getByTestId('export-confirm')).toBeDisabled();
   });
@@ -108,7 +108,7 @@ describe('ExportDialog', () => {
     });
 
     await screen.findByTestId('export-dialog');
-    expect(screen.getByTestId('export-preflight-ready')).toHaveTextContent('xelatex');
+    expect(await screen.findByTestId('export-preflight-ready')).toHaveTextContent('xelatex');
     expect(screen.getByTestId('export-confirm')).not.toBeDisabled();
   });
 
