@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { ChapterList } from './Navigation/ChapterList'
 import { useChapters } from '../hooks/useChapters'
 import { useSpellcheck } from '../hooks/useSpellcheck'
 import { useWordCount } from '../hooks/useWordCount'
@@ -9,6 +10,7 @@ import { indexHandlers, wikiHandlers } from '../lib/ipc-client'
 
 const DEFAULT_CHAPTER_FILENAME = 'chapter-01.md'
 const DEFAULT_CHAPTER_CONTENT = '# Chapter 1\n\nStart writing here...'
+const CHAPTER_FILENAME_PATTERN = /^chapter-(\d+)\.md$/i
 
 // Block-level HTML tags whose boundaries represent implicit line breaks in
 // the contenteditable editor.  Kept as a module-level constant so the same
@@ -651,6 +653,73 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
     }
   }, [content, escapeForRegex, novelPath, refreshSpellcheckDictionary])
 
+  const handleBeforeSwitch = useCallback(async () => {
+    if (!currentChapter || !novelPath) {
+      return true
+    }
+
+    try {
+      await saveChapter(currentChapter, content)
+      return true
+    } catch (err) {
+      console.error('Failed to save before switching chapters:', err)
+      return false
+    }
+  }, [content, currentChapter, novelPath, saveChapter])
+
+  const handleChapterSelect = useCallback(async (filename) => {
+    if (!filename || filename === currentChapter) {
+      return
+    }
+
+    const shouldProceed = await handleBeforeSwitch()
+    if (!shouldProceed) {
+      return
+    }
+
+    setCurrentChapter(filename)
+  }, [currentChapter, handleBeforeSwitch, setCurrentChapter])
+
+  const handleCreateChapter = useCallback(async () => {
+    if (!novelPath) {
+      return
+    }
+
+    try {
+      const shouldProceed = await handleBeforeSwitch()
+      if (!shouldProceed) {
+        return
+      }
+
+      const existingNumbers = chapters
+        .map((chapter) => {
+          const match = chapter.filename.match(CHAPTER_FILENAME_PATTERN)
+          return match ? Number(match[1]) : null
+        })
+        .filter((value) => Number.isInteger(value))
+
+      const nextNumber = existingNumbers.length > 0
+        ? Math.max(...existingNumbers) + 1
+        : chapters.length + 1
+
+      const paddedNumber = String(nextNumber).padStart(2, '0')
+      const filename = `chapter-${paddedNumber}.md`
+      const chapterTitle = `# Chapter ${nextNumber}\n\nStart writing here...`
+
+      setIsLoadingChapter(true)
+      await saveChapter(filename, chapterTitle)
+      await indexHandlers.rebuildIndex(novelPath)
+      await refresh()
+      setCurrentChapter(filename)
+      setContent(chapterTitle)
+      applyEditorContent(chapterTitle)
+    } catch (err) {
+      console.error('Failed to create chapter:', err)
+    } finally {
+      setIsLoadingChapter(false)
+    }
+  }, [applyEditorContent, chapters, handleBeforeSwitch, novelPath, refresh, saveChapter, setCurrentChapter])
+
   const handleInput = (e) => {
     // Extract content from contentEditable, preserving wiki link markers and
     // line breaks, using the shared serializeEditorDom helper.
@@ -694,10 +763,20 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
         />
       )}
       {error && <div className="error-message">{error}</div>}
-      <div className="wordcounts" data-testid="manuscript-wordcounts">
-        <span>Manuscript: {manuscriptCount.toLocaleString()}</span>
-        <span>Open chapter: {chapterCount.toLocaleString()}</span>
-        <span>Today: {todayCount.toLocaleString()}</span>
+      <div className="manuscript-meta">
+        <ChapterList
+          chapters={chapters}
+          currentChapter={currentChapter}
+          onChapterSelect={handleChapterSelect}
+          onBeforeSwitch={handleBeforeSwitch}
+          onCreateChapter={handleCreateChapter}
+          hasUnsavedChanges={false}
+        />
+        <div className="wordcounts" data-testid="manuscript-wordcounts">
+          <span>Manuscript: {manuscriptCount.toLocaleString()}</span>
+          <span>Open chapter: {chapterCount.toLocaleString()}</span>
+          <span>Today: {todayCount.toLocaleString()}</span>
+        </div>
       </div>
       <article
         className="editor"
