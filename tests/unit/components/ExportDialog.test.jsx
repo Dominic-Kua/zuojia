@@ -311,8 +311,13 @@ describe('ExportDialog', () => {
 describe('ExportDialog — logs viewer', () => {
   const novelPath = '/path/to/novel';
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    const { exportHandlers } = await import('../../../src/lib/ipc-client');
+    exportHandlers.validateDeps.mockResolvedValue({
+      pandoc: { available: true, version: 'pandoc 3.1.0' },
+      tex: { available: true, engine: 'xelatex', version: 'XeTeX 3.14' },
+    });
   });
 
   async function openDialogWithChapters() {
