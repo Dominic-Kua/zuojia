@@ -91,6 +91,8 @@ describe('exportManuscriptToPdf', () => {
     expect(result.status).toBe('ok');
     expect(result.data.outputPath).toMatch(/meta\/exports\/.+\.pdf$/);
     expect(result.data.logPath).toMatch(/meta\/logs\/export-.+\.log$/);
+    expect(result.data.texEngine).toBe('xelatex');
+    expect(result.data.chapterCount).toBe(2);
     expect(runSubprocess).toHaveBeenCalledOnce();
 
     const [command, args] = runSubprocess.mock.calls[0];
@@ -124,6 +126,7 @@ describe('exportManuscriptToPdf', () => {
     });
 
     expect(result.status).toBe('ok');
+    expect(result.data.chapterCount).toBe(1);
     const [, args] = runSubprocess.mock.calls[0];
     const chapterArgs = args.filter((a) => a.endsWith('.md'));
     expect(chapterArgs).toHaveLength(1);
@@ -155,6 +158,33 @@ describe('exportManuscriptToPdf', () => {
     const [, args] = runSubprocess.mock.calls[0];
     const chapterArgs = args.filter((a) => a.endsWith('.md'));
     expect(chapterArgs).toHaveLength(2);
+  });
+
+  it('rejects invalid chapterOrder entries and returns guidance when none remain', async () => {
+    const { validateExportDependencies } = await import('../src/export/validate-deps.js');
+    const { runSubprocess } = await import('../src/util/subprocess.js');
+
+    validateExportDependencies.mockResolvedValue({
+      status: 'ok',
+      data: {
+        pandoc: { available: true, version: 'pandoc 3.1.0' },
+        tex: { available: true, engine: 'xelatex', version: 'XeTeX 3.14' },
+      },
+    });
+
+    const result = await exportManuscriptToPdf(TEST_DIR, {
+      title: 'Novel',
+      author: 'Dom',
+      date: '2026-04-18',
+      chapterOrder: [
+        { filename: '../chapter-01.md', title: 'Bad path' },
+        { filename: '/etc/passwd', title: 'Absolute path' },
+      ],
+    });
+
+    expect(result.status).toBe('error');
+    expect(result.error.code).toBe('NO_CHAPTERS_TO_EXPORT');
+    expect(runSubprocess).not.toHaveBeenCalled();
   });
 
   it('prunes export logs to keep only the 10 most recent after a successful export', async () => {
