@@ -698,9 +698,10 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
         })
         .filter((value) => Number.isInteger(value))
 
-      const nextNumber = existingNumbers.length > 0
-        ? Math.max(...existingNumbers) + 1
-        : 1
+      const highestNumber = existingNumbers.reduce((maxNumber, chapterNumber) => {
+        return chapterNumber > maxNumber ? chapterNumber : maxNumber
+      }, 0)
+      const nextNumber = highestNumber + 1
 
       const paddedNumber = String(nextNumber).padStart(2, '0')
       const filename = `chapter-${paddedNumber}.md`
