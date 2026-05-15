@@ -85,8 +85,9 @@ describe('ExportDialog', () => {
     });
 
     await screen.findByTestId('export-dialog');
-    expect(await screen.findByTestId('export-error')).toHaveTextContent('Pandoc is not installed');
-    expect(screen.getByTestId('export-error')).toHaveTextContent('brew install pandoc');
+    const exportError = await screen.findByTestId('export-error');
+    expect(exportError).toHaveTextContent('Pandoc is not installed');
+    expect(exportError).toHaveTextContent('brew install pandoc');
     expect(screen.getByTestId('export-confirm')).toBeDisabled();
   });
 
