@@ -14,7 +14,39 @@ export default function App(){
   const [novelPath, setNovelPath] = useState(null);
   const [wikiPageToOpen, setWikiPageToOpen] = useState(null);
   const sidebarRef = useRef(null);
+  const mainGridRef = useRef(null);
   const wikiPageTimeoutRef = useRef(null);
+  const [theme, setTheme] = useState(() => {
+    try {
+      const stored = window.localStorage.getItem('zuojia-theme');
+      return stored === 'dark' ? 'dark' : 'light';
+    } catch {
+      return 'light';
+    }
+  });
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    try {
+      const stored = Number(window.localStorage.getItem('zuojia-sidebar-width'));
+      if (Number.isFinite(stored) && stored >= 280 && stored <= 720) {
+        return stored;
+      }
+    } catch {
+      // Ignore storage failures and use default.
+    }
+    return 360;
+  });
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  const [editorFontSize, setEditorFontSize] = useState(() => {
+    try {
+      const stored = Number(window.localStorage.getItem('zuojia-editor-font-size'));
+      if (Number.isFinite(stored) && stored >= 14 && stored <= 30) {
+        return stored;
+      }
+    } catch {
+      // Ignore storage failures and use default.
+    }
+    return 18;
+  });
 
   useEffect(() => {
     return () => {
@@ -23,6 +55,60 @@ export default function App(){
       }
     };
   }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      window.localStorage.setItem('zuojia-theme', theme);
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [theme]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('zuojia-sidebar-width', String(sidebarWidth));
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [sidebarWidth]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('zuojia-editor-font-size', String(editorFontSize));
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [editorFontSize]);
+
+  useEffect(() => {
+    if (!isResizingSidebar) {
+      return undefined;
+    }
+
+    const onMouseMove = (event) => {
+      if (!mainGridRef.current) {
+        return;
+      }
+
+      const rect = mainGridRef.current.getBoundingClientRect();
+      const calculated = rect.right - event.clientX;
+      const clamped = Math.max(280, Math.min(720, calculated));
+      setSidebarWidth(clamped);
+    };
+
+    const onMouseUp = () => {
+      setIsResizingSidebar(false);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [isResizingSidebar]);
 
   // Get wiki pages for the manuscript component
   const { pages: wikiPages, refresh: refreshWikiPages } = useWikiPages(novelPath);
@@ -45,6 +131,22 @@ export default function App(){
     setNovelPath(null);
   };
 
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+  const decreaseFontSize = () => {
+    setEditorFontSize((prev) => Math.max(14, prev - 1));
+  };
+
+  const resetFontSize = () => {
+    setEditorFontSize(18);
+  };
+
+  const increaseFontSize = () => {
+    setEditorFontSize((prev) => Math.min(30, prev + 1));
+  };
+
   // Handle opening a wiki page from the manuscript
   const handleOpenWikiPage = useCallback((slug) => {
     if (wikiPageTimeoutRef.current !== null) {
@@ -64,6 +166,16 @@ export default function App(){
       <div className="app-shell" data-testid="app-shell">
         <header className="topbar" data-testid="topbar">
           <div className="brand">作家</div>
+          <div className="top-actions">
+            <button
+              type="button"
+              className="btn ghost"
+              data-testid="theme-toggle-button"
+              onClick={toggleTheme}
+            >
+              {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            </button>
+          </div>
         </header>
         <main className="main-grid" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <NovelSelector 
@@ -81,6 +193,45 @@ export default function App(){
       <header className="topbar" data-testid="topbar">
         <div className="brand">作家</div>
         <div className="top-actions">
+          <div className="font-size-controls" data-testid="font-size-controls">
+            <button
+              type="button"
+              className="btn ghost"
+              data-testid="font-size-decrease"
+              aria-label="Decrease editor font size"
+              onClick={decreaseFontSize}
+              disabled={editorFontSize <= 14}
+            >
+              -
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              data-testid="font-size-reset"
+              aria-label="Reset editor font size"
+              onClick={resetFontSize}
+            >
+              aA
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
+              data-testid="font-size-increase"
+              aria-label="Increase editor font size"
+              onClick={increaseFontSize}
+              disabled={editorFontSize >= 30}
+            >
+              +
+            </button>
+          </div>
+          <button
+            type="button"
+            className="btn ghost"
+            data-testid="theme-toggle-button"
+            onClick={toggleTheme}
+          >
+            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          </button>
           <ExportDialog novelPath={novelPath} />
           <SnapshotButton novelPath={novelPath} />
           <CommitButton novelPath={novelPath} />
@@ -90,16 +241,25 @@ export default function App(){
           <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>
         </div>
       </header>
-      <main className="main-grid">
+      <main className="main-grid" ref={mainGridRef}>
         <section className="manuscript" data-testid="manuscript-section">
           <Manuscript 
             key={restoreKey}
             novelPath={novelPath} 
             wikiPages={wikiPages} 
             onOpenWikiPage={handleOpenWikiPage}
+            editorFontSize={editorFontSize}
           />
         </section>
-        <aside className="sidebar" data-testid="sidebar-section">
+        <div
+          className={`sidebar-resizer${isResizingSidebar ? ' active' : ''}`}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize wiki sidebar"
+          data-testid="sidebar-resizer"
+          onMouseDown={() => setIsResizingSidebar(true)}
+        />
+        <aside className="sidebar" data-testid="sidebar-section" style={{ width: `${sidebarWidth}px` }}>
           <Sidebar 
             key={restoreKey}
             ref={sidebarRef}

@@ -138,16 +138,20 @@ const getSerializedOffset = (editor, targetNode, targetOffset) => {
   return length
 }
 
-export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }){
+export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, editorFontSize = 18 }){
   const editorRef = useRef(null)
   const saveTimerRef = useRef(null)
   const highlightTimerRef = useRef(null)
   const createdDefaultRef = useRef(false)
+  const spellcheckResizeStartYRef = useRef(0)
+  const spellcheckResizeStartHeightRef = useRef(0)
 
   const [content, setContent] = useState('')
   const [isLoadingChapter, setIsLoadingChapter] = useState(false)
   const [popoverState, setPopoverState] = useState(null)
   const [spellcheckIssues, setSpellcheckIssues] = useState([])
+  const [spellcheckPanelHeight, setSpellcheckPanelHeight] = useState(260)
+  const [isResizingSpellcheck, setIsResizingSpellcheck] = useState(false)
 
   const {
     chapters,
@@ -160,11 +164,11 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
     refresh
   } = useChapters(novelPath)
 
-  const { manuscriptCount, chapterCount, todayCount } = useWordCount(
-    novelPath,
-    currentChapter,
-    content
-  )
+  const {
+    manuscriptCount,
+    chapterCount,
+    todayCount,
+  } = useWordCount(novelPath, currentChapter, content)
 
   const {
     words: dictionaryWords,
@@ -550,6 +554,31 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
   }, [])
 
   useEffect(() => {
+    if (!isResizingSpellcheck) {
+      return undefined
+    }
+
+    const handleMouseMove = (event) => {
+      const deltaY = spellcheckResizeStartYRef.current - event.clientY
+      const nextHeight = spellcheckResizeStartHeightRef.current + deltaY
+      const clampedHeight = Math.max(160, Math.min(520, nextHeight))
+      setSpellcheckPanelHeight(clampedHeight)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizingSpellcheck(false)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizingSpellcheck])
+
+  useEffect(() => {
     let cancelled = false;
     findSpellingIssues(content, dictionaryWords)
       .then((issues) => {
@@ -624,6 +653,74 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
     }
   }, [content, escapeForRegex, novelPath, refreshSpellcheckDictionary])
 
+  const handleBeforeSwitch = useCallback(async () => {
+    if (!currentChapter || !novelPath) {
+      return true
+    }
+
+    try {
+      await saveChapter(currentChapter, content)
+      return true
+    } catch (err) {
+      console.error('Failed to save before switching chapters:', err)
+      return false
+    }
+  }, [content, currentChapter, novelPath, saveChapter])
+
+  const handleChapterSelect = useCallback(async (filename) => {
+    if (!filename || filename === currentChapter) {
+      return
+    }
+
+    const shouldProceed = await handleBeforeSwitch()
+    if (!shouldProceed) {
+      return
+    }
+
+    setCurrentChapter(filename)
+  }, [currentChapter, handleBeforeSwitch, setCurrentChapter])
+
+  const handleCreateChapter = useCallback(async () => {
+    if (!novelPath) {
+      return
+    }
+
+    try {
+      const shouldProceed = await handleBeforeSwitch()
+      if (!shouldProceed) {
+        return
+      }
+
+      const existingNumbers = chapters
+        .map((chapter) => {
+          const match = chapter.filename.match(CHAPTER_FILENAME_PATTERN)
+          return match ? Number(match[1]) : null
+        })
+        .filter((value) => Number.isInteger(value))
+
+      const highestNumber = existingNumbers.reduce((maxNumber, chapterNumber) => {
+        return chapterNumber > maxNumber ? chapterNumber : maxNumber
+      }, 0)
+      const nextNumber = highestNumber + 1
+
+      const paddedNumber = String(nextNumber).padStart(2, '0')
+      const filename = `chapter-${paddedNumber}.md`
+      const chapterTitle = `# Chapter ${nextNumber}\n\nStart writing here...`
+
+      setIsLoadingChapter(true)
+      await saveChapter(filename, chapterTitle)
+      await indexHandlers.rebuildIndex(novelPath)
+      await refresh()
+      setCurrentChapter(filename)
+      setContent(chapterTitle)
+      applyEditorContent(chapterTitle)
+    } catch (err) {
+      console.error('Failed to create chapter:', err)
+    } finally {
+      setIsLoadingChapter(false)
+    }
+  }, [applyEditorContent, chapters, handleBeforeSwitch, novelPath, refresh, saveChapter, setCurrentChapter])
+
   const handleInput = (e) => {
     // Extract content from contentEditable, preserving wiki link markers and
     // line breaks, using the shared serializeEditorDom helper.
@@ -648,56 +745,11 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
     }, 500)
   }
 
-  const handleBeforeSwitch = useCallback(async () => {
-    if (!currentChapter || !novelPath) {
-      return true
-    }
-
-    try {
-      await saveChapter(currentChapter, content)
-      return true
-    } catch (err) {
-      console.error('Failed to save before switching chapters:', err)
-      return false
-    }
-  }, [content, currentChapter, novelPath, saveChapter])
-
-  const handleCreateChapter = useCallback(async () => {
-    if (!novelPath) {
-      return
-    }
-
-    try {
-      await handleBeforeSwitch()
-
-      const existingNumbers = chapters
-        .map((chapter) => {
-          const match = chapter.filename.match(CHAPTER_FILENAME_PATTERN)
-          return match ? Number(match[1]) : null
-        })
-        .filter((value) => Number.isInteger(value))
-
-      const nextNumber = existingNumbers.length > 0
-        ? Math.max(...existingNumbers) + 1
-        : chapters.length + 1
-
-      const paddedNumber = String(nextNumber).padStart(2, '0')
-      const filename = `chapter-${paddedNumber}.md`
-      const chapterTitle = `# Chapter ${nextNumber}\n\nStart writing here...`
-
-      setIsLoadingChapter(true)
-      await saveChapter(filename, chapterTitle)
-      await indexHandlers.rebuildIndex(novelPath)
-      await refresh()
-      setCurrentChapter(filename)
-      setContent(chapterTitle)
-      applyEditorContent(chapterTitle)
-    } catch (err) {
-      console.error('Failed to create chapter:', err)
-    } finally {
-      setIsLoadingChapter(false)
-    }
-  }, [applyEditorContent, chapters, handleBeforeSwitch, novelPath, refresh, saveChapter, setCurrentChapter])
+  const handleSpellcheckResizeStart = (event) => {
+    spellcheckResizeStartYRef.current = event.clientY
+    spellcheckResizeStartHeightRef.current = spellcheckPanelHeight
+    setIsResizingSpellcheck(true)
+  }
 
   return (
     <div className="manuscript-inner">
@@ -711,25 +763,26 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
           onClose={handleClosePopover}
         />
       )}
+      {error && <div className="error-message">{error}</div>}
       <div className="manuscript-meta">
         <ChapterList
           chapters={chapters}
           currentChapter={currentChapter}
-          onChapterSelect={setCurrentChapter}
+          onChapterSelect={handleChapterSelect}
           onBeforeSwitch={handleBeforeSwitch}
           onCreateChapter={handleCreateChapter}
           hasUnsavedChanges={false}
         />
-        <div className="wordcounts">
+        <div className="wordcounts" data-testid="manuscript-wordcounts">
           <span>Manuscript: {manuscriptCount.toLocaleString()}</span>
           <span>Open chapter: {chapterCount.toLocaleString()}</span>
           <span>Today: {todayCount.toLocaleString()}</span>
         </div>
       </div>
-      {error && <div className="error-message">{error}</div>}
       <article
         className="editor"
         ref={editorRef}
+        style={{ fontSize: `${editorFontSize}px` }}
         contentEditable
         spellCheck={false}
         autoCorrect="off"
@@ -739,7 +792,20 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage }
         aria-busy={loading || isLoadingChapter}
         data-testid="manuscript-editor"
       />
-      <section className="spellcheck-panel" data-testid="spellcheck-panel" aria-live="polite">
+      <section
+        className="spellcheck-panel"
+        data-testid="spellcheck-panel"
+        aria-live="polite"
+        style={{ height: `${spellcheckPanelHeight}px` }}
+      >
+        <div
+          className={`spellcheck-resize-handle${isResizingSpellcheck ? ' active' : ''}`}
+          data-testid="spellcheck-resize-handle"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize spellcheck panel"
+          onMouseDown={handleSpellcheckResizeStart}
+        />
         <div className="spellcheck-panel-header">
           <strong>Spellcheck</strong>
           <span data-testid="spellcheck-status">
