@@ -170,6 +170,8 @@ export async function exportManuscriptToPdf(novelPath, metadata = {}) {
         outputPath,
         logPath,
         durationMs: subprocessResult.durationMs,
+        texEngine: depsResult.data.tex.engine,
+        chapterCount: exportChapters.length,
       },
       timestamp: new Date().toISOString(),
     };

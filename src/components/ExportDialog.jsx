@@ -17,6 +17,8 @@ export function ExportDialog({ novelPath }) {
   const [selectedFilenames, setSelectedFilenames] = useState(new Set());
   const [metadata, setMetadata] = useState(getDefaultMetadata);
   const [error, setError] = useState(null);
+  const [dependencyError, setDependencyError] = useState(null);
+  const [dependencyStatus, setDependencyStatus] = useState(null);
   const [toast, setToast] = useState(null);
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState([]);
@@ -47,6 +49,8 @@ export function ExportDialog({ novelPath }) {
     setShowDialog(true);
     setIsLoading(true);
     setError(null);
+    setDependencyError(null);
+    setDependencyStatus(null);
     setShowLogs(false);
     setLogs([]);
     setMetadata(getDefaultMetadata());
@@ -59,6 +63,16 @@ export function ExportDialog({ novelPath }) {
         ...current,
         title: current.title || novelPath.split(/[\\/]/).filter(Boolean).at(-1) || '',
       }));
+
+      try {
+        const status = await exportHandlers.validateDeps();
+        setDependencyStatus(status);
+      } catch (err) {
+        setDependencyError({
+          message: err.message || 'Export dependencies are unavailable',
+          suggestion: err.suggestion || 'Install Pandoc and a TeX engine, then try again.',
+        });
+      }
     } catch (err) {
       setError({
         message: err.message || 'Failed to load chapters for export',
@@ -130,9 +144,10 @@ export function ExportDialog({ novelPath }) {
   };
 
   const selectedCount = chapters.filter((c) => selectedFilenames.has(c.filename)).length;
+  const displayError = error || dependencyError;
 
   const handleExport = async () => {
-    if (isExporting) {
+    if (isExporting || dependencyError) {
       return;
     }
 
@@ -144,7 +159,8 @@ export function ExportDialog({ novelPath }) {
         .map(({ filename, title }) => ({ filename, title }));
 
       const result = await exportHandlers.pdf(novelPath, { ...metadata, chapterOrder });
-      setToast(`PDF exported: ${result.outputPath}`);
+      const engine = result.texEngine ? ` (${result.texEngine})` : '';
+      setToast(`PDF exported${engine}: ${result.outputPath}`);
       setShowDialog(false);
     } catch (err) {
       setError({
@@ -244,13 +260,19 @@ export function ExportDialog({ novelPath }) {
                     )}
                   </div>
                 </div>
+
+                {dependencyStatus && !dependencyError && (
+                  <div className="push-guidance export-guidance" data-testid="export-preflight-ready">
+                    Ready to export with {dependencyStatus.tex.engine} ({dependencyStatus.pandoc.version})
+                  </div>
+                )}
               </>
             )}
 
-            {error && (
+            {displayError && (
               <div className="snapshot-error" data-testid="export-error">
-                <div>{error.message}</div>
-                {error.suggestion && <div className="push-guidance export-guidance">{error.suggestion}</div>}
+                <div>{displayError.message}</div>
+                {displayError.suggestion && <div className="push-guidance export-guidance">{displayError.suggestion}</div>}
               </div>
             )}
 
@@ -265,7 +287,7 @@ export function ExportDialog({ novelPath }) {
                 className="btn primary"
                 data-testid="export-confirm"
                 onClick={handleExport}
-                disabled={isLoading || isExporting || selectedCount === 0}
+                disabled={isLoading || isExporting || selectedCount === 0 || Boolean(dependencyError)}
               >
                 {isExporting ? 'Exporting...' : 'Export to PDF'}
               </button>
