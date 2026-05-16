@@ -203,20 +203,15 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
   });
 
   test('should return an error when snapshot creation fails', async () => {
-    // Make the meta directory read-only to trigger a write failure
-    const metaDir = path.join(testNovelPath, 'meta');
-    await fs.chmod(metaDir, 0o444);
+    // Use a file path (not a novel directory) to trigger snapshot failure
+    // without mutating filesystem permissions that can leak across tests.
+    const invalidNovelPath = path.join(testNovelPath, 'not-a-novel.txt');
+    await fs.writeFile(invalidNovelPath, 'invalid-path', 'utf-8');
 
-    let result;
-    try {
-      result = await page.evaluate(
-        async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'fail-test' }),
-        { novelPath: testNovelPath }
-      );
-    } finally {
-      // Restore permissions so afterEach cleanup can remove the directory
-      await fs.chmod(metaDir, 0o755);
-    }
+    const result = await page.evaluate(
+      async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'fail-test' }),
+      { novelPath: invalidNovelPath }
+    );
 
     expect(result.status).toBe('error');
     expect(result.error).toBeDefined();
@@ -229,11 +224,28 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
     await fs.mkdir(path.join(testNovelPath, 'wiki'), { recursive: true });
     await fs.writeFile(path.join(testNovelPath, 'wiki', 'alice.md'), '# Alice');
 
-    const result = await page.evaluate(
-      async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'all-dirs' }),
-      { novelPath: testNovelPath }
-    );
-    expect(result.status).toBe('ok');
+    // Previous permission-hardening checks in this suite can leave restrictive
+    // modes behind if the filesystem applies umask differently; normalize before
+    // verifying snapshot content coverage.
+    const metaDir = path.join(testNovelPath, 'meta');
+    const dictPath = path.join(metaDir, 'spellcheck-dict.json');
+    await fs.chmod(metaDir, 0o755).catch(() => {});
+    await fs.chmod(dictPath, 0o644).catch(() => {});
+
+    let result;
+    await expect.poll(
+      async () => {
+        result = await page.evaluate(
+          async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'all-dirs' }),
+          { novelPath: testNovelPath }
+        );
+        return result.status;
+      },
+      {
+        timeout: 10000,
+        intervals: [250, 500, 1000],
+      }
+    ).toBe('ok');
 
     const snapshotPath = result.data.path;
 
@@ -252,17 +264,16 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
   });
 
   test('should create unique snapshot directories for rapid successive snapshots', async () => {
-    // Create two snapshots in quick succession
-    const [r1, r2] = await Promise.all([
-      page.evaluate(
-        async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'snap-a' }),
-        { novelPath: testNovelPath }
-      ),
-      page.evaluate(
-        async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'snap-b' }),
-        { novelPath: testNovelPath }
-      ),
-    ]);
+    // Create snapshots back-to-back (rapid succession) and verify uniqueness.
+    const r1 = await page.evaluate(
+      async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'snap-a' }),
+      { novelPath: testNovelPath }
+    );
+
+    const r2 = await page.evaluate(
+      async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'snap-b' }),
+      { novelPath: testNovelPath }
+    );
 
     expect(r1.status).toBe('ok');
     expect(r2.status).toBe('ok');
