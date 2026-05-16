@@ -1,5 +1,6 @@
 {
   "name": "zuojia-desktop",
+  "productName": "作家",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,6 +12,7 @@
     "dev:vite": "vite",
     "start": "electron .",
     "build": "vite build",
+    "package:mac": "CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac dmg --publish never",
     "test": "vitest --run",
     "test:watch": "vitest",
     "test:coverage": "vitest --coverage",
@@ -46,5 +48,15 @@
     "vite": "^7.3.1",
     "vitest": "^4.0.18",
     "wait-on": "^7.0.0"
+  },
+  "build": {
+    "appId": "com.dominickua.zuojia",
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.icns",
+      "target": [
+        "dmg"
+      ]
+    }
   }
 }
