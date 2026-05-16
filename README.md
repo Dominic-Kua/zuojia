@@ -6,6 +6,7 @@ A local-first desktop writing app for novelists who want Markdown files, wiki-st
 
 - [What This App Does](#what-this-app-does)
 - [Implemented Features](#implemented-features)
+- [Release Notes](#release-notes)
 - [Requirements](#requirements)
 - [Getting Started](#getting-started)
 - [How To Use The App](#how-to-use-the-app)
@@ -85,6 +86,18 @@ This list reflects what is currently wired in the app code.
 - Export dialog with title, author, and publication date metadata
 - Chapter-order export driven by the manuscript index
 - Export logs written under `meta/logs/`
+
+## Release Notes
+
+### v2.0.1
+
+- Fixed packaged-app startup regressions that could lead to a blank or unusable app after installation.
+- Restored release branding in packaged builds, including the app name `作家` and app icon.
+- Hardened release behavior so release/test flows target production renderer mode while dev flows stay in development mode.
+- Added artifact-level release validation: local release now smoke-tests both the packaged `.app` bundle and the mounted `.dmg` artifact before publish.
+- Added checksum generation in the local mac release flow for uploaded DMG verification.
+
+For full release details, see `docs/release-notes-v2.0.1.md`.
 
 ## Requirements
 
