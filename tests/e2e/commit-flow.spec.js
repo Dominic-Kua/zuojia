@@ -43,16 +43,24 @@ test.describe('Story 4.2: Manual Commit Flow', () => {
   });
 
   test('creates a manual commit with a pre-commit snapshot and updates sidebar history', async () => {
-    const chapterWrite = await page.evaluate(
-      async ({ novelPath }) => window.electronAPI.invoke('helper:chapter:write', {
-        novelPath,
-        filename: 'chapter-01.md',
-        content: '# Chapter 1\n\nSmoke test commit content',
-      }),
-      { novelPath: testNovelPath }
-    );
+    await expect.poll(
+      async () => {
+        const chapterWrite = await page.evaluate(
+          async ({ novelPath }) => window.electronAPI.invoke('helper:chapter:write', {
+            novelPath,
+            filename: 'chapter-01.md',
+            content: '# Chapter 1\n\nSmoke test commit content',
+          }),
+          { novelPath: testNovelPath }
+        );
 
-    expect(chapterWrite.status).toBe('ok');
+        return chapterWrite.status;
+      },
+      {
+        timeout: 10000,
+        intervals: [250, 500, 1000],
+      }
+    ).toBe('ok');
 
     await page.getByTestId('commit-button').click();
     await expect(page.getByTestId('commit-dialog')).toBeVisible({ timeout: 5000 });

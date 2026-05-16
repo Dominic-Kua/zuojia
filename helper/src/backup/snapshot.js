@@ -46,10 +46,26 @@ async function copyDirectory(src, dest) {
       if (entry.isDirectory()) {
         // Skip .git directory
         if (entry.name === '.git') continue;
-        fileCount += await copyDirectory(srcPath, destPath);
+        try {
+          fileCount += await copyDirectory(srcPath, destPath);
+        } catch (err) {
+          if (err.code === 'EACCES' || err.code === 'EPERM') {
+            console.warn(`Skipping unreadable directory during snapshot: ${srcPath}`);
+            continue;
+          }
+          throw err;
+        }
       } else {
-        await fs.copyFile(srcPath, destPath);
-        fileCount++;
+        try {
+          await fs.copyFile(srcPath, destPath);
+          fileCount++;
+        } catch (err) {
+          if (err.code === 'EACCES' || err.code === 'EPERM') {
+            console.warn(`Skipping unreadable file during snapshot: ${srcPath}`);
+            continue;
+          }
+          throw err;
+        }
       }
     }
     
@@ -161,10 +177,26 @@ export async function createSnapshot(novelPath, label = null) {
             const destPath = path.join(destDir, entry.name);
             
             if (entry.isDirectory()) {
-              totalFiles += await copyDirectory(srcPath, destPath);
+              try {
+                totalFiles += await copyDirectory(srcPath, destPath);
+              } catch (err) {
+                if (err.code === 'EACCES' || err.code === 'EPERM') {
+                  console.warn(`Skipping unreadable meta directory during snapshot: ${srcPath}`);
+                  continue;
+                }
+                throw err;
+              }
             } else {
-              await fs.copyFile(srcPath, destPath);
-              totalFiles++;
+              try {
+                await fs.copyFile(srcPath, destPath);
+                totalFiles++;
+              } catch (err) {
+                if (err.code === 'EACCES' || err.code === 'EPERM') {
+                  console.warn(`Skipping unreadable meta file during snapshot: ${srcPath}`);
+                  continue;
+                }
+                throw err;
+              }
             }
           }
         } else {
