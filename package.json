@@ -13,6 +13,7 @@
     "start": "electron .",
     "build": "vite build",
     "package:mac": "rm -rf dist/mac-arm64 && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac dmg --publish never",
+    "release:mac:local": "bash scripts/release-mac-local.sh",
     "test": "vitest --run",
     "test:watch": "vitest",
     "test:coverage": "vitest --coverage",
