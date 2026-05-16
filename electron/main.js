@@ -8,6 +8,13 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 function resolveRendererEntry () {
+  if (app.isPackaged) {
+    const packagedEntry = path.join(process.resourcesPath, 'dist', 'index.html')
+    if (fs.existsSync(packagedEntry)) {
+      return packagedEntry
+    }
+  }
+
   const distEntry = path.join(__dirname, '../dist/index.html')
   if (fs.existsSync(distEntry)) {
     return distEntry

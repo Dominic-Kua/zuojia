@@ -3,6 +3,13 @@ const path = require('path');
 const fs = require('fs');
 
 function resolveRendererEntry() {
+  if (app.isPackaged) {
+    const packagedEntry = path.join(process.resourcesPath, 'dist', 'index.html');
+    if (fs.existsSync(packagedEntry)) {
+      return packagedEntry;
+    }
+  }
+
   const distEntry = path.join(__dirname, '../dist/index.html');
   if (fs.existsSync(distEntry)) {
     return distEntry;
