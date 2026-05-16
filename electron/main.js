@@ -1,10 +1,25 @@
 import { app, BrowserWindow } from 'electron'
 import path from 'path'
+import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { registerHandlers } from './ipc-handlers.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+
+function resolveRendererEntry () {
+  const distEntry = path.join(__dirname, '../dist/index.html')
+  if (fs.existsSync(distEntry)) {
+    return distEntry
+  }
+
+  const rootEntry = path.join(__dirname, '../index.html')
+  if (fs.existsSync(rootEntry)) {
+    return rootEntry
+  }
+
+  return distEntry
+}
 
 function createWindow () {
   const win = new BrowserWindow({
@@ -21,7 +36,7 @@ function createWindow () {
   if (isDev) {
     win.loadURL('http://localhost:5173')
   } else {
-    win.loadFile(path.join(__dirname, '../dist/index.html'))
+    win.loadFile(resolveRendererEntry())
   }
 }
 
