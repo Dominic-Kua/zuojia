@@ -19,7 +19,8 @@ export async function launchElectronApp(options = {}) {
     env: {
       ...process.env,
       ...(options.env || {}),
-      NODE_ENV: 'production'
+      NODE_ENV: 'production',
+      ZUOJIA_RENDERER_MODE: 'production'
     }
   });
 
