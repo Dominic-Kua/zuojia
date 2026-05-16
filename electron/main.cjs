@@ -12,7 +12,7 @@ function createWindow() {
     }
   });
 
-  const isDev = process.env.NODE_ENV !== 'production';
+  const isDev = !app.isPackaged;
   if (isDev) {
     win.loadURL('http://localhost:5173');
   } else {
