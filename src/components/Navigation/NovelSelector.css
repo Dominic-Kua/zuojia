@@ -1,16 +1,17 @@
 .novel-selector {
   padding: 1rem;
-  border-bottom: 1px solid var(--border-color, #ccc);
+  border-bottom: 1px solid var(--divider);
   display: flex;
   gap: 0.5rem;
+  color: var(--text-primary);
 }
 
 .novel-selector-btn {
   flex: 1;
   padding: 0.75rem 1rem;
-  background-color: var(--primary-color, #007acc);
+  background-color: var(--accent);
   color: white;
-  border: none;
+  border: 1px solid var(--accent);
   border-radius: 4px;
   font-size: 1rem;
   cursor: pointer;
@@ -18,11 +19,11 @@
 }
 
 .novel-selector-btn:hover {
-  background-color: var(--primary-hover, #005a9e);
+  background-color: color-mix(in srgb, var(--accent) 85%, #000 15%);
 }
 
 .novel-selector-btn:active {
-  background-color: var(--primary-active, #003d82);
+  background-color: color-mix(in srgb, var(--accent) 70%, #000 30%);
 }
 
 .novel-selector-btn:disabled {
@@ -45,12 +46,13 @@
 }
 
 .modal-dialog {
-  background-color: white;
+  background-color: var(--manuscript-surface);
+  color: var(--text-primary);
   border-radius: 8px;
   padding: 2rem;
   min-width: 400px;
   max-width: 600px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
 .modal-dialog h2 {
@@ -62,7 +64,9 @@
 .modal-dialog input {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid var(--border-color, #ccc);
+  border: 1px solid var(--divider);
+  background-color: var(--sidebar-surface);
+  color: var(--text-primary);
   border-radius: 4px;
   font-size: 1rem;
   margin-bottom: 1rem;
@@ -71,20 +75,20 @@
 
 .modal-dialog .slug-preview {
   font-size: 0.875rem;
-  color: var(--muted-color, #666);
+  color: var(--text-secondary);
   margin: -0.75rem 0 1rem 0;
 }
 
 .modal-dialog input:focus {
   outline: none;
-  border-color: var(--primary-color, #007acc);
-  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .modal-dialog input:disabled {
-  background-color: var(--disabled-bg, #f5f5f5);
+  background-color: color-mix(in srgb, var(--sidebar-surface) 80%, #000 20%);
   cursor: not-allowed;
-  color: var(--disabled-color, #999);
+  color: var(--text-secondary);
 }
 
 .error-message {
@@ -110,7 +114,9 @@
 
 .dialog-buttons button {
   padding: 0.5rem 1rem;
-  border: 1px solid var(--border-color, #ccc);
+  border: 1px solid var(--divider);
+  background-color: transparent;
+  color: var(--text-primary);
   border-radius: 4px;
   cursor: pointer;
   font-size: 1rem;
@@ -118,18 +124,18 @@
 }
 
 .dialog-buttons button:hover:not(:disabled) {
-  background-color: var(--hover-bg, #f5f5f5);
+  background-color: color-mix(in srgb, var(--muted-accent) 30%, transparent);
 }
 
 .dialog-buttons button.primary {
-  background-color: var(--primary-color, #007acc);
+  background-color: var(--accent);
   color: white;
-  border-color: var(--primary-color, #007acc);
+  border-color: var(--accent);
 }
 
 .dialog-buttons button.primary:hover:not(:disabled) {
-  background-color: var(--primary-hover, #005a9e);
-  border-color: var(--primary-hover, #005a9e);
+  background-color: color-mix(in srgb, var(--accent) 85%, #000 15%);
+  border-color: color-mix(in srgb, var(--accent) 85%, #000 15%);
 }
 
 .dialog-buttons button:disabled {
@@ -140,7 +146,7 @@
 .novel-list {
   margin-top: 1rem;
   width: 100%;
-  border-top: 1px solid var(--border-color, #ccc);
+  border-top: 1px solid var(--divider);
   padding-top: 1rem;
 }
 
@@ -157,8 +163,9 @@
 }
 
 .novel-list-refresh {
-  background: none;
-  border: 1px solid var(--border-color, #ccc);
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--muted-accent);
   border-radius: 4px;
   padding: 0.25rem 0.75rem;
   cursor: pointer;
@@ -170,7 +177,7 @@
 }
 
 .novel-list-empty {
-  color: var(--muted-color, #666);
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
@@ -187,10 +194,10 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border: 1px solid var(--border-color, #ddd);
+  border: 1px solid var(--divider);
   border-radius: 6px;
   padding: 0.75rem;
-  background: var(--panel-bg, #fafafa);
+  background: var(--manuscript-surface);
 }
 
 .novel-list-info {
@@ -205,12 +212,12 @@
 
 .novel-list-path {
   font-size: 0.85rem;
-  color: var(--muted-color, #666);
+  color: var(--text-secondary);
 }
 
 .novel-list-open {
-  border: none;
-  background-color: var(--primary-color, #007acc);
+  border: 1px solid var(--accent);
+  background-color: var(--accent);
   color: #fff;
   padding: 0.4rem 0.9rem;
   border-radius: 4px;
