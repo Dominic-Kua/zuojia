@@ -16,6 +16,8 @@ import { createWikiPage, readWikiPage, updateWikiPage, deleteWikiPage, renameWik
 import { listWikiPages } from '../helper/src/wiki/list-pages.js';
 import { rebuildSpellcheckDict, getSpellcheckDict, addWordToSpellcheckDict } from '../helper/src/wiki/rebuild-dict.js';
 import { createSnapshot, listSnapshots, deleteSnapshot, restoreSnapshot } from '../helper/src/backup/snapshot.js';
+import { loadLlmConfig, saveLlmConfig, validateLlmConfig } from './llm-config.js';
+import { createLlmRuntimeManager } from './llm-runtime.js';
 /**
  * Register all IPC handlers
  * Formats responses as structured envelopes
@@ -28,6 +30,12 @@ function wrapHandler(fn) {
 }
 
 export function registerHandlers() {
+  const llmRuntime = createLlmRuntimeManager();
+
+  app.on('before-quit', () => {
+    void llmRuntime.stop();
+  });
+
   // Index handlers
   ipcMain.handle(
     'helper:index:createNovel',
@@ -303,6 +311,134 @@ export function registerHandlers() {
     'helper:backup:restore',
     wrapHandler(async ({ novelPath, timestamp, snapshotId }) => {
       return await restoreSnapshot(novelPath, timestamp ?? snapshotId);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:llm:getConfig',
+    wrapHandler(async () => {
+      try {
+        const config = await loadLlmConfig(app);
+        return {
+          status: 'ok',
+          data: config,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: 'LLM_CONFIG_LOAD_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    })
+  );
+
+  ipcMain.handle(
+    'helper:llm:saveConfig',
+    wrapHandler(async ({ settings }) => {
+      try {
+        const config = await saveLlmConfig(app, settings || {});
+        return {
+          status: 'ok',
+          data: config,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: 'LLM_CONFIG_SAVE_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    })
+  );
+
+  ipcMain.handle(
+    'helper:llm:startRuntime',
+    wrapHandler(async ({ settings }) => {
+      try {
+        const runtimeConfig = settings ? validateLlmConfig(settings) : await loadLlmConfig(app);
+        const result = await llmRuntime.start(runtimeConfig);
+        return {
+          status: 'ok',
+          data: result,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: 'LLM_RUNTIME_START_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    })
+  );
+
+  ipcMain.handle(
+    'helper:llm:stopRuntime',
+    wrapHandler(async () => {
+      try {
+        const result = await llmRuntime.stop();
+        return {
+          status: 'ok',
+          data: result,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: 'LLM_RUNTIME_STOP_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    })
+  );
+
+  ipcMain.handle(
+    'helper:llm:restartRuntime',
+    wrapHandler(async ({ settings }) => {
+      try {
+        const runtimeConfig = settings ? validateLlmConfig(settings) : await loadLlmConfig(app);
+        const result = await llmRuntime.restart(runtimeConfig);
+        return {
+          status: 'ok',
+          data: result,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: 'LLM_RUNTIME_RESTART_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    })
+  );
+
+  ipcMain.handle(
+    'helper:llm:health',
+    wrapHandler(async () => {
+      return {
+        status: 'ok',
+        data: llmRuntime.health(),
+        timestamp: new Date().toISOString(),
+      };
     })
   );
 
