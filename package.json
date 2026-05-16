@@ -12,7 +12,7 @@
     "dev:vite": "vite",
     "start": "electron .",
     "build": "vite build",
-    "package:mac": "CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac dmg --publish never",
+    "package:mac": "rm -rf dist/mac-arm64 && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac dmg --publish never",
     "test": "vitest --run",
     "test:watch": "vitest",
     "test:coverage": "vitest --coverage",
@@ -51,12 +51,27 @@
   },
   "build": {
     "appId": "com.dominickua.zuojia",
+    "extraResources": [
+      {
+        "from": "dist",
+        "to": "dist",
+        "filter": [
+          "index.html",
+          "assets/**",
+          "dictionary-en/**",
+          "dictionary-en-gb/**"
+        ]
+      }
+    ],
     "mac": {
       "category": "public.app-category.productivity",
       "icon": "build/icon.icns",
       "target": [
         "dmg"
       ]
+    },
+    "dmg": {
+      "artifactName": "zuojia-v${version}-${arch}.${ext}"
     }
   }
 }
