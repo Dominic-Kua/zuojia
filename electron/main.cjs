@@ -2,6 +2,19 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
+function getRendererMode() {
+  const forcedMode = process.env.ZUOJIA_RENDERER_MODE;
+  if (forcedMode === 'development' || forcedMode === 'production') {
+    return forcedMode;
+  }
+
+  if (app.isPackaged || process.env.NODE_ENV === 'production') {
+    return 'production';
+  }
+
+  return 'development';
+}
+
 function resolveRendererEntry() {
   if (app.isPackaged) {
     const packagedEntry = path.join(process.resourcesPath, 'dist', 'index.html');
@@ -34,8 +47,8 @@ function createWindow() {
     }
   });
 
-  const isDev = !app.isPackaged;
-  if (isDev) {
+  const rendererMode = getRendererMode();
+  if (rendererMode === 'development') {
     win.loadURL('http://localhost:5173');
   } else {
     win.loadFile(resolveRendererEntry());

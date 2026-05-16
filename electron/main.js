@@ -7,6 +7,19 @@ import { registerHandlers } from './ipc-handlers.js'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
+function getRendererMode () {
+  const forcedMode = process.env.ZUOJIA_RENDERER_MODE
+  if (forcedMode === 'development' || forcedMode === 'production') {
+    return forcedMode
+  }
+
+  if (app.isPackaged || process.env.NODE_ENV === 'production') {
+    return 'production'
+  }
+
+  return 'development'
+}
+
 function resolveRendererEntry () {
   if (app.isPackaged) {
     const packagedEntry = path.join(process.resourcesPath, 'dist', 'index.html')
@@ -39,8 +52,8 @@ function createWindow () {
     }
   })
 
-  const isDev = !app.isPackaged
-  if (isDev) {
+  const rendererMode = getRendererMode()
+  if (rendererMode === 'development') {
     win.loadURL('http://localhost:5173')
   } else {
     win.loadFile(resolveRendererEntry())

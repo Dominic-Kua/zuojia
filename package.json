@@ -6,11 +6,11 @@
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
-    "dev": "bash scripts/dev.sh",
-    "dev:node": "node scripts/dev-launcher.js",
+    "dev": "ZUOJIA_RENDERER_MODE=development bash scripts/dev.sh",
+    "dev:node": "ZUOJIA_RENDERER_MODE=development node scripts/dev-launcher.js",
     "dev:old": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "dev:vite": "vite",
-    "start": "electron .",
+    "start": "ZUOJIA_RENDERER_MODE=production electron .",
     "build": "vite build",
     "package:mac": "rm -rf dist/mac-arm64 && CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac dmg --publish never",
     "release:mac:local": "bash scripts/release-mac-local.sh",
@@ -18,8 +18,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest --coverage",
     "test:integration": "vitest --run tests/integration",
-    "test:e2e": "npm run build && playwright test",
-    "test:e2e:ui": "npm run build && playwright test --ui",
+    "test:e2e": "ZUOJIA_RENDERER_MODE=production npm run build && playwright test",
+    "test:e2e:ui": "ZUOJIA_RENDERER_MODE=production npm run build && playwright test --ui",
     "test:all": "npm run test && npm run test:integration && npm run test:e2e"
   },
   "dependencies": {
