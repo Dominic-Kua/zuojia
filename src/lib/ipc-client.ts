@@ -116,3 +116,17 @@ export const llmHandlers = {
   restartRuntime: (settings) => invokeHandler('helper:llm:restartRuntime', { settings }),
   health: () => invokeHandler('helper:llm:health'),
 };
+
+export const mcpHandlers = {
+  startServer: (novelPath) => invokeHandler('helper:mcp:startServer', { novelPath }),
+  stopServer: () => invokeHandler('helper:mcp:stopServer'),
+  health: () => invokeHandler('helper:mcp:health'),
+  callTool: (toolName, args = {}, options = {}) =>
+    invokeHandler('helper:mcp:callTool', {
+      toolName,
+      args,
+      timeoutMs: options.timeoutMs,
+      retries: options.retries,
+    }),
+  getLogs: (limit = 50) => invokeHandler('helper:mcp:getLogs', { limit }),
+};
