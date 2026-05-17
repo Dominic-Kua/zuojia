@@ -6,6 +6,7 @@ import {
   getWikiPageForMcp,
   searchWikiPagesForMcp,
   getWikiBacklinksForMcp,
+  buildWikiKnowledgeGraphForMcp,
 } from '../helper/src/mcp/wiki-tools.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -16,6 +17,7 @@ const TOOL_NAMES = new Set([
   'wiki_get_page',
   'wiki_search',
   'wiki_get_backlinks',
+  'wiki_build_graph',
 ]);
 
 function createTimeoutError(toolName, timeoutMs) {
@@ -41,9 +43,24 @@ async function executeWikiTool(novelPath, toolName, args = {}) {
     return getWikiBacklinksForMcp(novelPath, String(args.slug || ''), Number(args.limit || 200));
   }
 
+  if (toolName === 'wiki_build_graph') {
+    return buildWikiKnowledgeGraphForMcp(novelPath, Number(args.maxEdges || 500));
+  }
+
   const error = new Error(`Unsupported MCP tool: ${toolName}`);
   error.code = 'MCP_UNKNOWN_TOOL';
   throw error;
+}
+
+function toToolError(result, toolName) {
+  const message =
+    result?.error?.message || `MCP tool ${toolName} returned an error response`;
+  const error = new Error(message);
+  error.code = result?.error?.code || 'MCP_TOOL_RESULT_ERROR';
+  if (result?.error && typeof result.error === 'object') {
+    error.details = result.error;
+  }
+  return error;
 }
 
 export function createMcpRuntimeManager({
@@ -94,6 +111,7 @@ export function createMcpRuntimeManager({
       stdio: 'pipe',
       env: {
         ...process.env,
+        ELECTRON_RUN_AS_NODE: '1',
         ZUOJIA_NOVEL_PATH: novelPath,
       },
     });
@@ -138,8 +156,18 @@ export function createMcpRuntimeManager({
     const child = processRef;
     let resolveExit;
     const waitForExit = new Promise((resolve) => {
-      resolveExit = resolve;
-      child.once('exit', () => resolve());
+      let resolved = false;
+      resolveExit = () => {
+        if (resolved) {
+          return;
+        }
+        resolved = true;
+        resolve();
+      };
+      child.once('exit', () => resolveExit());
+      if (child.exitCode !== null) {
+        resolveExit();
+      }
     });
 
     try {
@@ -202,6 +230,10 @@ export function createMcpRuntimeManager({
           toolExecutor(runtimeNovelPath, toolName, args),
           timeoutPromise,
         ]);
+
+        if (result?.status === 'error') {
+          throw toToolError(result, toolName);
+        }
 
         clearTimeoutFn(timeoutId);
 
