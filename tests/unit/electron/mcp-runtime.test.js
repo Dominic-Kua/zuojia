@@ -140,9 +140,12 @@ describe('mcp-runtime manager', () => {
     expect(toolExecutor).toHaveBeenCalledTimes(2);
 
     const logs = manager.getLogs({ limit: 10 });
-    expect(logs.at(-2).status).toBe('error');
-    expect(logs.at(-2).code).toBe('WIKI_NOT_FOUND');
-    expect(logs.at(-1).status).toBe('ok');
+    expect(logs.length).toBeGreaterThanOrEqual(2);
+    const failureLog = logs[logs.length - 2];
+    const successLog = logs[logs.length - 1];
+    expect(failureLog.status).toBe('error');
+    expect(failureLog.code).toBe('WIKI_NOT_FOUND');
+    expect(successLog.status).toBe('ok');
   });
 
   it('supports wiki_build_graph tool name', async () => {
@@ -159,7 +162,7 @@ describe('mcp-runtime manager', () => {
     });
   });
 
-  it('stops cleanly when process exits during stop listener registration race', async () => {
+  it('stops cleanly when process exits immediately after stop attaches exit listener', async () => {
     const raceChildProcess = {
       pid: 8877,
       exitCode: null,
