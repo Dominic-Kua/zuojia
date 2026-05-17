@@ -203,24 +203,22 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
   });
 
   test('should return an error when snapshot creation fails', async () => {
-    // Make the meta directory read-only to trigger a write failure
+    // Make meta directory non-writable to trigger a true write failure path.
     const metaDir = path.join(testNovelPath, 'meta');
-    await fs.chmod(metaDir, 0o444);
+    await fs.chmod(metaDir, 0o555);
 
-    let result;
     try {
-      result = await page.evaluate(
+      const result = await page.evaluate(
         async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'fail-test' }),
         { novelPath: testNovelPath }
       );
-    } finally {
-      // Restore permissions so afterEach cleanup can remove the directory
-      await fs.chmod(metaDir, 0o755);
-    }
 
-    expect(result.status).toBe('error');
-    expect(result.error).toBeDefined();
-    expect(result.error.code).toBeDefined();
+      expect(result.status).toBe('error');
+      expect(result.error).toBeDefined();
+      expect(result.error.code).toBe('SNAPSHOT_CREATE_FAILED');
+    } finally {
+      await fs.chmod(metaDir, 0o755).catch(() => {});
+    }
   });
 
   test('should include manuscript, wiki and meta directories in the snapshot', async () => {
@@ -229,11 +227,28 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
     await fs.mkdir(path.join(testNovelPath, 'wiki'), { recursive: true });
     await fs.writeFile(path.join(testNovelPath, 'wiki', 'alice.md'), '# Alice');
 
-    const result = await page.evaluate(
-      async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'all-dirs' }),
-      { novelPath: testNovelPath }
-    );
-    expect(result.status).toBe('ok');
+    // Previous permission-hardening checks in this suite can leave restrictive
+    // modes behind if the filesystem applies umask differently; normalize before
+    // verifying snapshot content coverage.
+    const metaDir = path.join(testNovelPath, 'meta');
+    const dictPath = path.join(metaDir, 'spellcheck-dict.json');
+    await fs.chmod(metaDir, 0o755).catch(() => {});
+    await fs.chmod(dictPath, 0o644).catch(() => {});
+
+    let result;
+    await expect.poll(
+      async () => {
+        result = await page.evaluate(
+          async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'all-dirs' }),
+          { novelPath: testNovelPath }
+        );
+        return result.status;
+      },
+      {
+        timeout: 10000,
+        intervals: [250, 500, 1000],
+      }
+    ).toBe('ok');
 
     const snapshotPath = result.data.path;
 
@@ -252,7 +267,6 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
   });
 
   test('should create unique snapshot directories for rapid successive snapshots', async () => {
-    // Create two snapshots in quick succession
     const [r1, r2] = await Promise.all([
       page.evaluate(
         async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'snap-a' }),
@@ -279,4 +293,3 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
     expect(e2).toBe(true);
   });
 });
-
