@@ -157,11 +157,10 @@ export function createMcpRuntimeManager({
     let resolveExit;
     const waitForExit = new Promise((resolve) => {
       resolveExit = resolve;
+      child.once('exit', resolve);
       if (child.exitCode !== null) {
         resolve();
-        return;
       }
-      child.once('exit', resolve);
     });
 
     try {
