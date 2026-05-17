@@ -162,9 +162,6 @@ export function createMcpRuntimeManager({
         return;
       }
       child.once('exit', resolve);
-      if (child.exitCode !== null) {
-        resolve();
-      }
     });
 
     try {
@@ -180,7 +177,7 @@ export function createMcpRuntimeManager({
         } catch {
           // Ignore kill errors.
         }
-        setTimeoutFn(() => resolveExit?.(), 2000);
+        setTimeoutFn(() => resolveExit(), 2000);
       }
     }, 5000);
 

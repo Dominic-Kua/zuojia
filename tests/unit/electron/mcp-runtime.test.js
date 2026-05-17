@@ -140,7 +140,7 @@ describe('mcp-runtime manager', () => {
     expect(toolExecutor).toHaveBeenCalledTimes(2);
 
     const logs = manager.getLogs({ limit: 10 });
-    expect(logs.length).toBeGreaterThanOrEqual(2);
+    expect(logs.length).toBe(2);
     const failureLog = logs[logs.length - 2];
     const successLog = logs[logs.length - 1];
     expect(failureLog.status).toBe('error');
@@ -162,17 +162,21 @@ describe('mcp-runtime manager', () => {
     });
   });
 
-  it('stops cleanly when process exits immediately after stop attaches exit listener', async () => {
+  it('stops cleanly when process exits between running check and listener attach', async () => {
+    let exitCodeReadCount = 0;
     const raceChildProcess = {
       pid: 8877,
-      exitCode: null,
+      _exitCode: 0,
+      get exitCode() {
+        exitCodeReadCount += 1;
+        return exitCodeReadCount === 1 ? null : raceChildProcess._exitCode;
+      },
+      set exitCode(value) {
+        raceChildProcess._exitCode = value;
+      },
       kill: vi.fn(),
       on: vi.fn(),
-      once: vi.fn((event) => {
-        if (event === 'exit') {
-          raceChildProcess.exitCode = 0;
-        }
-      }),
+      once: vi.fn(),
       stderr: { on: vi.fn() },
       stdout: { on: vi.fn() },
     };
