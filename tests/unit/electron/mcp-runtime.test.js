@@ -108,4 +108,84 @@ describe('mcp-runtime manager', () => {
       })
     ).rejects.toThrow('timed out');
   });
+
+  it('retries when tool returns status error and logs failure', async () => {
+    const toolExecutor = vi
+      .fn()
+      .mockResolvedValueOnce({
+        status: 'error',
+        error: {
+          code: 'WIKI_NOT_FOUND',
+          message: 'Missing page',
+        },
+      })
+      .mockResolvedValueOnce({ status: 'ok', data: { page: 'hero' } });
+
+    manager = createMcpRuntimeManager({
+      spawnFn,
+      nowFn: () => 4000,
+      toolExecutor,
+    });
+
+    await manager.start({ novelPath: '/tmp/story-novel' });
+
+    const result = await manager.callTool({
+      toolName: 'wiki_get_page',
+      args: { slug: 'hero' },
+      retries: 1,
+      timeoutMs: 2000,
+    });
+
+    expect(result.status).toBe('ok');
+    expect(toolExecutor).toHaveBeenCalledTimes(2);
+
+    const logs = manager.getLogs({ limit: 10 });
+    expect(logs.at(-2).status).toBe('error');
+    expect(logs.at(-2).code).toBe('WIKI_NOT_FOUND');
+    expect(logs.at(-1).status).toBe('ok');
+  });
+
+  it('supports wiki_build_graph tool name', async () => {
+    await manager.start({ novelPath: '/tmp/story-novel' });
+
+    await expect(
+      manager.callTool({
+        toolName: 'wiki_build_graph',
+        args: { maxEdges: 100 },
+      })
+    ).resolves.toEqual({
+      status: 'ok',
+      data: { toolName: 'wiki_build_graph' },
+    });
+  });
+
+  it('stops cleanly when process exits during stop listener registration race', async () => {
+    const raceChildProcess = {
+      pid: 8877,
+      exitCode: null,
+      kill: vi.fn(),
+      on: vi.fn(),
+      once: vi.fn((event) => {
+        if (event === 'exit') {
+          raceChildProcess.exitCode = 0;
+        }
+      }),
+      stderr: { on: vi.fn() },
+      stdout: { on: vi.fn() },
+    };
+    const raceSpawnFn = vi.fn(() => raceChildProcess);
+
+    manager = createMcpRuntimeManager({
+      spawnFn: raceSpawnFn,
+      nowFn: () => 5000,
+      toolExecutor: vi.fn(async () => ({ status: 'ok' })),
+    });
+
+    await manager.start({ novelPath: '/tmp/story-novel' });
+
+    await expect(manager.stop()).resolves.toEqual({
+      status: 'stopped',
+      alreadyStopped: false,
+    });
+  });
 });
