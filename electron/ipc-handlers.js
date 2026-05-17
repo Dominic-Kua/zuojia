@@ -18,6 +18,7 @@ import { rebuildSpellcheckDict, getSpellcheckDict, addWordToSpellcheckDict } fro
 import { createSnapshot, listSnapshots, deleteSnapshot, restoreSnapshot } from '../helper/src/backup/snapshot.js';
 import { loadLlmConfig, saveLlmConfig, validateLlmConfig } from './llm-config.js';
 import { createLlmRuntimeManager } from './llm-runtime.js';
+import { createMcpRuntimeManager } from './mcp-runtime.js';
 /**
  * Register all IPC handlers
  * Formats responses as structured envelopes
@@ -30,6 +31,7 @@ function wrapHandler(fn) {
 }
 
 const llmRuntime = createLlmRuntimeManager();
+const mcpRuntime = createMcpRuntimeManager();
 let handlersRegistered = false;
 let beforeQuitBound = false;
 
@@ -68,6 +70,7 @@ export function registerHandlers() {
   if (!beforeQuitBound) {
     app.on('before-quit', () => {
       void llmRuntime.stop();
+      void mcpRuntime.stop();
     });
     beforeQuitBound = true;
   }
@@ -473,6 +476,106 @@ export function registerHandlers() {
       return {
         status: 'ok',
         data: llmRuntime.health(),
+        timestamp: new Date().toISOString(),
+      };
+    })
+  );
+
+  ipcMain.handle(
+    'helper:mcp:startServer',
+    wrapHandler(async ({ novelPath }) => {
+      try {
+        const result = await mcpRuntime.start({ novelPath });
+        return {
+          status: 'ok',
+          data: result,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: error.code || 'MCP_START_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    })
+  );
+
+  ipcMain.handle(
+    'helper:mcp:stopServer',
+    wrapHandler(async () => {
+      try {
+        const result = await mcpRuntime.stop();
+        return {
+          status: 'ok',
+          data: result,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: error.code || 'MCP_STOP_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    })
+  );
+
+  ipcMain.handle(
+    'helper:mcp:health',
+    wrapHandler(async () => {
+      return {
+        status: 'ok',
+        data: mcpRuntime.health(),
+        timestamp: new Date().toISOString(),
+      };
+    })
+  );
+
+  ipcMain.handle(
+    'helper:mcp:callTool',
+    wrapHandler(async ({ toolName, args, timeoutMs, retries }) => {
+      try {
+        const result = await mcpRuntime.callTool({
+          toolName,
+          args,
+          timeoutMs,
+          retries,
+        });
+
+        return {
+          status: 'ok',
+          data: result,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: error.code || 'MCP_TOOL_CALL_ERROR',
+            message: error.message,
+            suggestion: 'Check helper:mcp:getLogs for details or verify tool arguments.',
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    })
+  );
+
+  ipcMain.handle(
+    'helper:mcp:getLogs',
+    wrapHandler(async ({ limit }) => {
+      return {
+        status: 'ok',
+        data: {
+          logs: mcpRuntime.getLogs({ limit }),
+        },
         timestamp: new Date().toISOString(),
       };
     })
