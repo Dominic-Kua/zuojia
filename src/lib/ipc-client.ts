@@ -107,3 +107,12 @@ export const backupHandlers = {
   restore: (novelPath, timestamp) =>
     invokeHandler('helper:backup:restore', { novelPath, timestamp }),
 };
+
+export const llmHandlers = {
+  getConfig: () => invokeHandler('helper:llm:getConfig'),
+  saveConfig: (settings) => invokeHandler('helper:llm:saveConfig', { settings }),
+  startRuntime: (settings) => invokeHandler('helper:llm:startRuntime', { settings }),
+  stopRuntime: () => invokeHandler('helper:llm:stopRuntime'),
+  restartRuntime: (settings) => invokeHandler('helper:llm:restartRuntime', { settings }),
+  health: () => invokeHandler('helper:llm:health'),
+};

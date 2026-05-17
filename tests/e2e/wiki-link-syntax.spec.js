@@ -197,7 +197,7 @@ test.describe('Wiki Link Syntax & Resolution E2E', () => {
     await expect(titleInput).toHaveValue('darklord');
 
     // Switch to edit mode and verify editor content is accessible
-    const editModeButton = page.getByRole('button', { name: 'Edit' });
+    const editModeButton = page.locator('.wiki-view-toggle').getByRole('button', { name: 'Edit', exact: true });
     await editModeButton.click();
     const wikiEditor = page.getByTestId('wiki-editor');
     await expect(wikiEditor).toBeVisible({ timeout: 5000 });

@@ -7,6 +7,7 @@ A local-first desktop writing app for novelists who want Markdown files, wiki-st
 - [What This App Does](#what-this-app-does)
 - [Implemented Features](#implemented-features)
 - [Release Notes](#release-notes)
+- [AI Foundation (V3 Preview)](#ai-foundation-v3-preview)
 - [Requirements](#requirements)
 - [Getting Started](#getting-started)
 - [How To Use The App](#how-to-use-the-app)
@@ -98,6 +99,16 @@ This list reflects what is currently wired in the app code.
 - Added checksum generation in the local mac release flow for uploaded DMG verification.
 
 For full release details, see `docs/release-notes-v2.0.1.md`.
+
+## AI Foundation (V3 Preview)
+
+An initial local AI foundation is now scaffolded for v3 planning:
+
+- local llama.cpp runtime direction with Qwen2.5 7B Instruct model family
+- read-only MCP wiki server tools for retrieval and inference context
+- lightweight wiki-link-based knowledge graph generation
+
+See `docs/llm-mcp-foundation.md` for the model naming, runtime notes, and MCP server usage.
 
 ## Requirements
 
