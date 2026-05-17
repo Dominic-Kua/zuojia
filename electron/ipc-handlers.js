@@ -29,12 +29,48 @@ function wrapHandler(fn) {
   };
 }
 
-export function registerHandlers() {
-  const llmRuntime = createLlmRuntimeManager();
+const llmRuntime = createLlmRuntimeManager();
+let handlersRegistered = false;
+let beforeQuitBound = false;
 
-  app.on('before-quit', () => {
-    void llmRuntime.stop();
+const LLM_RUNTIME_OVERRIDE_KEYS = ['threads', 'contextSize', 'temperature', 'host', 'port', 'extraArgs'];
+
+function pickLlmRuntimeOverrides(settings = {}) {
+  if (!settings || typeof settings !== 'object') {
+    return {};
+  }
+
+  return Object.fromEntries(
+    LLM_RUNTIME_OVERRIDE_KEYS
+      .filter((key) => Object.prototype.hasOwnProperty.call(settings, key))
+      .map((key) => [key, settings[key]])
+  );
+}
+
+async function resolveTrustedRuntimeConfig(settings) {
+  const persisted = await loadLlmConfig(app);
+  if (!settings) {
+    return persisted;
+  }
+  const runtimeOverrides = pickLlmRuntimeOverrides(settings);
+  return validateLlmConfig({
+    ...persisted,
+    ...runtimeOverrides,
   });
+}
+
+export function registerHandlers() {
+  if (handlersRegistered) {
+    return;
+  }
+  handlersRegistered = true;
+
+  if (!beforeQuitBound) {
+    app.on('before-quit', () => {
+      void llmRuntime.stop();
+    });
+    beforeQuitBound = true;
+  }
 
   // Index handlers
   ipcMain.handle(
@@ -364,7 +400,7 @@ export function registerHandlers() {
     'helper:llm:startRuntime',
     wrapHandler(async ({ settings }) => {
       try {
-        const runtimeConfig = settings ? validateLlmConfig(settings) : await loadLlmConfig(app);
+        const runtimeConfig = await resolveTrustedRuntimeConfig(settings);
         const result = await llmRuntime.start(runtimeConfig);
         return {
           status: 'ok',
@@ -411,7 +447,7 @@ export function registerHandlers() {
     'helper:llm:restartRuntime',
     wrapHandler(async ({ settings }) => {
       try {
-        const runtimeConfig = settings ? validateLlmConfig(settings) : await loadLlmConfig(app);
+        const runtimeConfig = await resolveTrustedRuntimeConfig(settings);
         const result = await llmRuntime.restart(runtimeConfig);
         return {
           status: 'ok',
@@ -575,4 +611,3 @@ export function registerHandlers() {
   // TODO: Register other handlers as they're implemented
   // - helper:git:pull
 }
-

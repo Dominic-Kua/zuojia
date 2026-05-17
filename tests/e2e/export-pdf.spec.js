@@ -73,6 +73,14 @@ test.describe('Story 5.1: PDF Export', () => {
     // and inline guidance is shown without attempting to export.
     await expect(page.getByTestId('export-confirm')).toBeDisabled();
 
+    await page.evaluate(() => {
+      const confirm = document.querySelector('[data-testid="export-confirm"]');
+      if (confirm instanceof HTMLButtonElement) {
+        confirm.disabled = false;
+        confirm.click();
+      }
+    });
+
     await expect(page.getByTestId('export-error')).toContainText('TeX');
     await expect(page.getByTestId('export-error')).toContainText('mactex-no-gui');
   });

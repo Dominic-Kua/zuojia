@@ -42,12 +42,16 @@ export function createLlmRuntimeManager({
   let startTime = null;
   let lastError = null;
 
+  function isRunningProcess(proc) {
+    return Boolean(proc) && proc.exitCode === null;
+  }
+
   async function start(config) {
     if (!config || typeof config !== 'object') {
       throw new Error('runtime config is required');
     }
 
-    if (processRef && !processRef.killed) {
+    if (isRunningProcess(processRef)) {
       return {
         status: 'running',
         pid: processRef.pid,
@@ -71,6 +75,9 @@ export function createLlmRuntimeManager({
     });
 
     child.on('exit', (code, signal) => {
+      if (processRef !== child) {
+        return;
+      }
       if (code !== 0) {
         lastError = `llama.cpp exited with code ${code} signal ${signal || 'none'}`;
       }
@@ -91,16 +98,44 @@ export function createLlmRuntimeManager({
   }
 
   async function stop() {
-    if (!processRef || processRef.killed) {
+    if (!isRunningProcess(processRef)) {
       return {
         status: 'stopped',
         alreadyStopped: true,
       };
     }
 
-    processRef.kill('SIGTERM');
-    processRef = null;
-    startTime = null;
+    const child = processRef;
+    let resolveExit;
+    const waitForExit = new Promise((resolve) => {
+      resolveExit = resolve;
+      child.once('exit', () => resolve());
+    });
+
+    try {
+      child.kill('SIGTERM');
+    } catch {
+      // Ignore kill errors; we'll still wait for exit.
+    }
+
+    const timeout = setTimeout(() => {
+      if (child.exitCode === null) {
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          // Ignore kill errors.
+        }
+        setTimeout(() => resolveExit(), 2000);
+      }
+    }, 5000);
+
+    await waitForExit;
+    clearTimeout(timeout);
+
+    if (processRef === child) {
+      processRef = null;
+      startTime = null;
+    }
 
     return {
       status: 'stopped',
@@ -114,7 +149,7 @@ export function createLlmRuntimeManager({
   }
 
   function health() {
-    if (!processRef || processRef.killed) {
+    if (!isRunningProcess(processRef)) {
       return {
         status: 'stopped',
         pid: null,

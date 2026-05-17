@@ -3,7 +3,7 @@
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { loadLlmConfig, saveLlmConfig, validateLlmConfig, DEFAULT_LLM_CONFIG } from '../../../electron/llm-config.js';
 
 describe('llm-config', () => {
@@ -63,5 +63,20 @@ describe('llm-config', () => {
     expect(() => validateLlmConfig({ ...DEFAULT_LLM_CONFIG, modelSha256: 'deadbeef' })).toThrow(
       'modelSha256'
     );
+  });
+
+  it('backs up invalid persisted config and falls back to defaults', async () => {
+    const configPath = path.join(tempDir, 'llm-config.json');
+    await fs.writeFile(configPath, '{ invalid-json ', 'utf-8');
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const loaded = await loadLlmConfig(fakeApp(tempDir));
+    expect(loaded).toEqual(DEFAULT_LLM_CONFIG);
+
+    const entries = await fs.readdir(tempDir);
+    expect(entries.some((entry) => entry.startsWith('llm-config.json.invalid-') && entry.endsWith('.bak'))).toBe(true);
+    expect(entries).not.toContain('llm-config.json');
+
+    warnSpy.mockRestore();
   });
 });

@@ -29,6 +29,15 @@ function toText(result) {
   };
 }
 
+function logServerError(code, error) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(JSON.stringify({
+    code,
+    message,
+    timestamp: new Date().toISOString(),
+  }));
+}
+
 const server = new Server(
   {
     name: 'zuojia-wiki-mcp',
@@ -142,4 +151,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 const transport = new StdioServerTransport();
-await server.connect(transport);
+
+process.on('uncaughtException', (error) => {
+  logServerError('MCP_SERVER_UNCAUGHT_EXCEPTION', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (error) => {
+  logServerError('MCP_SERVER_UNHANDLED_REJECTION', error);
+  process.exit(1);
+});
+
+try {
+  await server.connect(transport);
+} catch (error) {
+  logServerError('MCP_SERVER_CONNECT_FAILED', error);
+  process.exit(1);
+}

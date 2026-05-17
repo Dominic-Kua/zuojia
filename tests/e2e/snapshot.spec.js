@@ -203,19 +203,22 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
   });
 
   test('should return an error when snapshot creation fails', async () => {
-    // Use a file path (not a novel directory) to trigger snapshot failure
-    // without mutating filesystem permissions that can leak across tests.
-    const invalidNovelPath = path.join(testNovelPath, 'not-a-novel.txt');
-    await fs.writeFile(invalidNovelPath, 'invalid-path', 'utf-8');
+    // Make meta directory non-writable to trigger a true write failure path.
+    const metaDir = path.join(testNovelPath, 'meta');
+    await fs.chmod(metaDir, 0o555);
 
-    const result = await page.evaluate(
-      async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'fail-test' }),
-      { novelPath: invalidNovelPath }
-    );
+    try {
+      const result = await page.evaluate(
+        async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'fail-test' }),
+        { novelPath: testNovelPath }
+      );
 
-    expect(result.status).toBe('error');
-    expect(result.error).toBeDefined();
-    expect(result.error.code).toBeDefined();
+      expect(result.status).toBe('error');
+      expect(result.error).toBeDefined();
+      expect(result.error.code).toBe('SNAPSHOT_CREATE_FAILED');
+    } finally {
+      await fs.chmod(metaDir, 0o755).catch(() => {});
+    }
   });
 
   test('should include manuscript, wiki and meta directories in the snapshot', async () => {
@@ -264,16 +267,16 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
   });
 
   test('should create unique snapshot directories for rapid successive snapshots', async () => {
-    // Create snapshots back-to-back (rapid succession) and verify uniqueness.
-    const r1 = await page.evaluate(
-      async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'snap-a' }),
-      { novelPath: testNovelPath }
-    );
-
-    const r2 = await page.evaluate(
-      async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'snap-b' }),
-      { novelPath: testNovelPath }
-    );
+    const [r1, r2] = await Promise.all([
+      page.evaluate(
+        async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'snap-a' }),
+        { novelPath: testNovelPath }
+      ),
+      page.evaluate(
+        async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'snap-b' }),
+        { novelPath: testNovelPath }
+      ),
+    ]);
 
     expect(r1.status).toBe('ok');
     expect(r2.status).toBe('ok');
@@ -290,4 +293,3 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
     expect(e2).toBe(true);
   });
 });
-

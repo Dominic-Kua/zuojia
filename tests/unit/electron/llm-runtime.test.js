@@ -7,16 +7,34 @@ describe('llm-runtime manager', () => {
   let childProcess;
   let spawnFn;
   let manager;
+  let handlers;
 
   beforeEach(() => {
+    handlers = new Map();
     childProcess = {
       pid: 4242,
-      killed: false,
-      kill: vi.fn(() => {
-        childProcess.killed = true;
+      exitCode: null,
+      kill: vi.fn((signal) => {
+        if (signal === 'SIGTERM') {
+          setTimeout(() => {
+            childProcess.exitCode = 0;
+            handlers.get('exit')?.(0, signal);
+          }, 0);
+          return true;
+        }
+        if (signal === 'SIGKILL') {
+          childProcess.exitCode = 137;
+          handlers.get('exit')?.(137, signal);
+          return true;
+        }
+        return true;
       }),
-      on: vi.fn(),
-      once: vi.fn(),
+      on: vi.fn((event, callback) => {
+        handlers.set(event, callback);
+      }),
+      once: vi.fn((event, callback) => {
+        handlers.set(event, callback);
+      }),
       stderr: { on: vi.fn() },
       stdout: { on: vi.fn() },
     };
@@ -67,7 +85,7 @@ describe('llm-runtime manager', () => {
     expect(health.pid).toBe(4242);
   });
 
-  it('stops a running process', async () => {
+  it('waits for process exit when stopping runtime', async () => {
     await manager.start({
       executablePath: '/tmp/llama-server',
       modelPath: '/tmp/qwen.gguf',
@@ -81,7 +99,84 @@ describe('llm-runtime manager', () => {
 
     const result = await manager.stop();
     expect(result.status).toBe('stopped');
-    expect(childProcess.kill).toHaveBeenCalled();
+    expect(childProcess.kill).toHaveBeenCalledWith('SIGTERM');
+    expect(manager.health().status).toBe('stopped');
+  });
+
+  it('ignores stale exit events from a previous process', async () => {
+    const firstHandlers = new Map();
+    const secondHandlers = new Map();
+    let spawnCount = 0;
+    const firstChild = {
+      pid: 1001,
+      exitCode: null,
+      kill: vi.fn((signal) => {
+        if (signal === 'SIGTERM') {
+          firstChild.exitCode = 0;
+          firstHandlers.get('exit')?.(0, signal);
+          return true;
+        }
+        return true;
+      }),
+      on: vi.fn((event, callback) => {
+        firstHandlers.set(event, callback);
+      }),
+      once: vi.fn((event, callback) => {
+        firstHandlers.set(event, callback);
+      }),
+      stderr: { on: vi.fn() },
+      stdout: { on: vi.fn() },
+    };
+    const secondChild = {
+      pid: 1002,
+      exitCode: null,
+      kill: vi.fn(() => true),
+      on: vi.fn((event, callback) => {
+        secondHandlers.set(event, callback);
+      }),
+      once: vi.fn((event, callback) => {
+        secondHandlers.set(event, callback);
+      }),
+      stderr: { on: vi.fn() },
+      stdout: { on: vi.fn() },
+    };
+
+    const staleSafeManager = createLlmRuntimeManager({
+      spawnFn: vi.fn(() => {
+        spawnCount += 1;
+        return spawnCount === 1 ? firstChild : secondChild;
+      }),
+      accessFn: vi.fn(async () => {}),
+      nowFn: () => 1000,
+    });
+
+    await staleSafeManager.start({
+      executablePath: '/tmp/llama-server',
+      modelPath: '/tmp/qwen.gguf',
+      threads: 4,
+      contextSize: 4096,
+      temperature: 0.7,
+      port: 8080,
+      host: '127.0.0.1',
+      extraArgs: [],
+    });
+    await staleSafeManager.stop();
+
+    await staleSafeManager.start({
+      executablePath: '/tmp/llama-server',
+      modelPath: '/tmp/qwen.gguf',
+      threads: 4,
+      contextSize: 4096,
+      temperature: 0.7,
+      port: 8080,
+      host: '127.0.0.1',
+      extraArgs: [],
+    });
+
+    firstHandlers.get('exit')?.(0, 'SIGTERM');
+    const health = staleSafeManager.health();
+    expect(health.status).toBe('running');
+    expect(health.pid).toBe(1002);
   });
 
   it('fails start when executable is missing', async () => {

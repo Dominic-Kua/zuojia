@@ -22,7 +22,7 @@ Pinned initial artifact for implementation:
 - Source URL: `https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf`
 - SHA-256: `65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423`
 
-Pin an exact file URL and SHA-256 before production use.
+The source URL and SHA-256 above are pinned for this initial artifact; if a different GGUF is selected, update both values before production use.
 
 ## Runtime Direction
 
