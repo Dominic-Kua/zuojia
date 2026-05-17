@@ -156,17 +156,14 @@ export function createMcpRuntimeManager({
     const child = processRef;
     let resolveExit;
     const waitForExit = new Promise((resolve) => {
-      let resolved = false;
-      resolveExit = () => {
-        if (resolved) {
-          return;
-        }
-        resolved = true;
-        resolve();
-      };
-      child.once('exit', () => resolveExit());
+      resolveExit = resolve;
       if (child.exitCode !== null) {
-        resolveExit();
+        resolve();
+        return;
+      }
+      child.once('exit', resolve);
+      if (child.exitCode !== null) {
+        resolve();
       }
     });
 
@@ -183,7 +180,7 @@ export function createMcpRuntimeManager({
         } catch {
           // Ignore kill errors.
         }
-        setTimeoutFn(() => resolveExit(), 2000);
+        setTimeoutFn(() => resolveExit?.(), 2000);
       }
     }, 5000);
 
