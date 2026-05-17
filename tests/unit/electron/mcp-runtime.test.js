@@ -162,21 +162,17 @@ describe('mcp-runtime manager', () => {
     });
   });
 
-  it('stops cleanly when process exits between running check and listener attach', async () => {
-    let exitCodeReadCount = 0;
+  it('stops cleanly when process exits right after listener registration', async () => {
     const raceChildProcess = {
       pid: 8877,
-      _exitCode: 0,
-      get exitCode() {
-        exitCodeReadCount += 1;
-        return exitCodeReadCount === 1 ? null : raceChildProcess._exitCode;
-      },
-      set exitCode(value) {
-        raceChildProcess._exitCode = value;
-      },
+      exitCode: null,
       kill: vi.fn(),
       on: vi.fn(),
-      once: vi.fn(),
+      once: vi.fn((event) => {
+        if (event === 'exit') {
+          raceChildProcess.exitCode = 0;
+        }
+      }),
       stderr: { on: vi.fn() },
       stdout: { on: vi.fn() },
     };
