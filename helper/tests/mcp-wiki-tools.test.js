@@ -50,6 +50,17 @@ describe('mcp wiki tools', () => {
     expect(links).toEqual(['alice', 'mentor', 'old-town']);
   });
 
+  it('ignores wiki-link syntax inside fenced and inline code blocks', () => {
+    const links = extractWikiLinks([
+      'Normal [[alice]] link.',
+      '```md',
+      'Code fence [[mentor]] should be ignored.',
+      '```',
+      'Inline `[[old-town]]` should also be ignored.',
+    ].join('\n'));
+    expect(links).toEqual(['alice']);
+  });
+
   it('lists wiki pages for mcp', async () => {
     const result = await listWikiPagesForMcp(testDir, 10);
     expect(result.status).toBe('ok');

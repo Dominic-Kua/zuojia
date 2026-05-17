@@ -105,7 +105,16 @@ export async function loadLlmConfig(appLike) {
       return { ...DEFAULT_LLM_CONFIG };
     }
 
-    // If persisted JSON is invalid, recover with defaults.
+    console.warn(`Failed to load persisted LLM config from ${configPath}: ${error.message}`);
+    const backupPath = `${configPath}.invalid-${Date.now()}.bak`;
+
+    try {
+      await fs.rename(configPath, backupPath);
+      console.warn(`Moved invalid LLM config to backup: ${backupPath}`);
+    } catch (backupError) {
+      console.warn(`Failed to back up invalid LLM config: ${backupError.message}`);
+    }
+
     return { ...DEFAULT_LLM_CONFIG };
   }
 }

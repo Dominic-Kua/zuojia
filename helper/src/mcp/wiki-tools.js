@@ -29,10 +29,15 @@ function extractWikiLinks(content) {
     return [];
   }
 
+  const sanitizedContent = content
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/~~~[\s\S]*?~~~/g, '')
+    .replace(/`[^`\n]*`/g, '');
+
   const links = [];
   const linkRegex = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
 
-  for (const match of content.matchAll(linkRegex)) {
+  for (const match of sanitizedContent.matchAll(linkRegex)) {
     const target = normalizeWikiSlug((match[1] || '').trim());
     if (target) {
       links.push(target);
@@ -63,6 +68,23 @@ async function readFileSafely(filePath) {
   } catch {
     return '';
   }
+}
+
+async function mapWithConcurrency(items, concurrency, mapper) {
+  const safeConcurrency = Math.max(1, Math.min(concurrency, items.length || 1));
+  const results = new Array(items.length);
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < items.length) {
+      const currentIndex = cursor;
+      cursor += 1;
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex);
+    }
+  }
+
+  await Promise.all(Array.from({ length: safeConcurrency }, () => worker()));
+  return results;
 }
 
 export async function listWikiPagesForMcp(novelPath, limit = 200) {
@@ -119,15 +141,17 @@ export async function searchWikiPagesForMcp(novelPath, query, limit = 10) {
     return listed;
   }
 
+  const pageReads = await mapWithConcurrency(listed.data.pages, 16, async (page) => ({
+    page,
+    readResult: await readWikiPage(novelPath, page.slug),
+  }));
+
   const results = [];
-  for (const page of listed.data.pages) {
+  for (const { page, readResult } of pageReads) {
     if (results.length >= limit) {
       break;
     }
-
-    const readResult = await readWikiPage(novelPath, page.slug);
     const haystack = `${page.title}\n${readResult.status === 'ok' ? readResult.data.content : ''}`.toLowerCase();
-
     if (haystack.includes(q)) {
       results.push({
         slug: page.slug,
@@ -210,12 +234,16 @@ export async function buildWikiKnowledgeGraphForMcp(novelPath, maxEdges = 500) {
   const slugSet = new Set(nodes.map((node) => node.id));
   const edges = [];
 
-  for (const page of listed.data.pages) {
+  const pageReads = await mapWithConcurrency(listed.data.pages, 16, async (page) => ({
+    page,
+    pageResult: await readWikiPage(novelPath, page.slug),
+  }));
+
+  for (const { page, pageResult } of pageReads) {
     if (edges.length >= maxEdges) {
       break;
     }
 
-    const pageResult = await readWikiPage(novelPath, page.slug);
     if (pageResult.status !== 'ok') {
       continue;
     }
