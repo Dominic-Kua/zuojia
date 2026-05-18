@@ -55,11 +55,13 @@ export function AskWikiAssistant({ novelPath }) {
       return;
     }
 
-    const requestId = ++requestSeqRef.current;
+    requestSeqRef.current += 1;
+    const requestId = requestSeqRef.current;
     activeRequestIdRef.current = requestId;
     cancelledRequestsRef.current.delete(requestId);
-    const isStaleOrCancelled = () =>
-      activeRequestIdRef.current !== requestId || cancelledRequestsRef.current.has(requestId);
+    const isSuperseded = () => activeRequestIdRef.current !== requestId;
+    const isRequestCancelled = () => cancelledRequestsRef.current.has(requestId);
+    const shouldIgnoreRequest = () => isSuperseded() || isRequestCancelled();
     const setCancelledStatusIfActive = () => {
       if (activeRequestIdRef.current === requestId) {
         setStatusText('Cancelled');
@@ -81,7 +83,7 @@ export function AskWikiAssistant({ novelPath }) {
         { timeoutMs: 5000, retries: 1 }
       );
 
-      if (isStaleOrCancelled()) {
+      if (shouldIgnoreRequest()) {
         setCancelledStatusIfActive();
         return;
       }
@@ -103,21 +105,21 @@ export function AskWikiAssistant({ novelPath }) {
       await streamAnswer(
         fullAnswer,
         (chunk) => {
-          if (isStaleOrCancelled()) {
+          if (shouldIgnoreRequest()) {
             return;
           }
           setAnswer((current) => `${current}${chunk}`);
         },
-        isStaleOrCancelled
+        shouldIgnoreRequest
       );
 
-      if (isStaleOrCancelled()) {
+      if (shouldIgnoreRequest()) {
         setCancelledStatusIfActive();
       } else {
         setStatusText('Done');
       }
     } catch (err) {
-      if (isStaleOrCancelled()) {
+      if (shouldIgnoreRequest()) {
         return;
       }
       setError(err.message || 'Failed to ask wiki assistant');
