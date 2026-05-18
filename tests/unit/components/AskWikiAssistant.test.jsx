@@ -98,6 +98,13 @@ describe('AskWikiAssistant', () => {
     await waitFor(() => {
       expect(screen.getByTestId('ask-wiki-status')).toHaveTextContent('Cancelled');
     });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 220));
+    });
+
+    expect(screen.queryByTestId('ask-wiki-answer')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('ask-wiki-citations')).not.toBeInTheDocument();
   });
 
   it('shows actionable error when mcp query fails', async () => {
