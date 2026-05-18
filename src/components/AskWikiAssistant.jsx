@@ -55,12 +55,16 @@ export function AskWikiAssistant({ novelPath }) {
       return;
     }
 
-    const requestId = requestSeqRef.current + 1;
-    requestSeqRef.current = requestId;
+    const requestId = ++requestSeqRef.current;
     activeRequestIdRef.current = requestId;
     cancelledRequestsRef.current.delete(requestId);
     const isStaleOrCancelled = () =>
       activeRequestIdRef.current !== requestId || cancelledRequestsRef.current.has(requestId);
+    const setCancelledStatusIfActive = () => {
+      if (activeRequestIdRef.current === requestId) {
+        setStatusText('Cancelled');
+      }
+    };
 
     setIsAsking(true);
     setAnswer('');
@@ -78,9 +82,7 @@ export function AskWikiAssistant({ novelPath }) {
       );
 
       if (isStaleOrCancelled()) {
-        if (activeRequestIdRef.current === requestId) {
-          setStatusText('Cancelled');
-        }
+        setCancelledStatusIfActive();
         return;
       }
 
@@ -110,9 +112,7 @@ export function AskWikiAssistant({ novelPath }) {
       );
 
       if (isStaleOrCancelled()) {
-        if (activeRequestIdRef.current === requestId) {
-          setStatusText('Cancelled');
-        }
+        setCancelledStatusIfActive();
       } else {
         setStatusText('Done');
       }

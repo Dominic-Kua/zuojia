@@ -3,6 +3,8 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AskWikiAssistant } from '../../../src/components/AskWikiAssistant';
 
+const MOCK_DELAY_PLUS_BUFFER_MS = 220;
+
 vi.mock('../../../src/lib/ipc-client', () => ({
   mcpHandlers: {
     startServer: vi.fn(),
@@ -100,7 +102,8 @@ describe('AskWikiAssistant', () => {
     });
 
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 220));
+      // Wait through the mocked 150ms delay plus buffer so cancelled handlers fully settle.
+      await new Promise((resolve) => setTimeout(resolve, MOCK_DELAY_PLUS_BUFFER_MS));
     });
 
     expect(screen.queryByTestId('ask-wiki-answer')).not.toBeInTheDocument();
