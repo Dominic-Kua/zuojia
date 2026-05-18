@@ -27,7 +27,9 @@ export function AskWikiAssistant({ novelPath }) {
   const [error, setError] = useState(null);
   const [isAsking, setIsAsking] = useState(false);
   const [statusText, setStatusText] = useState('Idle');
-  const cancelRef = useRef(false);
+  const requestSeqRef = useRef(0);
+  const activeRequestIdRef = useRef(0);
+  const cancelledRequestsRef = useRef(new Set());
 
   if (!novelPath) {
     return null;
@@ -35,14 +37,14 @@ export function AskWikiAssistant({ novelPath }) {
 
   const closeDialog = () => {
     if (isAsking) {
-      cancelRef.current = true;
+      cancelledRequestsRef.current.add(activeRequestIdRef.current);
     }
     setShowDialog(false);
     setError(null);
   };
 
   const handleCancel = () => {
-    cancelRef.current = true;
+    cancelledRequestsRef.current.add(activeRequestIdRef.current);
     setIsAsking(false);
     setStatusText('Cancelled');
   };
@@ -53,7 +55,13 @@ export function AskWikiAssistant({ novelPath }) {
       return;
     }
 
-    cancelRef.current = false;
+    const requestId = requestSeqRef.current + 1;
+    requestSeqRef.current = requestId;
+    activeRequestIdRef.current = requestId;
+    cancelledRequestsRef.current.delete(requestId);
+    const isStaleOrCancelled = () =>
+      activeRequestIdRef.current !== requestId || cancelledRequestsRef.current.has(requestId);
+
     setIsAsking(true);
     setAnswer('');
     setCitations([]);
@@ -69,9 +77,10 @@ export function AskWikiAssistant({ novelPath }) {
         { timeoutMs: 5000, retries: 1 }
       );
 
-      if (cancelRef.current) {
-        setStatusText('Cancelled');
-        setIsAsking(false);
+      if (isStaleOrCancelled()) {
+        if (activeRequestIdRef.current === requestId) {
+          setStatusText('Cancelled');
+        }
         return;
       }
 
@@ -91,20 +100,33 @@ export function AskWikiAssistant({ novelPath }) {
       setStatusText('Streaming answer...');
       await streamAnswer(
         fullAnswer,
-        (chunk) => setAnswer((current) => `${current}${chunk}`),
-        () => cancelRef.current
+        (chunk) => {
+          if (isStaleOrCancelled()) {
+            return;
+          }
+          setAnswer((current) => `${current}${chunk}`);
+        },
+        isStaleOrCancelled
       );
 
-      if (cancelRef.current) {
-        setStatusText('Cancelled');
+      if (isStaleOrCancelled()) {
+        if (activeRequestIdRef.current === requestId) {
+          setStatusText('Cancelled');
+        }
       } else {
         setStatusText('Done');
       }
     } catch (err) {
+      if (isStaleOrCancelled()) {
+        return;
+      }
       setError(err.message || 'Failed to ask wiki assistant');
       setStatusText('Error');
     } finally {
-      setIsAsking(false);
+      if (activeRequestIdRef.current === requestId) {
+        setIsAsking(false);
+      }
+      cancelledRequestsRef.current.delete(requestId);
     }
   };
 
