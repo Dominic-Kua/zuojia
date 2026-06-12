@@ -9,6 +9,7 @@ import {
   searchWikiPagesForMcp,
   getWikiBacklinksForMcp,
   buildWikiKnowledgeGraphForMcp,
+  traverseWikiKnowledgeGraphForMcp,
 } from './wiki-tools.js';
 
 const novelPath = process.env.ZUOJIA_NOVEL_PATH;
@@ -108,6 +109,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
         },
       },
+      {
+        name: 'wiki_traverse_graph',
+        description: 'Traverse graph relationships between two wiki nodes and return shortest path.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            startSlug: { type: 'string' },
+            targetSlug: { type: 'string' },
+            maxDepth: { type: 'number', minimum: 1, maximum: 8, default: 3 },
+            maxEdges: { type: 'number', minimum: 1, maximum: 10000, default: 2000 },
+          },
+          required: ['startSlug', 'targetSlug'],
+        },
+      },
     ],
   };
 });
@@ -138,6 +153,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   if (name === 'wiki_build_graph') {
     return toText(await buildWikiKnowledgeGraphForMcp(novelPath, Number(args.maxEdges || 500)));
+  }
+
+  if (name === 'wiki_traverse_graph') {
+    return toText(
+      await traverseWikiKnowledgeGraphForMcp(novelPath, {
+        startSlug: String(args.startSlug || ''),
+        targetSlug: String(args.targetSlug || ''),
+        maxDepth: Number(args.maxDepth || 3),
+        maxEdges: Number(args.maxEdges || 2000),
+      })
+    );
   }
 
   return toText({
