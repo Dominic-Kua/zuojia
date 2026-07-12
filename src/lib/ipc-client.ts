@@ -131,3 +131,13 @@ export const mcpHandlers = {
     }),
   getLogs: (limit = 50) => invokeHandler('helper:mcp:getLogs', { limit }),
 };
+
+export const neo4jHandlers = {
+  start: (novelPath, databaseName = 'wiki') => invokeHandler('helper:neo4j:start', { novelPath, databaseName }),
+  stop: () => invokeHandler('helper:neo4j:stop'),
+  health: () => invokeHandler('helper:neo4j:health'),
+  import: () => invokeHandler('helper:neo4j:import'),
+  query: (query, params = {}) => invokeHandler('helper:neo4j:query', { query, params }),
+  search: (query, limit = 10) => invokeHandler('helper:neo4j:search', { query, limit }),
+  getLogs: (limit = 50) => invokeHandler('helper:neo4j:getLogs', { limit }),
+};
