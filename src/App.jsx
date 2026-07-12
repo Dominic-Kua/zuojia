@@ -9,6 +9,7 @@ import { SettingsModal } from './components/SettingsModal'
 import { DiagnosticsPanel } from './components/DiagnosticsPanel'
 import { SnapshotButton } from './components/SnapshotButton'
 import { AskWikiAssistant } from './components/AskWikiAssistant'
+import { LlmChatWindow } from './components/LlmChatWindow'
 import { useWikiPages } from './hooks/useWikiPages'
 
 export default function App(){
@@ -238,6 +239,7 @@ export default function App(){
           <CommitButton novelPath={novelPath} />
           <PushButton novelPath={novelPath} />
           <AskWikiAssistant novelPath={novelPath} />
+          <LlmChatWindow novelPath={novelPath} />
           <DiagnosticsPanel novelPath={novelPath} onIndexRebuilt={refreshWikiPages} onRestored={handleRestored} />
           <SettingsModal novelPath={novelPath} />
           <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>
