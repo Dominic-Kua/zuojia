@@ -21,7 +21,11 @@ vi.mock('../../src/lib/ipc-client', () => ({
     stopRuntime: vi.fn(),
     chat: vi.fn(),
   },
-  mcpHandlers: {},
+  mcpHandlers: {
+    health: vi.fn().mockResolvedValue({ status: 'stopped' }),
+    startServer: vi.fn(),
+    callTool: vi.fn(),
+  },
 }));
 
 describe('LLM Chat Integration', () => {
@@ -60,9 +64,9 @@ describe('LLM Chat Integration', () => {
       expect(screen.getByTestId('llm-chat-window')).toBeInTheDocument();
     });
 
-    // Check status shows "Stopped"
+    // Check status shows "LLM: Stopped"
     await waitFor(() => {
-      expect(screen.getByText('Stopped')).toBeInTheDocument();
+      expect(screen.getByText('LLM: Stopped')).toBeInTheDocument();
     });
 
     // Input should be disabled
@@ -98,9 +102,9 @@ describe('LLM Chat Integration', () => {
       });
     });
 
-    // Status should update to "Running"
+    // Status should update to "LLM: Running"
     await waitFor(() => {
-      expect(screen.getByText('Running')).toBeInTheDocument();
+      expect(screen.getByText('LLM: Running')).toBeInTheDocument();
     });
 
     // Input should now be enabled
@@ -129,9 +133,9 @@ describe('LLM Chat Integration', () => {
       expect(screen.getByTestId('llm-chat-window')).toBeInTheDocument();
     });
 
-    // Check status shows "Running"
+    // Check status shows "LLM: Running"
     await waitFor(() => {
-      expect(screen.getByText('Running')).toBeInTheDocument();
+      expect(screen.getByText('LLM: Running')).toBeInTheDocument();
     });
 
     // Input should be enabled

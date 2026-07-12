@@ -19,6 +19,7 @@ import { createSnapshot, listSnapshots, deleteSnapshot, restoreSnapshot } from '
 import { loadLlmConfig, saveLlmConfig, validateLlmConfig } from './llm-config.js';
 import { createLlmRuntimeManager } from './llm-runtime.js';
 import { createMcpRuntimeManager } from './mcp-runtime.js';
+import { createNeo4jRuntimeManager } from './neo4j-runtime.js';
 import http from 'http';
 /**
  * Register all IPC handlers
@@ -33,6 +34,7 @@ function wrapHandler(fn) {
 
 const llmRuntime = createLlmRuntimeManager();
 const mcpRuntime = createMcpRuntimeManager();
+const neo4jRuntime = createNeo4jRuntimeManager();
 let handlersRegistered = false;
 let beforeQuitBound = false;
 
@@ -72,6 +74,7 @@ export function registerHandlers() {
     app.on('before-quit', () => {
       void llmRuntime.stop();
       void mcpRuntime.stop();
+      void neo4jRuntime.stop();
     });
     beforeQuitBound = true;
   }
@@ -801,6 +804,146 @@ export function registerHandlers() {
       timestamp: new Date().toISOString(),
     };
   });
+
+  // Neo4j handlers
+  ipcMain.handle(
+    'helper:neo4j:start',
+    wrapHandler(async ({ novelPath, databaseName = 'wiki' }) => {
+      try {
+        const result = await neo4jRuntime.start({ novelPath, databaseName });
+        return {
+          status: 'ok',
+          data: result,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: error.code || 'NEO4J_START_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    })
+  );
+
+  ipcMain.handle(
+    'helper:neo4j:stop',
+    wrapHandler(async () => {
+      try {
+        const result = await neo4jRuntime.stop();
+        return {
+          status: 'ok',
+          data: result,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: error.code || 'NEO4J_STOP_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    })
+  );
+
+  ipcMain.handle(
+    'helper:neo4j:health',
+    wrapHandler(async () => {
+      return {
+        status: 'ok',
+        data: neo4jRuntime.health(),
+        timestamp: new Date().toISOString(),
+      };
+    })
+  );
+
+  ipcMain.handle(
+    'helper:neo4j:import',
+    wrapHandler(async () => {
+      try {
+        const result = await neo4jRuntime.importWikiData();
+        return {
+          status: 'ok',
+          data: result,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: error.code || 'NEO4J_IMPORT_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    })
+  );
+
+  ipcMain.handle(
+    'helper:neo4j:query',
+    wrapHandler(async ({ query, params = {} }) => {
+      try {
+        const result = await neo4jRuntime.queryCypher(query, params);
+        return {
+          status: 'ok',
+          data: result,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: error.code || 'NEO4J_QUERY_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    })
+  );
+
+  ipcMain.handle(
+    'helper:neo4j:search',
+    wrapHandler(async ({ query, limit = 10 }) => {
+      try {
+        const result = await neo4jRuntime.naturalLanguageSearch(query, limit);
+        return {
+          status: 'ok',
+          data: result,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: error.code || 'NEO4J_SEARCH_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    })
+  );
+
+  ipcMain.handle(
+    'helper:neo4j:getLogs',
+    wrapHandler(async ({ limit }) => {
+      return {
+        status: 'ok',
+        data: {
+          logs: neo4jRuntime.getLogs({ limit }),
+        },
+        timestamp: new Date().toISOString(),
+      };
+    })
+  );
 
   // TODO: Register other handlers as they're implemented
   // - helper:git:pull

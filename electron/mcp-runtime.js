@@ -7,6 +7,7 @@ import {
   searchWikiPagesForMcp,
   getWikiBacklinksForMcp,
   buildWikiKnowledgeGraphForMcp,
+  traverseWikiKnowledgeGraphForMcp,
 } from '../helper/src/mcp/wiki-tools.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -18,6 +19,11 @@ const TOOL_NAMES = new Set([
   'wiki_search',
   'wiki_get_backlinks',
   'wiki_build_graph',
+  'wiki_traverse_graph',
+  'wiki_neo4j_search',
+  'wiki_neo4j_get_related',
+  'wiki_neo4j_find_paths',
+  'wiki_neo4j_query',
 ]);
 
 function createTimeoutError(toolName, timeoutMs) {
@@ -45,6 +51,15 @@ async function executeWikiTool(novelPath, toolName, args = {}) {
 
   if (toolName === 'wiki_build_graph') {
     return buildWikiKnowledgeGraphForMcp(novelPath, Number(args.maxEdges || 500));
+  }
+
+  if (toolName === 'wiki_traverse_graph') {
+    return traverseWikiKnowledgeGraphForMcp(novelPath, {
+      startSlug: String(args.startSlug || ''),
+      targetSlug: String(args.targetSlug || ''),
+      maxDepth: Number(args.maxDepth || 3),
+      maxEdges: Number(args.maxEdges || 2000),
+    });
   }
 
   const error = new Error(`Unsupported MCP tool: ${toolName}`);
@@ -106,13 +121,16 @@ export function createMcpRuntimeManager({
       await stop();
     }
 
-    const serverPath = path.join(__dirname, '../helper/src/mcp/wiki-server.js');
+    const serverPath = path.join(__dirname, '../helper/src/mcp/synapse-server.js');
     const child = spawnFn(process.execPath, [serverPath], {
       stdio: 'pipe',
       env: {
         ...process.env,
         ELECTRON_RUN_AS_NODE: '1',
         ZUOJIA_NOVEL_PATH: novelPath,
+        NEO4J_URI: 'bolt://localhost:7687',
+        NEO4J_USER: 'neo4j',
+        NEO4J_PASSWORD: 'neo4j',
       },
     });
 
