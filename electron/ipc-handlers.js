@@ -19,6 +19,7 @@ import { createSnapshot, listSnapshots, deleteSnapshot, restoreSnapshot } from '
 import { loadLlmConfig, saveLlmConfig, validateLlmConfig } from './llm-config.js';
 import { createLlmRuntimeManager } from './llm-runtime.js';
 import { createMcpRuntimeManager } from './mcp-runtime.js';
+import http from 'http';
 /**
  * Register all IPC handlers
  * Formats responses as structured envelopes
@@ -473,11 +474,101 @@ export function registerHandlers() {
   ipcMain.handle(
     'helper:llm:health',
     wrapHandler(async () => {
+      const health = await llmRuntime.health();
       return {
         status: 'ok',
-        data: llmRuntime.health(),
+        data: health,
         timestamp: new Date().toISOString(),
       };
+    })
+  );
+
+  async function chatOllama(config, messages) {
+    const postData = JSON.stringify({
+      model: config.modelName,
+      messages,
+      stream: false,
+      options: {
+        temperature: config.temperature,
+        num_predict: config.maxTokens,
+      },
+    });
+
+    return new Promise((resolve, reject) => {
+      const options = {
+        hostname: config.host || '127.0.0.1',
+        port: config.port || 11434,
+        path: '/api/chat',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData),
+        },
+        timeout: 120000,
+      };
+
+      const req = http.request(options, (res) => {
+        let data = '';
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        res.on('end', () => {
+          try {
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              const parsed = JSON.parse(data);
+              resolve({ content: parsed.message?.content || '' });
+            } else {
+              reject(new Error(`Ollama returned ${res.statusCode}: ${data}`));
+            }
+          } catch (err) {
+            reject(new Error(`Failed to parse Ollama response: ${err.message}`));
+          }
+        });
+      });
+
+      req.on('error', (error) => {
+        reject(new Error(`Ollama chat request failed: ${error.message}`));
+      });
+
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Ollama chat request timed out'));
+      });
+
+      req.write(postData);
+      req.end();
+    });
+  }
+
+  ipcMain.handle(
+    'helper:llm:chat',
+    wrapHandler(async ({ messages }) => {
+      try {
+        if (!messages || !Array.isArray(messages) || messages.length === 0) {
+          throw new Error('messages are required');
+        }
+
+        const config = await loadLlmConfig(app);
+        if (!config.modelName) {
+          throw new Error('LLM model is not configured');
+        }
+
+        const response = await chatOllama(config, messages);
+        return {
+          status: 'ok',
+          data: response.content,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: 'LLM_CHAT_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
     })
   );
 

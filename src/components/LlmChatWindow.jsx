@@ -43,55 +43,58 @@ export function LlmChatWindow({ novelPath }) {
 
     const userMessage = inputText.trim();
     setInputText('');
-    
-    setMessages(prev => [...prev, { 
-      role: 'user', 
+
+    setMessages(prev => [...prev, {
+      role: 'user',
       content: userMessage,
       timestamp: new Date().toISOString()
     }]);
 
     setIsLoading(true);
 
+    setMessages(prev => [...prev, {
+      role: 'assistant',
+      content: '...',
+      timestamp: new Date().toISOString(),
+      isLoading: true
+    }]);
+
     try {
-      if (!isLlmRunning) {
-        const config = await llmHandlers.getConfig();
-        if (config.status === 'ok') {
-          await llmHandlers.startRuntime(config.data);
-          setIsLlmRunning(true);
-          setLlmStatus('running');
-        } else {
-          throw new Error('LLM configuration not available');
-        }
-      }
+      const conversation = messages
+        .filter(message => message.role === 'user' || message.role === 'assistant')
+        .map(message => ({ role: message.role, content: message.content }));
+      conversation.push({ role: 'user', content: userMessage });
 
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: '...',
-        timestamp: new Date().toISOString(),
-        isLoading: true
-      }]);
+      const response = await llmHandlers.chat(conversation);
 
-      setTimeout(() => {
-        setMessages(prev => {
-          const newMessages = [...prev];
-          newMessages[newMessages.length - 1] = {
-            ...newMessages[newMessages.length - 1],
-            content: `I received your message about: "${userMessage}". This is a placeholder response since LLM integration is not fully implemented yet.`,
+      setMessages(prev => {
+        const newMessages = [...prev];
+        const lastIdx = newMessages.length - 1;
+        if (newMessages[lastIdx]?.role === 'assistant' && newMessages[lastIdx]?.isLoading) {
+          newMessages[lastIdx] = {
+            ...newMessages[lastIdx],
+            content: response || 'No response from LLM.',
             isLoading: false
           };
-          return newMessages;
-        });
-        setIsLoading(false);
-      }, 1000);
-
+        }
+        return newMessages;
+      });
     } catch (err) {
       console.error('Failed to send message:', err);
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: `Error: ${err.message || 'Failed to get response'}`,
-        timestamp: new Date().toISOString(),
-        isError: true
-      }]);
+      setMessages(prev => {
+        const newMessages = [...prev];
+        const lastIdx = newMessages.length - 1;
+        if (newMessages[lastIdx]?.role === 'assistant' && newMessages[lastIdx]?.isLoading) {
+          newMessages[lastIdx] = {
+            ...newMessages[lastIdx],
+            content: `Error: ${err.message || 'Failed to get response'}`,
+            isLoading: false,
+            isError: true
+          };
+        }
+        return newMessages;
+      });
+    } finally {
       setIsLoading(false);
     }
   };
