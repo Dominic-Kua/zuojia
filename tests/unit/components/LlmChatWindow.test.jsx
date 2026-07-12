@@ -34,10 +34,7 @@ describe('LlmChatWindow', () => {
 
   it('opens chat window when button is clicked', async () => {
     const { llmHandlers } = await import('../../../src/lib/ipc-client');
-    llmHandlers.health.mockResolvedValue({ 
-      status: 'ok', 
-      data: { status: 'stopped', uptimeMs: 0 } 
-    });
+    llmHandlers.health.mockResolvedValue({ status: 'stopped', uptimeMs: 0 });
 
     const user = userEvent.setup();
     render(<LlmChatWindow novelPath={novelPath} />);
@@ -55,10 +52,7 @@ describe('LlmChatWindow', () => {
 
   it('closes chat window when overlay is clicked', async () => {
     const { llmHandlers } = await import('../../../src/lib/ipc-client');
-    llmHandlers.health.mockResolvedValue({ 
-      status: 'ok', 
-      data: { status: 'stopped', uptimeMs: 0 } 
-    });
+    llmHandlers.health.mockResolvedValue({ status: 'stopped', uptimeMs: 0 });
 
     const user = userEvent.setup();
     render(<LlmChatWindow novelPath={novelPath} />);
@@ -78,10 +72,7 @@ describe('LlmChatWindow', () => {
 
   it('shows LLM status indicator', async () => {
     const { llmHandlers } = await import('../../../src/lib/ipc-client');
-    llmHandlers.health.mockResolvedValue({ 
-      status: 'ok', 
-      data: { status: 'running', uptimeMs: 5000 } 
-    });
+    llmHandlers.health.mockResolvedValue({ status: 'running', uptimeMs: 5000 });
 
     const user = userEvent.setup();
     render(<LlmChatWindow novelPath={novelPath} />);
@@ -95,10 +86,7 @@ describe('LlmChatWindow', () => {
 
   it('can collapse and expand the chat window', async () => {
     const { llmHandlers } = await import('../../../src/lib/ipc-client');
-    llmHandlers.health.mockResolvedValue({ 
-      status: 'ok', 
-      data: { status: 'stopped', uptimeMs: 0 } 
-    });
+    llmHandlers.health.mockResolvedValue({ status: 'stopped', uptimeMs: 0 });
 
     const user = userEvent.setup();
     render(<LlmChatWindow novelPath={novelPath} />);
@@ -122,10 +110,7 @@ describe('LlmChatWindow', () => {
 
   it('shows start LLM button when LLM is stopped', async () => {
     const { llmHandlers } = await import('../../../src/lib/ipc-client');
-    llmHandlers.health.mockResolvedValue({ 
-      status: 'ok', 
-      data: { status: 'stopped', uptimeMs: 0 } 
-    });
+    llmHandlers.health.mockResolvedValue({ status: 'stopped', uptimeMs: 0 });
 
     const user = userEvent.setup();
     render(<LlmChatWindow novelPath={novelPath} />);
@@ -140,10 +125,7 @@ describe('LlmChatWindow', () => {
 
   it('shows stop LLM button when LLM is running', async () => {
     const { llmHandlers } = await import('../../../src/lib/ipc-client');
-    llmHandlers.health.mockResolvedValue({ 
-      status: 'ok', 
-      data: { status: 'running', uptimeMs: 5000 } 
-    });
+    llmHandlers.health.mockResolvedValue({ status: 'running', uptimeMs: 5000 });
 
     const user = userEvent.setup();
     render(<LlmChatWindow novelPath={novelPath} />);
@@ -158,21 +140,16 @@ describe('LlmChatWindow', () => {
 
   it('starts LLM when start button is clicked', async () => {
     const { llmHandlers } = await import('../../../src/lib/ipc-client');
-    llmHandlers.health.mockResolvedValue({ 
-      status: 'ok', 
-      data: { status: 'stopped', uptimeMs: 0 } 
-    });
+    llmHandlers.health.mockResolvedValue({ status: 'stopped', uptimeMs: 0 });
     llmHandlers.getConfig.mockResolvedValue({
       status: 'ok',
       data: {
-        executablePath: '/usr/local/bin/llama.cpp',
-        modelPath: '/path/to/model.gguf',
-        threads: 4,
-        contextSize: 4096,
-        temperature: 0.7,
+        executablePath: '/opt/homebrew/bin/ollama',
+        modelName: 'gemma4:e2b',
         host: '127.0.0.1',
-        port: 8080,
-        extraArgs: [],
+        port: 11434,
+        temperature: 0.7,
+        maxTokens: 4096,
       },
       timestamp: new Date().toISOString(),
     });
@@ -191,24 +168,19 @@ describe('LlmChatWindow', () => {
 
     await waitFor(() => {
       expect(llmHandlers.startRuntime).toHaveBeenCalledWith({
-        executablePath: '/usr/local/bin/llama.cpp',
-        modelPath: '/path/to/model.gguf',
-        threads: 4,
-        contextSize: 4096,
-        temperature: 0.7,
+        executablePath: '/opt/homebrew/bin/ollama',
+        modelName: 'gemma4:e2b',
         host: '127.0.0.1',
-        port: 8080,
-        extraArgs: [],
+        port: 11434,
+        temperature: 0.7,
+        maxTokens: 4096,
       });
     });
   });
 
   it('stops LLM when stop button is clicked', async () => {
     const { llmHandlers } = await import('../../../src/lib/ipc-client');
-    llmHandlers.health.mockResolvedValue({ 
-      status: 'ok', 
-      data: { status: 'running', uptimeMs: 5000 } 
-    });
+    llmHandlers.health.mockResolvedValue({ status: 'running', uptimeMs: 5000 });
     llmHandlers.stopRuntime.mockResolvedValue(undefined);
 
     const user = userEvent.setup();
@@ -229,10 +201,7 @@ describe('LlmChatWindow', () => {
 
   it('sends a message when send button is clicked', async () => {
     const { llmHandlers } = await import('../../../src/lib/ipc-client');
-    llmHandlers.health.mockResolvedValue({ 
-      status: 'ok', 
-      data: { status: 'running', uptimeMs: 5000 } 
-    });
+    llmHandlers.health.mockResolvedValue({ status: 'running', uptimeMs: 5000 });
 
     const user = userEvent.setup();
     render(<LlmChatWindow novelPath={novelPath} />);
@@ -254,10 +223,7 @@ describe('LlmChatWindow', () => {
 
   it('sends a message when Enter key is pressed', async () => {
     const { llmHandlers } = await import('../../../src/lib/ipc-client');
-    llmHandlers.health.mockResolvedValue({ 
-      status: 'ok', 
-      data: { status: 'running', uptimeMs: 5000 } 
-    });
+    llmHandlers.health.mockResolvedValue({ status: 'running', uptimeMs: 5000 });
 
     const user = userEvent.setup();
     render(<LlmChatWindow novelPath={novelPath} />);
@@ -279,10 +245,7 @@ describe('LlmChatWindow', () => {
 
   it('does not send empty messages', async () => {
     const { llmHandlers } = await import('../../../src/lib/ipc-client');
-    llmHandlers.health.mockResolvedValue({ 
-      status: 'ok', 
-      data: { status: 'running', uptimeMs: 5000 } 
-    });
+    llmHandlers.health.mockResolvedValue({ status: 'running', uptimeMs: 5000 });
 
     const user = userEvent.setup();
     render(<LlmChatWindow novelPath={novelPath} />);
@@ -303,10 +266,7 @@ describe('LlmChatWindow', () => {
 
   it('clears messages when clear button is clicked', async () => {
     const { llmHandlers } = await import('../../../src/lib/ipc-client');
-    llmHandlers.health.mockResolvedValue({ 
-      status: 'ok', 
-      data: { status: 'running', uptimeMs: 5000 } 
-    });
+    llmHandlers.health.mockResolvedValue({ status: 'running', uptimeMs: 5000 });
 
     const user = userEvent.setup();
     render(<LlmChatWindow novelPath={novelPath} />);
@@ -343,10 +303,7 @@ describe('LlmChatWindow', () => {
 
   it('shows error message when LLM fails to start', async () => {
     const { llmHandlers } = await import('../../../src/lib/ipc-client');
-    llmHandlers.health.mockResolvedValue({ 
-      status: 'ok', 
-      data: { status: 'stopped', uptimeMs: 0 } 
-    });
+    llmHandlers.health.mockResolvedValue({ status: 'stopped', uptimeMs: 0 });
     llmHandlers.getConfig.mockRejectedValue(new Error('Config not found'));
 
     const user = userEvent.setup();
@@ -367,10 +324,7 @@ describe('LlmChatWindow', () => {
 
   it('disables input when LLM is not running', async () => {
     const { llmHandlers } = await import('../../../src/lib/ipc-client');
-    llmHandlers.health.mockResolvedValue({ 
-      status: 'ok', 
-      data: { status: 'stopped', uptimeMs: 0 } 
-    });
+    llmHandlers.health.mockResolvedValue({ status: 'stopped', uptimeMs: 0 });
 
     const user = userEvent.setup();
     render(<LlmChatWindow novelPath={novelPath} />);
@@ -386,10 +340,7 @@ describe('LlmChatWindow', () => {
 
   it('enables input when LLM is running', async () => {
     const { llmHandlers } = await import('../../../src/lib/ipc-client');
-    llmHandlers.health.mockResolvedValue({ 
-      status: 'ok', 
-      data: { status: 'running', uptimeMs: 5000 } 
-    });
+    llmHandlers.health.mockResolvedValue({ status: 'running', uptimeMs: 5000 });
 
     const user = userEvent.setup();
     render(<LlmChatWindow novelPath={novelPath} />);
@@ -405,10 +356,7 @@ describe('LlmChatWindow', () => {
 
   it('checks LLM status periodically', async () => {
     const { llmHandlers } = await import('../../../src/lib/ipc-client');
-    llmHandlers.health.mockResolvedValue({ 
-      status: 'ok', 
-      data: { status: 'stopped', uptimeMs: 0 } 
-    });
+    llmHandlers.health.mockResolvedValue({ status: 'stopped', uptimeMs: 0 });
 
     vi.useFakeTimers();
     render(<LlmChatWindow novelPath={novelPath} />);

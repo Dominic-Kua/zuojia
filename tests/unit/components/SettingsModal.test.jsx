@@ -11,7 +11,9 @@ vi.mock('../../../src/lib/ipc-client', () => ({
   llmHandlers: {
     getConfig: vi.fn(),
     saveConfig: vi.fn(),
-    getModels: vi.fn(),
+    health: vi.fn(),
+    startRuntime: vi.fn(),
+    stopRuntime: vi.fn(),
   },
 }));
 
