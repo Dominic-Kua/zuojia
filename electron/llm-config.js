@@ -2,20 +2,13 @@ import fs from 'fs/promises';
 import path from 'path';
 
 export const DEFAULT_LLM_CONFIG = {
-  provider: 'llama.cpp',
-  modelFamily: 'Qwen/Qwen2.5-7B-Instruct',
-  recommendedModelFile: 'Qwen2.5-7B-Instruct-Q4_K_M.gguf',
-  modelSourceUrl:
-    'https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf',
-  modelSha256: '65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423',
-  executablePath: '',
-  modelPath: '',
-  threads: 4,
-  contextSize: 4096,
-  temperature: 0.7,
+  provider: 'ollama',
+  executablePath: '/opt/homebrew/bin/ollama',
+  modelName: 'gemma4:e2b',
   host: '127.0.0.1',
-  port: 8080,
-  extraArgs: [],
+  port: 11434,
+  temperature: 0.7,
+  maxTokens: 4096,
 };
 
 const CONFIG_FILE = 'llm-config.json';
@@ -34,25 +27,20 @@ export function validateLlmConfig(input = {}) {
     ...input,
   };
 
-  const threads = Math.trunc(asNumber(merged.threads, 'threads'));
-  const contextSize = Math.trunc(asNumber(merged.contextSize, 'contextSize'));
-  const temperature = asNumber(merged.temperature, 'temperature');
   const port = Math.trunc(asNumber(merged.port, 'port'));
+  const temperature = asNumber(merged.temperature, 'temperature');
+  const maxTokens = merged.maxTokens !== undefined ? Math.trunc(asNumber(merged.maxTokens, 'maxTokens')) : undefined;
 
-  if (threads < 1 || threads > 256) {
-    throw new Error('threads must be between 1 and 256');
-  }
-
-  if (contextSize < 256 || contextSize > 262144) {
-    throw new Error('contextSize must be between 256 and 262144');
+  if (port < 1 || port > 65535) {
+    throw new Error('port must be between 1 and 65535');
   }
 
   if (temperature < 0 || temperature > 2) {
     throw new Error('temperature must be between 0 and 2');
   }
 
-  if (port < 1 || port > 65535) {
-    throw new Error('port must be between 1 and 65535');
+  if (maxTokens !== undefined && (maxTokens < 1 || maxTokens > 1000000)) {
+    throw new Error('maxTokens must be between 1 and 1000000');
   }
 
   const host = String(merged.host || DEFAULT_LLM_CONFIG.host).trim();
@@ -60,32 +48,24 @@ export function validateLlmConfig(input = {}) {
     throw new Error('host must not be empty');
   }
 
-  const extraArgs = Array.isArray(merged.extraArgs)
-    ? merged.extraArgs.map((value) => String(value)).filter(Boolean)
-    : [];
-
-  const modelSourceUrl = String(merged.modelSourceUrl || DEFAULT_LLM_CONFIG.modelSourceUrl).trim();
-  if (!/^https:\/\//.test(modelSourceUrl)) {
-    throw new Error('modelSourceUrl must be an https URL');
+  const executablePath = String(merged.executablePath || DEFAULT_LLM_CONFIG.executablePath).trim();
+  if (!executablePath) {
+    throw new Error('executablePath must not be empty');
   }
 
-  const modelSha256 = String(merged.modelSha256 || DEFAULT_LLM_CONFIG.modelSha256).trim().toLowerCase();
-  if (!/^[a-f0-9]{64}$/.test(modelSha256)) {
-    throw new Error('modelSha256 must be a 64-character hex string');
+  const modelName = String(merged.modelName || DEFAULT_LLM_CONFIG.modelName).trim();
+  if (!modelName) {
+    throw new Error('modelName must not be empty');
   }
 
   return {
     ...merged,
-    executablePath: String(merged.executablePath || '').trim(),
-    modelPath: String(merged.modelPath || '').trim(),
-    threads,
-    contextSize,
-    temperature,
+    executablePath,
+    modelName,
     host,
     port,
-    modelSourceUrl,
-    modelSha256,
-    extraArgs,
+    temperature,
+    maxTokens,
   };
 }
 

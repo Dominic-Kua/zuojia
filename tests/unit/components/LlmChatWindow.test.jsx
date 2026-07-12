@@ -6,12 +6,20 @@ import { LlmChatWindow } from '../../../src/components/LlmChatWindow';
 Element.prototype.scrollIntoView = vi.fn();
 
 vi.mock('../../../src/lib/ipc-client', () => ({
+  gitHandlers: {},
+  chapterHandlers: {},
+  appHandlers: {},
+  statsHandlers: {},
+  exportHandlers: {},
+  wikiHandlers: {},
+  backupHandlers: {},
   llmHandlers: {
     health: vi.fn(),
     getConfig: vi.fn(),
     startRuntime: vi.fn(),
     stopRuntime: vi.fn(),
   },
+  mcpHandlers: {},
 }));
 
 describe('LlmChatWindow', () => {
@@ -21,7 +29,10 @@ describe('LlmChatWindow', () => {
     vi.clearAllMocks();
   });
 
-  it('renders the LLM Chat button', () => {
+  it('renders the LLM Chat button', async () => {
+    const { llmHandlers } = await import('../../../src/lib/ipc-client');
+    llmHandlers.health.mockResolvedValue({ status: 'stopped', uptimeMs: 0 });
+    
     render(<LlmChatWindow novelPath={novelPath} />);
     expect(screen.getByTestId('llm-chat-button')).toBeInTheDocument();
     expect(screen.getByTestId('llm-chat-button')).toHaveTextContent('LLM Chat');
