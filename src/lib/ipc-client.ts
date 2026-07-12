@@ -115,6 +115,7 @@ export const llmHandlers = {
   stopRuntime: () => invokeHandler('helper:llm:stopRuntime'),
   restartRuntime: (settings) => invokeHandler('helper:llm:restartRuntime', { settings }),
   health: () => invokeHandler('helper:llm:health'),
+  chat: (messages) => invokeHandler('helper:llm:chat', { messages }),
 };
 
 export const mcpHandlers = {
