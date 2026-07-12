@@ -8,6 +8,11 @@ vi.mock('../../../src/lib/ipc-client', () => ({
     getConfig: vi.fn(),
     saveConfig: vi.fn(),
   },
+  llmHandlers: {
+    getConfig: vi.fn(),
+    saveConfig: vi.fn(),
+    getModels: vi.fn(),
+  },
 }));
 
 describe('SettingsModal', () => {
@@ -70,7 +75,7 @@ describe('SettingsModal', () => {
     await user.type(screen.getByTestId('git-branch-input'), 'drafts');
 
     await act(async () => {
-      await user.click(screen.getByTestId('git-settings-save'));
+      await user.click(screen.getByTestId('settings-save'));
     });
 
     await waitFor(() => {
@@ -101,7 +106,7 @@ describe('SettingsModal', () => {
     await user.type(await screen.findByTestId('git-remote-url-input'), 'https://github.com/user/missing.git');
 
     await act(async () => {
-      await user.click(screen.getByTestId('git-settings-save'));
+      await user.click(screen.getByTestId('settings-save'));
     });
 
     expect(await screen.findByTestId('git-settings-error')).toHaveTextContent('Remote could not be reached');
