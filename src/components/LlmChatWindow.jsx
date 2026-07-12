@@ -16,10 +16,8 @@ export function LlmChatWindow({ novelPath }) {
     const checkLlmStatus = async () => {
       try {
         const health = await llmHandlers.health();
-        if (health.status === 'ok') {
-          setIsLlmRunning(health.data.status === 'running');
-          setLlmStatus(health.data.status);
-        }
+        setIsLlmRunning(health.status === 'running');
+        setLlmStatus(health.status);
       } catch (err) {
         console.error('Failed to check LLM status:', err);
         setIsLlmRunning(false);

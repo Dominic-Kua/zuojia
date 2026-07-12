@@ -489,6 +489,22 @@ body{margin:0;font-family:'PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','N
   border-left: 3px solid rgba(231, 76, 60, 0.3);
 }
 
+.llm-runtime-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--sidebar-surface);
+  border: 1px solid var(--divider);
+}
+
+.llm-runtime-buttons {
+  display: flex;
+  gap: 8px;
+}
+
 @keyframes pulse {
   0%, 100% {
     opacity: 0.3;
