@@ -7,6 +7,7 @@ import {
   listWikiPagesForMcp,
   getWikiBacklinksForMcp,
   buildWikiKnowledgeGraphForMcp,
+  traverseWikiKnowledgeGraphForMcp,
 } from '../src/mcp/wiki-tools.js';
 
 describe('mcp wiki tools', () => {
@@ -85,9 +86,62 @@ describe('mcp wiki tools', () => {
 
     expect(result.data.edges).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ from: 'alice', to: 'mentor', relation: 'wiki_link' }),
-        expect.objectContaining({ from: 'alice', to: 'old-town', relation: 'wiki_link' }),
+        expect.objectContaining({
+          from: 'alice',
+          to: 'mentor',
+          relation: 'wiki_link',
+          evidence: expect.objectContaining({
+            sourcePage: 'alice',
+            textSpan: '[[mentor]]',
+          }),
+        }),
+        expect.objectContaining({
+          from: 'alice',
+          to: 'old-town',
+          relation: 'wiki_link',
+          evidence: expect.objectContaining({
+            sourcePage: 'alice',
+            textSpan: '[[old-town]]',
+          }),
+        }),
       ])
     );
+  });
+
+  it('traverses graph relationships with shortest path output', async () => {
+    const result = await traverseWikiKnowledgeGraphForMcp(testDir, {
+      startSlug: 'alice',
+      targetSlug: 'old town',
+      maxDepth: 2,
+      maxEdges: 50,
+    });
+
+    expect(result.status).toBe('ok');
+    expect(result.data.pathFound).toBe(true);
+    expect(result.data.path).toEqual(['alice', 'old-town']);
+    expect(result.data.pathEdges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          from: 'alice',
+          to: 'old-town',
+          relation: 'wiki_link',
+          evidence: expect.objectContaining({ sourcePage: 'alice' }),
+        }),
+      ])
+    );
+  });
+
+  it('returns no path when relationship traversal has no connection', async () => {
+    const result = await traverseWikiKnowledgeGraphForMcp(testDir, {
+      startSlug: 'mentor',
+      targetSlug: 'old-town',
+      maxDepth: 3,
+      maxEdges: 50,
+    });
+
+    expect(result.status).toBe('ok');
+    expect(result.data.pathFound).toBe(false);
+    expect(result.data.path).toEqual([]);
+    expect(result.data.pathEdges).toEqual([]);
   });
 });

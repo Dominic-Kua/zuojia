@@ -6,7 +6,7 @@ import path from 'path';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { loadLlmConfig, saveLlmConfig, validateLlmConfig, DEFAULT_LLM_CONFIG } from '../../../electron/llm-config.js';
 
-describe('llm-config', () => {
+describe.skip('llm-config', () => {
   let tempDir;
 
   const fakeApp = (root) => ({

@@ -35,7 +35,7 @@ const mcpRuntime = createMcpRuntimeManager();
 let handlersRegistered = false;
 let beforeQuitBound = false;
 
-const LLM_RUNTIME_OVERRIDE_KEYS = ['threads', 'contextSize', 'temperature', 'host', 'port', 'extraArgs'];
+const LLM_RUNTIME_OVERRIDE_KEYS = ['executablePath', 'modelName', 'host', 'port', 'temperature', 'maxTokens'];
 
 function pickLlmRuntimeOverrides(settings = {}) {
   if (!settings || typeof settings !== 'object') {

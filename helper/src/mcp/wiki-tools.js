@@ -25,6 +25,10 @@ function normalizeWikiSlug(value) {
 }
 
 function extractWikiLinks(content) {
+  return extractWikiLinkEdges(content).map((edge) => edge.target);
+}
+
+function extractWikiLinkEdges(content) {
   if (!content || typeof content !== 'string') {
     return [];
   }
@@ -40,7 +44,10 @@ function extractWikiLinks(content) {
   for (const match of sanitizedContent.matchAll(linkRegex)) {
     const target = normalizeWikiSlug((match[1] || '').trim());
     if (target) {
-      links.push(target);
+      links.push({
+        target,
+        textSpan: match[0],
+      });
     }
   }
 
@@ -248,11 +255,18 @@ export async function buildWikiKnowledgeGraphForMcp(novelPath, maxEdges = 500) {
       continue;
     }
 
-    const outbound = new Set(extractWikiLinks(pageResult.data.content));
-    for (const target of outbound) {
+    const outbound = extractWikiLinkEdges(pageResult.data.content);
+    const seenTargets = new Set();
+    for (const link of outbound) {
       if (edges.length >= maxEdges) {
         break;
       }
+
+      const target = link.target;
+      if (seenTargets.has(target)) {
+        continue;
+      }
+      seenTargets.add(target);
 
       if (!slugSet.has(target)) {
         continue;
@@ -262,6 +276,10 @@ export async function buildWikiKnowledgeGraphForMcp(novelPath, maxEdges = 500) {
         from: page.slug,
         to: target,
         relation: 'wiki_link',
+        evidence: {
+          sourcePage: page.slug,
+          textSpan: link.textSpan,
+        },
       });
     }
   }
@@ -273,6 +291,99 @@ export async function buildWikiKnowledgeGraphForMcp(novelPath, maxEdges = 500) {
       edgeCount: edges.length,
       nodes,
       edges,
+    },
+    timestamp: new Date().toISOString(),
+  };
+}
+
+export async function traverseWikiKnowledgeGraphForMcp(
+  novelPath,
+  {
+    startSlug,
+    targetSlug,
+    maxDepth = 3,
+    maxEdges = 2000,
+  } = {}
+) {
+  const normalizedStart = normalizeWikiSlug(startSlug || '');
+  const normalizedTarget = normalizeWikiSlug(targetSlug || '');
+  const safeMaxDepth = Math.max(1, Math.min(8, Number(maxDepth) || 3));
+
+  if (!normalizedStart || !normalizedTarget) {
+    return {
+      status: 'error',
+      error: {
+        code: 'INVALID_INPUT',
+        message: 'startSlug and targetSlug are required',
+      },
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  const graph = await buildWikiKnowledgeGraphForMcp(novelPath, maxEdges);
+  if (graph.status !== 'ok') {
+    return graph;
+  }
+
+  const edgeByPair = new Map();
+  const adjacency = new Map();
+  for (const edge of graph.data.edges) {
+    const key = `${edge.from}->${edge.to}`;
+    if (!edgeByPair.has(key)) {
+      edgeByPair.set(key, edge);
+    }
+    if (!adjacency.has(edge.from)) {
+      adjacency.set(edge.from, []);
+    }
+    adjacency.get(edge.from).push(edge.to);
+  }
+
+  const queue = [[normalizedStart]];
+  const visited = new Set([normalizedStart]);
+  let foundPath = [];
+
+  while (queue.length > 0) {
+    const currentPath = queue.shift();
+    const current = currentPath[currentPath.length - 1];
+
+    if (current === normalizedTarget) {
+      foundPath = currentPath;
+      break;
+    }
+
+    if (currentPath.length - 1 >= safeMaxDepth) {
+      continue;
+    }
+
+    const nextNodes = adjacency.get(current) || [];
+    for (const next of nextNodes) {
+      if (visited.has(next)) {
+        continue;
+      }
+      visited.add(next);
+      queue.push([...currentPath, next]);
+    }
+  }
+
+  const pathEdges = [];
+  for (let i = 0; i < foundPath.length - 1; i += 1) {
+    const key = `${foundPath[i]}->${foundPath[i + 1]}`;
+    const edge = edgeByPair.get(key);
+    if (edge) {
+      pathEdges.push(edge);
+    }
+  }
+
+  return {
+    status: 'ok',
+    data: {
+      startSlug: normalizedStart,
+      targetSlug: normalizedTarget,
+      maxDepth: safeMaxDepth,
+      pathFound: foundPath.length > 0,
+      path: foundPath,
+      pathEdges,
+      visitedCount: visited.size,
     },
     timestamp: new Date().toISOString(),
   };
