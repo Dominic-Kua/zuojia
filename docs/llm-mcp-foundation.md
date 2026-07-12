@@ -30,20 +30,35 @@ The source URL and SHA-256 above are pinned for this initial artifact; if a diff
 - Access pattern: local process managed by app runtime
 - Data policy: local-first, no automatic cloud upload
 
-## MCP Server (Initial Slice)
+## MCP Server (Synapse with Neo4j)
 
-A read-only MCP server is provided in helper package:
+A read-only MCP Synapse server has replaced the original wiki MCP server:
 
-- Entry: `helper/src/mcp/wiki-server.js`
-- Tool logic: `helper/src/mcp/wiki-tools.js`
+- Entry: `helper/src/mcp/synapse-server.js` (replaces `wiki-server.js`)
+- Legacy tool logic: `helper/src/mcp/wiki-tools.js`
+- Neo4j knowledge graph integration with per-novel database storage
 
-Current tools:
+### Current Tools
 
+**Legacy wiki tools:**
 - `wiki_list_pages`
 - `wiki_get_page`
 - `wiki_search`
 - `wiki_get_backlinks`
 - `wiki_build_graph`
+
+**Neo4j knowledge graph tools:**
+- `wiki_neo4j_search` - Natural language search across wiki content
+- `wiki_neo4j_get_related` - Find related entities based on relationships
+- `wiki_neo4j_find_paths` - Find connection paths between entities
+- `wiki_neo4j_query` - Execute custom Cypher queries
+
+### Neo4j Integration
+
+- Database storage: `~/.zuojia/<novel>/neo4j-data/`
+- Automatically starts when novel is opened
+- Wiki data imported automatically on first use
+- Default credentials: `neo4j:neo4j`
 
 ## Run Locally
 

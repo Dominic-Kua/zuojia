@@ -11,6 +11,7 @@ import { SnapshotButton } from './components/SnapshotButton'
 
 import { LlmChatWindow } from './components/LlmChatWindow'
 import { useWikiPages } from './hooks/useWikiPages'
+import { neo4jHandlers } from './lib/ipc-client'
 
 export default function App(){
   const [novelPath, setNovelPath] = useState(null);
@@ -125,12 +126,30 @@ export default function App(){
     setNovelPath(path);
   };
 
-  const handleNovelOpened = (path) => {
+  const handleNovelOpened = async (path) => {
     setNovelPath(path);
+    
+    // Start Neo4j runtime for the novel
+    try {
+      console.log(`Starting Neo4j for novel: ${path}`);
+      const result = await neo4jHandlers.start(path);
+      console.log('Neo4j startup result:', result);
+    } catch (error) {
+      console.error('Failed to start Neo4j runtime:', error);
+      // Don't prevent novel opening if Neo4j fails to start
+    }
   };
 
-  const handleCloseNovel = () => {
+  const handleCloseNovel = async () => {
     setNovelPath(null);
+    
+    // Stop Neo4j runtime when novel is closed
+    try {
+      console.log('Stopping Neo4j runtime');
+      await neo4jHandlers.stop();
+    } catch (error) {
+      console.error('Failed to stop Neo4j runtime:', error);
+    }
   };
 
   const toggleTheme = () => {

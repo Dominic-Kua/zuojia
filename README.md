@@ -105,8 +105,33 @@ For full release details, see `docs/release-notes-v2.0.1.md`.
 An initial local AI foundation is now scaffolded for v3 planning:
 
 - local llama.cpp runtime direction with Qwen2.5 7B Instruct model family
-- read-only MCP wiki server tools for retrieval and inference context
-- lightweight wiki-link-based knowledge graph generation
+- Neo4j-enhanced Synapse MCP server with wiki tools and Neo4j knowledge graph integration
+- Automatic wiki querying when relevant keywords detected in LLM chat
+- Per-novel Neo4j database storage at `~/.zuojia/<novel>/neo4j-data/`
+
+### Neo4j Installation
+
+To use the enhanced wiki querying features with Neo4j knowledge graph:
+
+1. **Install Neo4j Desktop** (recommended) or Neo4j Community Edition:
+   - Download from https://neo4j.com/download-center/
+   - Follow installation instructions for your platform
+
+2. **Start Neo4j Database**:
+   - Neo4j Desktop: Create a new database and start it
+   - Neo4j Community: Start with `neo4j console` command
+   - Default credentials: `neo4j:neo4j` (change in production)
+
+3. **Enable Neo4j in app**:
+   - The app will automatically start Neo4j for each novel when opened
+   - Wiki data is automatically imported into Neo4j on first use
+   - LLM chat automatically queries wiki via MCP when relevant keywords detected
+
+### MCP Server (Synapse)
+
+The read-only MCP Synapse server provides:
+- Legacy wiki tools (`wiki_list_pages`, `wiki_get_page`, `wiki_search`, `wiki_get_backlinks`, `wiki_build_graph`)
+- Neo4j knowledge graph tools (`wiki_neo4j_search`, `wiki_neo4j_get_related`, `wiki_neo4j_find_paths`, `wiki_neo4j_query`)
 
 See `docs/llm-mcp-foundation.md` for the model naming, runtime notes, and MCP server usage.
 
