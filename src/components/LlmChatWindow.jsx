@@ -68,14 +68,20 @@ export function LlmChatWindow({ novelPath }) {
   };
 
   const queryWikiForContext = async (query) => {
-    if (!isMcpRunning) {
-      return null;
-    }
-
     try {
       setIsQueryingWiki(true);
+      
       // Start MCP server if not running
-      await mcpHandlers.startServer(novelPath);
+      if (!isMcpRunning) {
+        try {
+          await mcpHandlers.startServer(novelPath);
+          setIsMcpRunning(true);
+        } catch (startErr) {
+          console.error('Failed to start MCP server:', startErr);
+          setIsQueryingWiki(false);
+          return null;
+        }
+      }
       
       // Try Neo4j search first
       const result = await mcpHandlers.callTool(
@@ -203,11 +209,24 @@ export function LlmChatWindow({ novelPath }) {
         await llmHandlers.startRuntime(config.data);
         setIsLlmRunning(true);
         setLlmStatus('running');
-        setMessages(prev => [...prev, {
-          role: 'system',
-          content: 'LLM runtime started. You can now ask questions.',
-          timestamp: new Date().toISOString()
-        }]);
+        
+        // Also start MCP server for wiki queries
+        try {
+          await mcpHandlers.startServer(novelPath);
+          setIsMcpRunning(true);
+          setMessages(prev => [...prev, {
+            role: 'system',
+            content: 'LLM runtime started. Wiki query system is ready.',
+            timestamp: new Date().toISOString()
+          }]);
+        } catch (mcpErr) {
+          console.warn('MCP server failed to start:', mcpErr);
+          setMessages(prev => [...prev, {
+            role: 'system',
+            content: 'LLM runtime started. Wiki query system unavailable.',
+            timestamp: new Date().toISOString()
+          }]);
+        }
       }
     } catch (err) {
       console.error('Failed to start LLM:', err);
