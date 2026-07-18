@@ -14,6 +14,7 @@ import { McpTransport } from '../helper/src/mcp/mcp-transport.js';
 import { createToolMapper } from '../helper/src/mcp/tool-mapper.js';
 import { createArgumentTransformer } from '../helper/src/mcp/argument-transformer.js';
 import { createResponseNormalizer } from '../helper/src/mcp/response-normalizer.js';
+import { createConfig } from '../helper/src/mcp/mcp-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -116,20 +117,28 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
   const jitter = delay * 0.1 * (Math.random() * 2 - 1);
   return Math.floor(delay + jitter);
 }
-
-export function createMcpRuntimeManager({
+  
+  export function createMcpRuntimeManager({
   spawnFn = spawn,
   nowFn = () => Date.now(),
   setTimeoutFn = setTimeout,
   clearTimeoutFn = clearTimeout,
   toolExecutor = executeWikiTool,
-  maxLogs = 200,
-  retryConfig = {
-    baseDelay: 1000,
-    maxDelay: 10000,
-    maxRetries: 3,
-  },
+  config = createConfig(),
 } = {}) {
+  const mcpClientConfig = config.mcpClient;
+  const processConfig = config.process;
+  const synapseConfig = config.synapse;
+  const loggingConfig = config.logging;
+  const healthConfig = config.health;
+  const maxLogs = loggingConfig.maxLogs;
+  const retryConfig = {
+    baseDelay: mcpClientConfig.retryBaseDelay,
+    maxDelay: mcpClientConfig.retryMaxDelay,
+    maxRetries: mcpClientConfig.maxRetries,
+  };
+  const toolTimeouts = config.toolTimeouts;
+
   let processRef = null;
   let startTime = null;
   let runtimeNovelPath = null;
@@ -143,12 +152,14 @@ export function createMcpRuntimeManager({
   let responseNormalizer = null;
   let isUsingSynapse = false;
   let reconnectAttempts = 0;
-  const MAX_RECONNECT_ATTEMPTS = 5;
+  const MAX_RECONNECT_ATTEMPTS = synapseConfig.maxReconnectAttempts;
 
   function pushLog(entry) {
-    callLogs.push(entry);
-    if (callLogs.length > maxLogs) {
-      callLogs.splice(0, callLogs.length - maxLogs);
+    if (loggingConfig.logLevel === 'debug' || entry.type !== 'debug') {
+      callLogs.push(entry);
+      if (callLogs.length > maxLogs) {
+        callLogs.splice(0, callLogs.length - maxLogs);
+      }
     }
   }
 
@@ -156,7 +167,21 @@ export function createMcpRuntimeManager({
     return Boolean(proc) && proc.exitCode === null;
   }
 
+  function getToolTimeout(toolName) {
+    return toolTimeouts[toolName] || mcpClientConfig.callToolTimeoutMs;
+  }
+
   async function initializeMcpClient(child) {
+    if (!synapseConfig.enabled) {
+      isUsingSynapse = false;
+      pushLog({
+        timestamp: new Date().toISOString(),
+        type: 'mcp_client_init_skipped',
+        reason: 'synapse_disabled_in_config',
+      });
+      return false;
+    }
+
     try {
       if (!child.stdout || !child.stdin) {
         isUsingSynapse = false;
@@ -203,7 +228,7 @@ export function createMcpRuntimeManager({
   }
 
   async function reconnectMcpClient() {
-    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    if (reconnectAttempts >= synapseConfig.maxReconnectAttempts) {
       pushLog({
         timestamp: new Date().toISOString(),
         type: 'mcp_reconnect_failed',
