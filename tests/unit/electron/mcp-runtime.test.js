@@ -140,8 +140,10 @@ describe('mcp-runtime manager', () => {
     expect(toolExecutor).toHaveBeenCalledTimes(2);
 
     const logs = manager.getLogs({ limit: 10 });
-    expect(logs.length).toBe(2);
-    const failureLog = logs[logs.length - 2];
+    // Includes: init failure + retry delay + 2 tool calls = 4 logs
+    expect(logs.length).toBe(4);
+    // failureLog is 3rd from end (init failure, retry delay, failure, success)
+    const failureLog = logs[logs.length - 3];
     const successLog = logs[logs.length - 1];
     expect(failureLog.status).toBe('error');
     expect(failureLog.code).toBe('WIKI_NOT_FOUND');
