@@ -66,7 +66,7 @@ From `helper/`:
 
 ```bash
 npm install
-ZUOJIA_NOVEL_PATH=/absolute/path/to/novel npm run mcp:wiki
+ZUOJIA_NOVEL_PATH=/absolute/path/to/novel npm run mcp:synapse
 ```
 
 The server uses stdio transport and is ready for MCP clients.

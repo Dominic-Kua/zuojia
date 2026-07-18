@@ -122,21 +122,11 @@ export class McpClient extends EventEmitter {
     this.#serverInfo = initResult.serverInfo || null;
     this.#serverCapabilities = initResult.capabilities || null;
 
-    // Send initialized notification
+    // Send initialized notification (client -> server)
     this.#transport.sendNotification('notifications/initialized', {});
 
-    // Wait for initialized notification from server
-    await new Promise((resolve, reject) => {
-      if (this.#initialized) {
-        resolve();
-        return;
-      }
-      const timeoutId = setTimeout(() => reject(new Error('Initialization timeout')), timeoutMs);
-      this.once('initialized', () => {
-        clearTimeout(timeoutId);
-        resolve();
-      });
-    });
+    // Per MCP protocol, initialization is complete after sending initialized notification
+    // Server does not send an "initialized" notification back
 
     // Fetch tools list
     await this.#fetchTools(timeoutMs);

@@ -154,7 +154,7 @@ export class ResponseNormalizer {
   /**
    * explore_connections (wiki_traverse_graph, wiki_neo4j_get_related, wiki_neo4j_find_paths)
    * { content: [{ text: "entity1 -> entity2 (type)" }] }
-   * → { status: 'ok', data: { path: [...], relationships: [...] } }
+   * → { status: 'ok', data: { content: [...], structuredContent: {...} } }
    */
   #normalizeExploreConnections(synapseResult) {
     const textContent = synapseResult.content
@@ -203,13 +203,40 @@ export class ResponseNormalizer {
       }
     }
 
+    const pathFound = path.length > 0;
+    const pathData = path;
+    const relationshipsData = relationships;
+    const distance = path.length > 1 ? path.length - 1 : 0;
+
+    // Build structured content for the response
+    const structuredContent = {
+      result: {
+        pathFound,
+        path: pathData,
+        relationships,
+        distance: path.length > 1 ? path.length - 1 : 0,
+      },
+    };
+
+    // Build content array for text representation
+    const contentText = pathFound 
+      ? `Path found: ${pathData.join(' -> ')} (${relationships.length} connections)`
+      : 'No connections found';
+    
+    const content = [
+      { type: 'text', text: contentText },
+    ];
+
     return {
       status: 'ok',
       data: {
-        pathFound: path.length > 0,
-        path,
+        content,
+        structuredContent,
+        // Also include the parsed data for programmatic access
+        pathFound,
+        path: pathData,
         relationships,
-        distance: path.length > 1 ? path.length - 1 : 0,
+        distance: pathData.length > 1 ? pathData.length - 1 : 0,
       },
     };
   }

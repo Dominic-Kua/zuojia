@@ -21,7 +21,7 @@ def setup_logging(log_dir="logs"):
     log_file = os.path.join(log_dir, 'project_synapse_bridge.log')
 
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
             logging.FileHandler(log_file),
@@ -37,6 +37,7 @@ class MCPBridge:
         self.running = False
         self._stdout_thread: Optional[threading.Thread] = None
         self._stderr_thread: Optional[threading.Thread] = None
+        self._stdin_thread: Optional[threading.Thread] = None
         
     def start(self, novel_path: str, synapse_path: str, env: dict) -> bool:
         """Start the Project Synapse MCP server."""
@@ -65,12 +66,16 @@ class MCPBridge:
             self._stdout_thread = threading.Thread(target=self._forward_stdout, daemon=True)
             self._stdout_thread.start()
             
+            # Start stdin forwarding thread
+            self._stdin_thread = threading.Thread(target=self._forward_stdin, daemon=True)
+            self._stdin_thread.start()
+            
             # Start stderr forwarding thread
             self._stderr_thread = threading.Thread(target=self._forward_stderr, daemon=True)
             self._stderr_thread.start()
             
             # Wait briefly to check if process started successfully
-            time.sleep(1)
+            time.sleep(2)
             if self.synapse_proc.poll() is not None:
                 self.logger.error(f"Synapse process exited with code {self.synapse_proc.returncode}")
                 return False
@@ -94,10 +99,32 @@ class MCPBridge:
             if not self.running:
                 break
             try:
-                sys.stdout.write(line)
-                sys.stdout.flush()
+                # Filter: only forward valid JSON-RPC messages to stdout
+                # Log other output to stderr/debug
+                stripped = line.strip()
+                if stripped and self._is_json_rpc(stripped):
+                    self.logger.debug(f"Forwarding stdout from Synapse: {stripped}")
+                    sys.stdout.write(line)
+                    sys.stdout.flush()
+                else:
+                    # Log non-JSON-RPC output to debug
+                    if stripped:
+                        self.logger.debug(f"Synapse stdout (filtered): {stripped}")
             except (BrokenPipeError, IOError):
                 break
+    
+    def _is_json_rpc(self, line: str) -> bool:
+        """Check if a line is a valid JSON-RPC message."""
+        try:
+            parsed = json.loads(line)
+            # Valid JSON-RPC 2.0 messages have jsonrpc field and either id, method, or error
+            return (
+                isinstance(parsed, dict) and
+                parsed.get('jsonrpc') == '2.0' and
+                ('id' in parsed or 'method' in parsed or 'error' in parsed)
+            )
+        except (json.JSONDecodeError, TypeError):
+            return False
     
     def _forward_stderr(self):
         """Forward stderr from Synapse to our stderr (for logging)."""
@@ -121,6 +148,7 @@ class MCPBridge:
             if not self.running:
                 break
             try:
+                self.logger.debug(f"Forwarding stdin to Synapse: {line.strip()}")
                 self.synapse_proc.stdin.write(line)
                 self.synapse_proc.stdin.flush()
             except (BrokenPipeError, IOError):
@@ -131,6 +159,7 @@ class MCPBridge:
         if self.synapse_proc:
             return_code = self.synapse_proc.wait()
             self.running = False
+            self.logger.info(f"Synapse process exited with code {return_code}")
             return return_code
         return -1
     
@@ -208,11 +237,12 @@ def main():
         logger.error("Failed to start Project Synapse")
         sys.exit(1)
     
-    logger.info("Bridge started, forwarding stdin/stdout for JSON-RPC communication")
+    logger.info("Bridge started, waiting for JSON-RPC communication")
     
-    # Forward stdin in main thread
+    # Wait for the process to complete or for a signal
+    # The stdin/stdout forwarding happens in background threads
     try:
-        bridge._forward_stdin()
+        bridge.wait()
     except KeyboardInterrupt:
         pass
     finally:
