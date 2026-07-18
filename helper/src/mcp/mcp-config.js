@@ -109,5 +109,3 @@ export function createConfig(overrides = {}) {
   
   return merge(base, overrides);
 }
-
-export { createConfigFromEnv };

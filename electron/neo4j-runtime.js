@@ -52,12 +52,16 @@ dbms.memory.heap.max_size=1g
 dbms.memory.pagecache.size=512m
 dbms.directories.data=${dataPath}
 dbms.default_database=${databaseName}
-dbms.security.auth_enabled=false
+dbms.security.auth_enabled=true
+dbms.security.auth_minimum_password_length=8
+dbms.security.auth_max_failed_attempts=3
+dbms.security.auth_lock_time=5m
 dbms.connector.bolt.listen_address=:7687
 dbms.connector.http.listen_address=:7474
 dbms.connector.https.enabled=false
 dbms.logs.default=INFO
 server.directories.import=${path.join(novelPath, 'wiki')}
+# Initial password:  (from Project Synapse .env)
 `;
     
     await fs.mkdir(path.dirname(configPath), { recursive: true });
