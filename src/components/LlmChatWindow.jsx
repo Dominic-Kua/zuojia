@@ -74,8 +74,10 @@ export function LlmChatWindow({ novelPath }) {
       // Start MCP server if not running
       if (!isMcpRunning) {
         try {
+          console.log('[Wiki] Starting MCP server...');
           await mcpHandlers.startServer(novelPath);
           setIsMcpRunning(true);
+          console.log('[Wiki] MCP server started');
         } catch (startErr) {
           console.error('Failed to start MCP server:', startErr);
           setIsQueryingWiki(false);
@@ -83,31 +85,46 @@ export function LlmChatWindow({ novelPath }) {
         }
       }
       
-      // Try Neo4j search first
+      console.log('[Wiki] Querying:', query);
+      
+      // Try Neo4j search first (takes longer on first run due to model download)
+      console.log('[Wiki] Calling wiki_neo4j_search...');
       const result = await mcpHandlers.callTool(
         'wiki_neo4j_search',
         { query, limit: 5 },
-        { timeoutMs: 10000, retries: 1 }
+        { timeoutMs: QUERY_TIMEOUT_MS, retries: 1 }
       );
 
       if (result.status === 'ok' && result.data && result.data.results && result.data.results.length > 0) {
+        console.log('[Wiki] Got results:', result.data.results.length);
         return result.data.results;
       }
 
+      console.log('[Wiki] Neo4j search returned no results, trying fallback...');
+      
       // Fallback to basic wiki search
       const fallbackResult = await mcpHandlers.callTool(
         'wiki_search',
         { query, limit: 5 },
-        { timeoutMs: 10000, retries: 1 }
+        { timeoutMs: FALLBACK_TIMEOUT_MS, retries: 1 }
       );
 
       if (fallbackResult.status === 'ok' && fallbackResult.data && fallbackResult.data.results) {
+        console.log('[Wiki] Fallback got results:', fallbackResult.data.results.length);
         return fallbackResult.data.results;
       }
 
+      console.log('[Wiki] No results found');
       return null;
     } catch (error) {
       console.error('Failed to query wiki:', error);
+      // Show error to user via a system message
+      setMessages(prev => [...prev, {
+        role: 'system',
+        content: `Wiki query failed: ${error.message}. First query may take 2-3 minutes to download embedding model.`,
+        timestamp: new Date().toISOString(),
+        isError: true
+      }]);
       return null;
     } finally {
       setIsQueryingWiki(false);

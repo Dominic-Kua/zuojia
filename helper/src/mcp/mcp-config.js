@@ -18,8 +18,8 @@ const DEFAULT_CONFIG = {
     maxRetries: 3,
     retryBaseDelay: 1000,
     maxRetryDelay: 10000,
-    callToolTimeoutMs: 5000,
-    initializeTimeoutMs: 10000,
+    callToolTimeoutMs: 180000, // 3 minutes for first query (embedding model download)
+    initializeTimeoutMs: 120000, // 2 minutes for initialization (embedding model download)
   },
   synapse: {
     enabled: true,
@@ -29,6 +29,19 @@ const DEFAULT_CONFIG = {
   logging: {
     logLevel: 'info',
     maxLogs: 200,
+  },
+  // Tool-specific timeouts (in ms)
+  toolTimeouts: {
+    wiki_list_pages: 5000,
+    wiki_get_page: 5000,
+    wiki_search: 5000,
+    wiki_get_backlinks: 5000,
+    wiki_build_graph: 10000,
+    wiki_traverse_graph: 10000,
+    wiki_neo4j_search: 180000, // 3 minutes for first query (embedding model download)
+    wiki_neo4j_get_related: 30000,
+    wiki_neo4j_find_paths: 30000,
+    wiki_neo4j_query: 30000,
   },
 };
 
@@ -52,8 +65,8 @@ export function createConfigFromEnv() {
       maxRetries: parseInt(process.env.ZUOJIA_MCP_MAX_RETRIES, 10) || 3,
       retryBaseDelay: parseInt(process.env.ZUOJIA_MCP_RETRY_BASE_DELAY, 10) || 1000,
       maxRetryDelay: parseInt(process.env.ZUOJIA_MCP_MAX_RETRY_DELAY, 10) || 10000,
-      callToolTimeoutMs: parseInt(process.env.ZUOJIA_MCP_TOOL_TIMEOUT, 10) || 5000,
-      initializeTimeoutMs: parseInt(process.env.ZUOJIA_MCP_INIT_TIMEOUT, 10) || 10000,
+      callToolTimeoutMs: parseInt(process.env.ZUOJIA_MCP_TOOL_TIMEOUT, 10) || 180000,
+      initializeTimeoutMs: parseInt(process.env.ZUOJIA_MCP_INIT_TIMEOUT, 10) || 120000,
     },
     synapse: {
       enabled: process.env.ZUOJIA_MCP_SYNAPSE_ENABLED !== 'false',
