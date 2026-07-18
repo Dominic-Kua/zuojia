@@ -12,6 +12,11 @@ export class McpTransport extends EventEmitter {
   }
 
   #setupListeners() {
+    if (!this.#process.stdout || !this.#process.stdin) {
+      this.emit('error', new Error('Process missing stdout or stdin'));
+      return;
+    }
+    
     this.#process.stdout.on('data', this.#handleStdout.bind(this));
     this.#process.stderr.on('data', this.#handleStderr.bind(this));
     this.#process.on('exit', this.#handleExit.bind(this));
@@ -84,6 +89,10 @@ export class McpTransport extends EventEmitter {
   }
 
   #write(message) {
+    if (!this.#process.stdin) {
+      throw new Error('Process missing stdin');
+    }
+    
     const json = JSON.stringify(message) + '\n';
     this.#process.stdin.write(json);
   }
