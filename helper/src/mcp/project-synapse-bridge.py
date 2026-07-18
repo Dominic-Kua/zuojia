@@ -189,6 +189,21 @@ class MCPBridge:
         self._shutdown_event.set()
         self.running = False
 
+        # First, close stdin to signal EOF to the Synapse process
+        # This helps the process shut down gracefully
+        if self.synapse_proc and self.synapse_proc.stdin:
+            try:
+                self.synapse_proc.stdin.close()
+            except Exception:
+                pass
+
+        # Wait for I/O threads to finish (they check self.running)
+        for thread in (self._stdout_thread, self._stderr_thread, self._stdin_thread):
+            if thread and thread.is_alive():
+                self.logger.debug(f"Waiting for {thread.name} to finish...")
+                thread.join(timeout=2.0)
+
+        # Now terminate the process
         if self.synapse_proc and self.synapse_proc.poll() is None:
             self.logger.info("Shutting down Project Synapse...")
             try:
@@ -203,9 +218,6 @@ class MCPBridge:
                     self.synapse_proc.wait()
             except Exception as e:
                 self.logger.error(f"Error during shutdown: {e}")
-            finally:
-                # Give threads a moment to clean up
-                time.sleep(0.5)
 
 
 def main():
