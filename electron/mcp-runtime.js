@@ -9,6 +9,11 @@ import {
   buildWikiKnowledgeGraphForMcp,
   traverseWikiKnowledgeGraphForMcp,
 } from '../helper/src/mcp/wiki-tools.js';
+import { createMcpClient } from '../helper/src/mcp/mcp-client.js';
+import { McpTransport } from '../helper/src/mcp/mcp-transport.js';
+import { createToolMapper } from '../helper/src/mcp/tool-mapper.js';
+import { createArgumentTransformer } from '../helper/src/mcp/argument-transformer.js';
+import { createResponseNormalizer } from '../helper/src/mcp/response-normalizer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -91,6 +96,13 @@ export function createMcpRuntimeManager({
   let runtimeNovelPath = null;
   let lastError = null;
   const callLogs = [];
+  
+  let mcpClient = null;
+  let mcpTransport = null;
+  let toolMapper = null;
+  let argumentTransformer = null;
+  let responseNormalizer = null;
+  let isUsingSynapse = false;
 
   function pushLog(entry) {
     callLogs.push(entry);
@@ -101,6 +113,47 @@ export function createMcpRuntimeManager({
 
   function isRunningProcess(proc) {
     return Boolean(proc) && proc.exitCode === null;
+  }
+
+  async function initializeMcpClient(child) {
+    try {
+      // Check if child has proper stdio for transport
+      if (!child.stdout || !child.stdin) {
+        isUsingSynapse = false;
+        return false;
+      }
+      
+      mcpTransport = new McpTransport(child);
+      
+      mcpClient = createMcpClient({
+        transport: mcpTransport,
+        clientInfo: { name: 'zuojia', version: '0.1.0' },
+      });
+      
+      await mcpClient.initialize();
+      
+      toolMapper = createToolMapper();
+      argumentTransformer = createArgumentTransformer(toolMapper);
+      responseNormalizer = createResponseNormalizer();
+      
+      isUsingSynapse = true;
+      
+      pushLog({
+        timestamp: new Date().toISOString(),
+        type: 'mcp_client_initialized',
+        tools: mcpClient.getTools().map(t => t.name),
+      });
+      
+      return true;
+    } catch (error) {
+      pushLog({
+        timestamp: new Date().toISOString(),
+        type: 'mcp_client_init_failed',
+        error: error.message,
+      });
+      isUsingSynapse = false;
+      return false;
+    }
   }
 
   async function start({ novelPath }) {
@@ -121,16 +174,17 @@ export function createMcpRuntimeManager({
       await stop();
     }
 
-    const serverPath = path.join(__dirname, '../helper/src/mcp/synapse-server.js');
-    const child = spawnFn(process.execPath, [serverPath], {
+    const serverPath = path.join(__dirname, '../helper/src/mcp/project-synapse-bridge.py');
+    const pythonCmd = 'python3.13';
+    const neo4j_pass = process.env.NEO4J_PASSWORD;
+    const child = spawnFn(pythonCmd, [serverPath], {
       stdio: 'pipe',
       env: {
         ...process.env,
-        ELECTRON_RUN_AS_NODE: '1',
         ZUOJIA_NOVEL_PATH: novelPath,
         NEO4J_URI: 'bolt://localhost:7687',
         NEO4J_USER: 'neo4j',
-        NEO4J_PASSWORD: 'neo4j',
+        NEO4J_PASSWORD: neo4j_pass,
       },
     });
 
@@ -148,6 +202,12 @@ export function createMcpRuntimeManager({
       processRef = null;
       runtimeNovelPath = null;
       startTime = null;
+      mcpClient = null;
+      mcpTransport = null;
+      toolMapper = null;
+      argumentTransformer = null;
+      responseNormalizer = null;
+      isUsingSynapse = false;
     });
 
     processRef = child;
@@ -155,11 +215,14 @@ export function createMcpRuntimeManager({
     startTime = nowFn();
     lastError = null;
 
+    await initializeMcpClient(child);
+
     return {
       status: 'running',
       pid: child.pid,
       novelPath,
       startedAt: new Date(startTime).toISOString(),
+      usingSynapse: isUsingSynapse,
     };
   }
 
@@ -169,6 +232,15 @@ export function createMcpRuntimeManager({
         status: 'stopped',
         alreadyStopped: true,
       };
+    }
+
+    if (mcpClient) {
+      try {
+        await mcpClient.shutdown();
+      } catch {
+        // Ignore shutdown errors
+      }
+      mcpClient = null;
     }
 
     const child = processRef;
@@ -205,6 +277,12 @@ export function createMcpRuntimeManager({
       processRef = null;
       runtimeNovelPath = null;
       startTime = null;
+      mcpClient = null;
+      mcpTransport = null;
+      toolMapper = null;
+      argumentTransformer = null;
+      responseNormalizer = null;
+      isUsingSynapse = false;
     }
 
     return {
@@ -237,10 +315,26 @@ export function createMcpRuntimeManager({
           timeoutId = setTimeoutFn(() => reject(createTimeoutError(toolName, timeoutMs)), timeoutMs);
         });
 
-        const result = await Promise.race([
-          toolExecutor(runtimeNovelPath, toolName, args),
-          timeoutPromise,
-        ]);
+        let result;
+
+        if (isUsingSynapse && mcpClient && toolMapper.hasMapping(toolName)) {
+          // Use Project Synapse via MCP client
+          const synapseTool = toolMapper.mapTool(toolName);
+          const synapseArgs = argumentTransformer.transform(toolName, args);
+          
+          const synapseResult = await Promise.race([
+            mcpClient.callTool(synapseTool, synapseArgs, timeoutMs),
+            timeoutPromise,
+          ]);
+          
+          result = responseNormalizer.normalize(toolName, synapseResult);
+        } else {
+          // Fallback to local wiki tools
+          result = await Promise.race([
+            toolExecutor(runtimeNovelPath, toolName, args),
+            timeoutPromise,
+          ]);
+        }
 
         if (result?.status === 'error') {
           throw toToolError(result, toolName);
@@ -255,6 +349,7 @@ export function createMcpRuntimeManager({
           attempt,
           durationMs: Math.max(0, nowFn() - startedAt),
           status: result?.status || 'ok',
+          viaSynapse: isUsingSynapse && toolMapper.hasMapping(toolName),
         });
 
         return result;
@@ -292,6 +387,7 @@ export function createMcpRuntimeManager({
         novelPath: null,
         uptimeMs: 0,
         lastError,
+        usingSynapse: false,
       };
     }
 
@@ -301,6 +397,8 @@ export function createMcpRuntimeManager({
       novelPath: runtimeNovelPath,
       uptimeMs: startTime ? Math.max(0, nowFn() - startTime) : 0,
       lastError,
+      usingSynapse: isUsingSynapse,
+      synapseTools: isUsingSynapse && mcpClient ? mcpClient.getTools().map(t => t.name) : [],
     };
   }
 
