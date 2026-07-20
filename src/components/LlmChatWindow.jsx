@@ -60,7 +60,13 @@ export function LlmChatWindow({ novelPath }) {
       'character', 'characters', 'world', 'setting', 'location', 'locations',
       'plot', 'story', 'novel', 'wiki', 'page', 'pages', 'who is', 'what is',
       'when is', 'where is', 'how does', 'why does', 'describe', 'explain',
-      'background', 'history', 'lore', 'timeline', 'relationship', 'relationships'
+      'background', 'history', 'lore', 'timeline', 'relationship', 'relationships',
+      'vampire', 'vampires', 'blood', 'monster', 'monsters', 'creature', 'creatures',
+      'supernatural', 'magic', 'spell', 'spells', 'witch', 'witches', 'werewolf',
+      'werewolves', 'ghost', 'ghosts', 'demon', 'demons', 'angel', 'angels',
+      'dragon', 'dragons', 'elf', 'elves', 'dwarf', 'dwarves', 'orc', 'orcs',
+      'kingdom', 'empire', 'city', 'town', 'village', 'castle', 'dungeon',
+      'quest', 'adventure', 'weapon', 'weapons', 'sword', 'swords', 'magic'
     ];
     
     const lowercaseQuery = query.toLowerCase();
@@ -306,7 +312,7 @@ export function LlmChatWindow({ novelPath }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="llm-chat-header">
-              <h3 id="llm-chat-title">LLM Assistant</h3>
+              <h3 id="llm-chat-title">LLM Chat</h3>
                <div className="llm-chat-header-actions">
                  <div className="llm-status-indicator" data-status={llmStatus}>
                    LLM: {llmStatus === 'running' ? 'Running' : llmStatus === 'error' ? 'Error' : 'Stopped'}
