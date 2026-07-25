@@ -66,8 +66,7 @@ class IntegrationTest {
   async startSynapseBridge(novelPath) {
     return new Promise((resolve, reject) => {
       const synapsePath = path.join(process.env.HOME || '/Users/dominickua', 'code/project-synapse-mcp');
-      const pythonCmd = 'python3.13';
-      const bridgePath = path.join(__dirname, '../helper/src/mcp/project-synapse-bridge.py');
+      const bridgePath = path.join(__dirname, '../helper/src/mcp/project-synapse-bridge.js');
       
       const env = {
         ...process.env,
@@ -77,7 +76,7 @@ class IntegrationTest {
         NEO4J_PASSWORD: '***REMOVED***',
       };
 
-      this.synapseProc = spawn(pythonCmd, [bridgePath], {
+      this.synapseProc = spawn(process.execPath, [bridgePath], {
         stdio: ['pipe', 'pipe', 'pipe'],
         env,
       });
