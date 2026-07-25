@@ -18,8 +18,13 @@ vi.mock('../../../src/lib/ipc-client', () => ({
     getConfig: vi.fn(),
     startRuntime: vi.fn(),
     stopRuntime: vi.fn(),
+    chat: vi.fn(),
   },
-  mcpHandlers: {},
+  mcpHandlers: {
+    health: vi.fn().mockResolvedValue({ status: 'stopped' }),
+    startServer: vi.fn(),
+    callTool: vi.fn(),
+  },
 }));
 
 describe('LlmChatWindow', () => {
@@ -92,7 +97,7 @@ describe('LlmChatWindow', () => {
       await user.click(screen.getByTestId('llm-chat-button'));
     });
 
-    expect(screen.getByText('Running')).toBeInTheDocument();
+    expect(screen.getByText('LLM: Running')).toBeInTheDocument();
   });
 
   it('can collapse and expand the chat window', async () => {

@@ -1,7 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { llmHandlers } from '../lib/ipc-client';
+import { llmHandlers, mcpHandlers } from '../lib/ipc-client';
 
-export function LlmChatWindow({ novelPath }) {
+const NEO4J_SEARCH_TIMEOUT = 180000;
+const WIKI_SEARCH_TIMEOUT = 30000;
+
+function ServiceStatusBadge({ label, status }) {
+  const s = status?.status || 'unknown';
+  const cls = s === 'running' ? 'ok' : s === 'error' ? 'error' : s === 'skipped' ? 'skip' : 'pending';
+  return (
+    <span className={`service-badge service-badge-${cls}`} title={status?.error || ''}>
+      {label}: {cls === 'ok' ? 'Ready' : cls === 'error' ? 'Error' : cls === 'skip' ? 'N/A' : 'Starting'}
+    </span>
+  );
+}
+
+export function LlmChatWindow({ novelPath, servicesStatus, servicesLoading }) {
   const [showWindow, setShowWindow] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -9,6 +22,8 @@ export function LlmChatWindow({ novelPath }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isLlmRunning, setIsLlmRunning] = useState(false);
   const [llmStatus, setLlmStatus] = useState('stopped');
+  const [isMcpRunning, setIsMcpRunning] = useState(false);
+  const [isQueryingWiki, setIsQueryingWiki] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -25,8 +40,22 @@ export function LlmChatWindow({ novelPath }) {
       }
     };
 
+    const checkMcpStatus = async () => {
+      try {
+        const health = await mcpHandlers.health();
+        setIsMcpRunning(health.status === 'running');
+      } catch (err) {
+        console.error('Failed to check MCP status:', err);
+        setIsMcpRunning(false);
+      }
+    };
+
     checkLlmStatus();
-    const interval = setInterval(checkLlmStatus, 5000);
+    checkMcpStatus();
+    const interval = setInterval(() => {
+      checkLlmStatus();
+      checkMcpStatus();
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -38,60 +67,153 @@ export function LlmChatWindow({ novelPath }) {
     scrollToBottom();
   }, [messages]);
 
+  const queryWikiForContext = async (query) => {
+    try {
+      setIsQueryingWiki(true);
+      console.log(`[Wiki] queryWikiForContext called, isMcpRunning=${isMcpRunning}, novelPath=${novelPath}`);
+
+      if (!isMcpRunning) {
+        console.log('[Wiki] MCP not running — attempting to start...');
+        try {
+          await mcpHandlers.startServer(novelPath);
+          setIsMcpRunning(true);
+          console.log('[Wiki] MCP server started successfully');
+        } catch (startErr) {
+          console.error('[Wiki] Failed to start MCP server:', startErr);
+          setIsQueryingWiki(false);
+          return null;
+        }
+      }
+
+      // Try Neo4j search first
+      try {
+        console.log(`[Wiki] Calling wiki_neo4j_search with query="${query}"`);
+        const result = await mcpHandlers.callTool(
+          'wiki_neo4j_search',
+          { query, limit: 5 },
+          { timeoutMs: NEO4J_SEARCH_TIMEOUT, retries: 1 }
+        );
+        console.log('[Wiki] wiki_neo4j_search result:', JSON.stringify(result).slice(0, 300));
+
+        if (result?.status === 'ok' && result?.data?.results?.length > 0) {
+          console.log(`[Wiki] Neo4j search returned ${result.data.results.length} results`);
+          return result.data.results;
+        }
+        console.log('[Wiki] Neo4j search returned no results, falling back...');
+      } catch (neo4jErr) {
+        console.warn('[Wiki] Neo4j search failed, trying fallback:', neo4jErr.message);
+      }
+
+      // Fallback to basic wiki search
+      console.log(`[Wiki] Calling wiki_search with query="${query}"`);
+      const fallbackResult = await mcpHandlers.callTool(
+        'wiki_search',
+        { query, limit: 5 },
+        { timeoutMs: WIKI_SEARCH_TIMEOUT, retries: 1 }
+      );
+      console.log('[Wiki] wiki_search result:', JSON.stringify(fallbackResult).slice(0, 300));
+
+      if (fallbackResult?.status === 'ok' && fallbackResult?.data?.results?.length > 0) {
+        console.log(`[Wiki] Fallback search returned ${fallbackResult.data.results.length} results`);
+        return fallbackResult.data.results;
+      }
+
+      console.log('[Wiki] No results from either search');
+      return null;
+    } catch (error) {
+      console.error('[Wiki] Failed to query wiki:', error);
+      setMessages(prev => [...prev, {
+        role: 'system',
+        content: `Wiki query failed: ${error.message}. First query may take 2-3 minutes to download embedding model.`,
+        timestamp: new Date().toISOString(),
+        isError: true
+      }]);
+      return null;
+    } finally {
+      setIsQueryingWiki(false);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!inputText.trim() || isLoading || !isLlmRunning) return;
 
     const userMessage = inputText.trim();
     setInputText('');
-    
-    setMessages(prev => [...prev, { 
-      role: 'user', 
+
+    setMessages(prev => [...prev, {
+      role: 'user',
       content: userMessage,
       timestamp: new Date().toISOString()
     }]);
 
     setIsLoading(true);
 
+    setMessages(prev => [...prev, {
+      role: 'assistant',
+      content: '...',
+      timestamp: new Date().toISOString(),
+      isLoading: true
+    }]);
+
     try {
-      if (!isLlmRunning) {
-        const config = await llmHandlers.getConfig();
-        if (config.status === 'ok') {
-          await llmHandlers.startRuntime(config.data);
-          setIsLlmRunning(true);
-          setLlmStatus('running');
-        } else {
-          throw new Error('LLM configuration not available');
-        }
+      // Always try to get wiki context if MCP is available
+      let wikiContext = null;
+      console.log(`[Chat] isMcpRunning=${isMcpRunning}, isLlmRunning=${isLlmRunning}`);
+      if (isMcpRunning) {
+        wikiContext = await queryWikiForContext(userMessage);
+        console.log(`[Chat] wikiContext result:`, wikiContext ? `${wikiContext.length} items` : 'null');
+      } else {
+        console.log('[Chat] MCP not running — skipping wiki context');
       }
 
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: '...',
-        timestamp: new Date().toISOString(),
-        isLoading: true
-      }]);
+      const conversation = messages
+        .filter(message => message.role === 'user' || message.role === 'assistant')
+        .map(message => ({ role: message.role, content: message.content }));
 
-      setTimeout(() => {
-        setMessages(prev => {
-          const newMessages = [...prev];
-          newMessages[newMessages.length - 1] = {
-            ...newMessages[newMessages.length - 1],
-            content: `I received your message about: "${userMessage}". This is a placeholder response since LLM integration is not fully implemented yet.`,
+      const systemPrompt = `You are a writing assistant for a novel. ${
+        wikiContext
+          ? `Here is relevant context from the novel's wiki knowledge graph:\n${JSON.stringify(wikiContext, null, 2)}\n\nUse this context to answer the user's question about the novel's world, characters, plot, or setting. If the context doesn't contain the answer, say so and ask for clarification.`
+          : 'Answer questions about the novel\'s world, characters, plot, or setting based on your general knowledge. If you need specific details from the wiki, let the user know the wiki search didn\'t return relevant results.'
+      }`;
+
+      conversation.unshift({
+        role: 'system',
+        content: systemPrompt
+      });
+
+      conversation.push({ role: 'user', content: userMessage });
+      console.log(`[Chat] Sending ${conversation.length} messages to LLM, system prompt ${wikiContext ? 'INCLUDES' : 'excludes'} wiki context`);
+
+      const response = await llmHandlers.chat(conversation);
+
+      setMessages(prev => {
+        const newMessages = [...prev];
+        const lastIdx = newMessages.length - 1;
+        if (newMessages[lastIdx]?.role === 'assistant' && newMessages[lastIdx]?.isLoading) {
+          newMessages[lastIdx] = {
+            ...newMessages[lastIdx],
+            content: response || 'No response from LLM.',
             isLoading: false
           };
-          return newMessages;
-        });
-        setIsLoading(false);
-      }, 1000);
-
+        }
+        return newMessages;
+      });
     } catch (err) {
       console.error('Failed to send message:', err);
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: `Error: ${err.message || 'Failed to get response'}`,
-        timestamp: new Date().toISOString(),
-        isError: true
-      }]);
+      setMessages(prev => {
+        const newMessages = [...prev];
+        const lastIdx = newMessages.length - 1;
+        if (newMessages[lastIdx]?.role === 'assistant' && newMessages[lastIdx]?.isLoading) {
+          newMessages[lastIdx] = {
+            ...newMessages[lastIdx],
+            content: `Error: ${err.message || 'Failed to get response'}`,
+            isLoading: false,
+            isError: true
+          };
+        }
+        return newMessages;
+      });
+    } finally {
       setIsLoading(false);
     }
   };
@@ -111,9 +233,19 @@ export function LlmChatWindow({ novelPath }) {
         await llmHandlers.startRuntime(config.data);
         setIsLlmRunning(true);
         setLlmStatus('running');
+
+        if (!isMcpRunning) {
+          try {
+            await mcpHandlers.startServer(novelPath);
+            setIsMcpRunning(true);
+          } catch (mcpErr) {
+            console.warn('MCP server failed to start:', mcpErr);
+          }
+        }
+
         setMessages(prev => [...prev, {
           role: 'system',
-          content: 'LLM runtime started. You can now ask questions.',
+          content: `LLM runtime started.${isMcpRunning ? ' Wiki query system ready.' : ''}`,
           timestamp: new Date().toISOString()
         }]);
       }
@@ -156,20 +288,31 @@ export function LlmChatWindow({ novelPath }) {
     return null;
   }
 
+  const showStartupStatus = servicesLoading || (servicesStatus && servicesStatus.status !== 'already_running' && servicesStatus.status !== 'ok');
+
   return (
     <>
-      <button 
-        className="btn ghost" 
-        data-testid="llm-chat-button"
-        onClick={() => setShowWindow(true)}
-        title="Open LLM Chat"
-      >
-        LLM Chat
-      </button>
+      <div className={`llm-chat-btn-wrapper${servicesLoading ? ' llm-connecting' : ''}`}>
+        <button
+          className="btn ghost"
+          data-testid="llm-chat-button"
+          onClick={() => !servicesLoading && setShowWindow(true)}
+          disabled={servicesLoading}
+          title={servicesLoading ? 'Connecting to services...' : 'Open LLM Chat'}
+        >
+          LLM Chat
+        </button>
+        {servicesLoading && (
+          <div className="llm-connecting-overlay">
+            <span className="llm-connecting-spinner" />
+            <span>Connecting</span>
+          </div>
+        )}
+      </div>
 
       {showWindow && (
         <div className="llm-chat-overlay" data-testid="llm-chat-overlay" onClick={() => setShowWindow(false)}>
-          <div 
+          <div
             className={`llm-chat-window${isCollapsed ? ' collapsed' : ''}`}
             data-testid="llm-chat-window"
             role="dialog"
@@ -178,19 +321,22 @@ export function LlmChatWindow({ novelPath }) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="llm-chat-header">
-              <h3 id="llm-chat-title">LLM Assistant</h3>
-              <div className="llm-chat-header-actions">
-                <div className="llm-status-indicator" data-status={llmStatus}>
-                  {llmStatus === 'running' ? 'Running' : llmStatus === 'error' ? 'Error' : 'Stopped'}
-                </div>
-                <button 
+              <h3 id="llm-chat-title">LLM Chat</h3>
+               <div className="llm-chat-header-actions">
+                 <div className="llm-status-indicator" data-status={llmStatus}>
+                   LLM: {llmStatus === 'running' ? 'Running' : llmStatus === 'error' ? 'Error' : 'Stopped'}
+                 </div>
+                 <div className="mcp-status-indicator" data-status={isMcpRunning ? 'running' : 'stopped'}>
+                   Wiki: {isMcpRunning ? 'Ready' : 'Offline'}
+                 </div>
+                <button
                   className="btn ghost btn-sm"
                   onClick={() => setIsCollapsed(!isCollapsed)}
                   aria-label={isCollapsed ? 'Expand chat' : 'Collapse chat'}
                 >
                   {isCollapsed ? '◢' : '◥'}
                 </button>
-                <button 
+                <button
                   className="btn ghost btn-sm"
                   onClick={() => setShowWindow(false)}
                   aria-label="Close chat"
@@ -202,6 +348,20 @@ export function LlmChatWindow({ novelPath }) {
 
             {!isCollapsed && (
               <>
+                {showStartupStatus && (
+                  <div className="llm-startup-status" data-testid="llm-startup-status">
+                    {servicesLoading ? (
+                      <span>Starting services...</span>
+                    ) : servicesStatus ? (
+                      <div className="service-badges">
+                        <ServiceStatusBadge label="Neo4j" status={servicesStatus.neo4j} />
+                        <ServiceStatusBadge label="MCP" status={servicesStatus.mcp} />
+                        <ServiceStatusBadge label="LLM" status={servicesStatus.llm} />
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+
                 <div className="llm-chat-messages" data-testid="llm-chat-messages">
                   {messages.length === 0 ? (
                     <div className="llm-chat-placeholder">
@@ -213,7 +373,7 @@ export function LlmChatWindow({ novelPath }) {
                     </div>
                   ) : (
                     messages.map((msg, idx) => (
-                      <div 
+                      <div
                         key={idx}
                         className={`llm-message ${msg.role}${msg.isLoading ? ' loading' : ''}${msg.isError ? ' error' : ''}`}
                         data-testid={`llm-message-${msg.role}`}
@@ -289,9 +449,9 @@ export function LlmChatWindow({ novelPath }) {
                       Send
                     </button>
                   </div>
-                  <div className="llm-input-status">
-                    {isLoading ? 'Thinking...' : isLlmRunning ? 'Ready' : 'LLM stopped'}
-                  </div>
+                   <div className="llm-input-status">
+                     {isQueryingWiki ? 'Querying wiki...' : isLoading ? 'Thinking...' : isLlmRunning ? 'Ready' : 'LLM stopped'}
+                   </div>
                 </div>
               </>
             )}

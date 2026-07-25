@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "mcp:wiki": "node src/mcp/wiki-server.js",
+    "mcp:synapse": "node src/mcp/synapse-server.js",
     "test": "vitest --run",
     "test:watch": "vitest",
     "test:coverage": "vitest --coverage"
@@ -20,6 +20,7 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.5",
+    "neo4j-driver": "^6.2.0",
     "simple-git": "^3.23.0"
   },
   "devDependencies": {
