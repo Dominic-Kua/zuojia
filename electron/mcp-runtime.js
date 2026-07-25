@@ -293,7 +293,9 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
       await stop();
     }
 
-    const serverPath = path.join(__dirname, '../helper/src/mcp/project-synapse-bridge.py');
+    const serverPath = process.resourcesPath
+      ? path.join(process.resourcesPath, 'helper', 'src', 'mcp', 'project-synapse-bridge.py')
+      : path.join(__dirname, '../helper/src/mcp/project-synapse-bridge.py');
     const pythonCmd = 'python3.13';
     const neo4j_pass = process.env.NEO4J_PASSWORD;
     const child = spawnFn(pythonCmd, [serverPath], {
