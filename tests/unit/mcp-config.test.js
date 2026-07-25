@@ -3,8 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Test configuration defaults
 const DEFAULT_CONFIG = {
   process: {
-    pythonCommand: 'python3.13',
-    serverPath: 'helper/src/mcp/project-synapse-bridge.py',
+    serverPath: 'helper/src/mcp/project-synapse-bridge.js',
     env: {
       ZUOJIA_NOVEL_PATH: '',
       NEO4J_URI: 'bolt://localhost:7687',
@@ -33,7 +32,6 @@ const DEFAULT_CONFIG = {
 function createConfigFromEnv() {
   return {
     process: {
-      pythonCommand: process.env.ZUOJIA_MCP_PYTHON_CMD || DEFAULT_CONFIG.process.pythonCommand,
       serverPath: process.env.ZUOJIA_MCP_SERVER_PATH || DEFAULT_CONFIG.process.serverPath,
       env: {
         ZUOJIA_NOVEL_PATH: process.env.ZUOJIA_NOVEL_PATH || '',
@@ -97,12 +95,6 @@ describe('MCP Configuration', () => {
       expect(config.mcpClient.maxRetries).toBe(3);
       expect(config.synapse.enabled).toBe(true);
       expect(config.synapse.fallbackToLocal).toBe(true);
-    });
-
-    it('should read python command from env', () => {
-      process.env.ZUOJIA_MCP_PYTHON_CMD = 'python3.11';
-      const config = createConfigFromEnv();
-      expect(config.process.pythonCommand).toBe('python3.11');
     });
 
     it('should read synapse enabled from env', () => {
