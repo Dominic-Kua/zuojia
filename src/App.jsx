@@ -11,7 +11,7 @@ import { SnapshotButton } from './components/SnapshotButton'
 
 import { LlmChatWindow } from './components/LlmChatWindow'
 import { useWikiPages } from './hooks/useWikiPages'
-import { neo4jHandlers } from './lib/ipc-client'
+import { appHandlers } from './lib/ipc-client'
 
 export default function App(){
   const [novelPath, setNovelPath] = useState(null);
@@ -39,6 +39,8 @@ export default function App(){
     return 360;
   });
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  const [servicesStatus, setServicesStatus] = useState(null);
+  const [servicesLoading, setServicesLoading] = useState(false);
   const [editorFontSize, setEditorFontSize] = useState(() => {
     try {
       const stored = Number(window.localStorage.getItem('zuojia-editor-font-size'));
@@ -122,22 +124,47 @@ export default function App(){
     setRestoreKey((k) => k + 1);
   }, []);
 
-  const handleNovelCreated = (path) => {
+  const handleNovelCreated = async (path) => {
     setNovelPath(path);
+    setServicesLoading(true);
+    setServicesStatus(null);
+    
+    try {
+      const result = await appHandlers.startNovelServices(path);
+      setServicesStatus(result);
+    } catch (err) {
+      console.error('Failed to start novel services:', err);
+      setServicesStatus({ status: 'error', error: err.message });
+    } finally {
+      setServicesLoading(false);
+    }
   };
 
   const handleNovelOpened = async (path) => {
     setNovelPath(path);
+    setServicesLoading(true);
+    setServicesStatus(null);
     
-    // Note: NOT starting Neo4j runtime because we're using existing Neo4j instance
-    // Project Synapse connects to Neo4j at bolt://localhost:7687 with password as set in environment variables
+    try {
+      const result = await appHandlers.startNovelServices(path);
+      setServicesStatus(result);
+    } catch (err) {
+      console.error('Failed to start novel services:', err);
+      setServicesStatus({ status: 'error', error: err.message });
+    } finally {
+      setServicesLoading(false);
+    }
   };
 
   const handleCloseNovel = async () => {
-    setNovelPath(null);
-    
-    // Note: NOT stopping Neo4j runtime because we're using existing Neo4j instance
-    // Project Synapse continues using Neo4j at bolt://localhost:7687
+    try {
+      await appHandlers.stopNovelServices();
+    } catch (err) {
+      console.error('Failed to stop novel services:', err);
+    } finally {
+      setNovelPath(null);
+      setServicesStatus(null);
+    }
   };
 
   const toggleTheme = () => {
@@ -245,7 +272,7 @@ export default function App(){
           <SnapshotButton novelPath={novelPath} />
           <CommitButton novelPath={novelPath} />
           <PushButton novelPath={novelPath} />
-          <LlmChatWindow novelPath={novelPath} />
+          <LlmChatWindow novelPath={novelPath} servicesStatus={servicesStatus} servicesLoading={servicesLoading} />
           <DiagnosticsPanel novelPath={novelPath} onIndexRebuilt={refreshWikiPages} onRestored={handleRestored} />
           <SettingsModal novelPath={novelPath} />
           <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>
