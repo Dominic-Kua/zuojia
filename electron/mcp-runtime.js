@@ -7,7 +7,14 @@ import {
   searchWikiPagesForMcp,
   getWikiBacklinksForMcp,
   buildWikiKnowledgeGraphForMcp,
+  traverseWikiKnowledgeGraphForMcp,
 } from '../helper/src/mcp/wiki-tools.js';
+import { createMcpClient } from '../helper/src/mcp/mcp-client.js';
+import { McpTransport } from '../helper/src/mcp/mcp-transport.js';
+import { createToolMapper } from '../helper/src/mcp/tool-mapper.js';
+import { createArgumentTransformer } from '../helper/src/mcp/argument-transformer.js';
+import { createResponseNormalizer } from '../helper/src/mcp/response-normalizer.js';
+import { createConfig } from '../helper/src/mcp/mcp-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,6 +25,31 @@ const TOOL_NAMES = new Set([
   'wiki_search',
   'wiki_get_backlinks',
   'wiki_build_graph',
+  'wiki_traverse_graph',
+  'wiki_neo4j_search',
+  'wiki_neo4j_get_related',
+  'wiki_neo4j_find_paths',
+  'wiki_neo4j_query',
+  'ingest_text',
+]);
+
+const RETRYABLE_ERROR_CODES = new Set([
+  'MCP_RUNTIME_NOT_RUNNING',
+  'MCP_TOOL_TIMEOUT',
+  'MCP_CONNECTION_ERROR',
+  'MCP_SERVER_DISCONNECTED',
+  'MCP_TOOL_CALL_FAILED',
+  'ECONNRESET',
+  'EPIPE',
+  'ENOTCONN',
+  'ETIMEDOUT',
+]);
+
+const NON_RETRYABLE_ERROR_CODES = new Set([
+  'MCP_UNKNOWN_TOOL',
+  'MCP_TOOL_RESULT_ERROR',
+  'MCP_CLIENT_DESTROYED',
+  'MCP_INITIALIZATION_FAILED',
 ]);
 
 function createTimeoutError(toolName, timeoutMs) {
@@ -47,6 +79,15 @@ async function executeWikiTool(novelPath, toolName, args = {}) {
     return buildWikiKnowledgeGraphForMcp(novelPath, Number(args.maxEdges || 500));
   }
 
+  if (toolName === 'wiki_traverse_graph') {
+    return traverseWikiKnowledgeGraphForMcp(novelPath, {
+      startSlug: String(args.startSlug || ''),
+      targetSlug: String(args.targetSlug || ''),
+      maxDepth: Number(args.maxDepth || 3),
+      maxEdges: Number(args.maxEdges || 2000),
+    });
+  }
+
   const error = new Error(`Unsupported MCP tool: ${toolName}`);
   error.code = 'MCP_UNKNOWN_TOOL';
   throw error;
@@ -63,29 +104,175 @@ function toToolError(result, toolName) {
   return error;
 }
 
-export function createMcpRuntimeManager({
+function isRetryableError(error) {
+  if (!error?.code) return true;
+  if (NON_RETRYABLE_ERROR_CODES.has(error.code)) return false;
+  if (RETRYABLE_ERROR_CODES.has(error.code)) return true;
+  // Default to retryable for unknown errors
+  return true;
+}
+
+function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
+  const delay = Math.min(baseDelay * Math.pow(2, attempt - 1), maxDelay);
+  // Add jitter (±10%)
+  const jitter = delay * 0.1 * (Math.random() * 2 - 1);
+  return Math.floor(delay + jitter);
+}
+  
+  export function createMcpRuntimeManager({
   spawnFn = spawn,
   nowFn = () => Date.now(),
   setTimeoutFn = setTimeout,
   clearTimeoutFn = clearTimeout,
   toolExecutor = executeWikiTool,
-  maxLogs = 200,
+  config = createConfig(),
 } = {}) {
+  const mcpClientConfig = config.mcpClient;
+  const processConfig = config.process;
+  const synapseConfig = config.synapse;
+  const loggingConfig = config.logging;
+  const healthConfig = config.health;
+  const maxLogs = loggingConfig.maxLogs;
+  const retryConfig = {
+    baseDelay: mcpClientConfig.retryBaseDelay,
+    maxDelay: mcpClientConfig.retryMaxDelay,
+    maxRetries: mcpClientConfig.maxRetries,
+  };
+  const toolTimeouts = config.toolTimeouts;
+
   let processRef = null;
   let startTime = null;
   let runtimeNovelPath = null;
   let lastError = null;
   const callLogs = [];
+  
+  let mcpClient = null;
+  let mcpTransport = null;
+  let toolMapper = null;
+  let argumentTransformer = null;
+  let responseNormalizer = null;
+  let isUsingSynapse = false;
+  let reconnectAttempts = 0;
+  const MAX_RECONNECT_ATTEMPTS = synapseConfig.maxReconnectAttempts;
 
   function pushLog(entry) {
-    callLogs.push(entry);
-    if (callLogs.length > maxLogs) {
-      callLogs.splice(0, callLogs.length - maxLogs);
+    if (loggingConfig.logLevel === 'debug' || entry.type !== 'debug') {
+      callLogs.push(entry);
+      if (callLogs.length > maxLogs) {
+        callLogs.splice(0, callLogs.length - maxLogs);
+      }
     }
   }
 
   function isRunningProcess(proc) {
     return Boolean(proc) && proc.exitCode === null;
+  }
+
+  function getToolTimeout(toolName) {
+    return toolTimeouts[toolName] || mcpClientConfig.callToolTimeoutMs;
+  }
+
+  async function initializeMcpClient(child) {
+    if (!synapseConfig.enabled) {
+      isUsingSynapse = false;
+      pushLog({
+        timestamp: new Date().toISOString(),
+        type: 'mcp_client_init_skipped',
+        reason: 'synapse_disabled_in_config',
+      });
+      return false;
+    }
+
+    try {
+      if (!child.stdout || !child.stdin) {
+        isUsingSynapse = false;
+        pushLog({
+          timestamp: new Date().toISOString(),
+          type: 'mcp_client_init_failed',
+          error: 'Child process missing stdio pipes',
+        });
+        return false;
+      }
+      
+      mcpTransport = new McpTransport(child);
+      
+      mcpClient = createMcpClient({
+        transport: mcpTransport,
+        clientInfo: { name: 'zuojia', version: '0.1.0' },
+      });
+      
+      await mcpClient.initialize();
+      
+      toolMapper = createToolMapper();
+      argumentTransformer = createArgumentTransformer(toolMapper);
+      responseNormalizer = createResponseNormalizer();
+      
+      isUsingSynapse = true;
+      reconnectAttempts = 0;
+      
+      pushLog({
+        timestamp: new Date().toISOString(),
+        type: 'mcp_client_initialized',
+        tools: mcpClient.getTools().map(t => t.name),
+      });
+      
+      return true;
+    } catch (error) {
+      pushLog({
+        timestamp: new Date().toISOString(),
+        type: 'mcp_client_init_failed',
+        error: error.message,
+      });
+      isUsingSynapse = false;
+      return false;
+    }
+  }
+
+  async function reconnectMcpClient() {
+    if (reconnectAttempts >= synapseConfig.maxReconnectAttempts) {
+      pushLog({
+        timestamp: new Date().toISOString(),
+        type: 'mcp_reconnect_failed',
+        error: 'Max reconnect attempts reached',
+        attempts: reconnectAttempts,
+      });
+      isUsingSynapse = false;
+      return false;
+    }
+
+    reconnectAttempts++;
+    
+    if (!processRef || !isRunningProcess(processRef)) {
+      return false;
+    }
+
+    pushLog({
+      timestamp: new Date().toISOString(),
+      type: 'mcp_reconnecting',
+      attempt: reconnectAttempts,
+    });
+
+    try {
+      // Clean up old client
+      if (mcpClient) {
+        try {
+          await mcpClient.shutdown();
+        } catch {
+          // Ignore
+        }
+      }
+      
+      // Reinitialize
+      return await initializeMcpClient(processRef);
+    } catch (error) {
+      pushLog({
+        timestamp: new Date().toISOString(),
+        type: 'mcp_reconnect_failed',
+        attempt: reconnectAttempts,
+        error: error.message,
+      });
+      return false;
+    }
   }
 
   async function start({ novelPath }) {
@@ -106,18 +293,28 @@ export function createMcpRuntimeManager({
       await stop();
     }
 
-    const serverPath = path.join(__dirname, '../helper/src/mcp/wiki-server.js');
-    const child = spawnFn(process.execPath, [serverPath], {
+    const serverPath = path.join(__dirname, '../helper/src/mcp/project-synapse-bridge.py');
+    const pythonCmd = 'python3.13';
+    const neo4j_pass = process.env.NEO4J_PASSWORD;
+    const child = spawnFn(pythonCmd, [serverPath], {
       stdio: 'pipe',
       env: {
         ...process.env,
-        ELECTRON_RUN_AS_NODE: '1',
         ZUOJIA_NOVEL_PATH: novelPath,
+        NEO4J_URI: 'bolt://localhost:7687',
+        NEO4J_USER: 'neo4j',
+        NEO4J_PASSWORD: neo4j_pass,
+        NEO4J_DATABASE: 'wiki',
       },
     });
 
     child.on('error', (error) => {
       lastError = error.message;
+      pushLog({
+        timestamp: new Date().toISOString(),
+        type: 'process_error',
+        error: error.message,
+      });
     });
 
     child.on('exit', (code, signal) => {
@@ -130,6 +327,20 @@ export function createMcpRuntimeManager({
       processRef = null;
       runtimeNovelPath = null;
       startTime = null;
+      mcpClient = null;
+      mcpTransport = null;
+      toolMapper = null;
+      argumentTransformer = null;
+      responseNormalizer = null;
+      isUsingSynapse = false;
+      reconnectAttempts = 0;
+      
+      pushLog({
+        timestamp: new Date().toISOString(),
+        type: 'process_exit',
+        code,
+        signal: signal || 'none',
+      });
     });
 
     processRef = child;
@@ -137,11 +348,14 @@ export function createMcpRuntimeManager({
     startTime = nowFn();
     lastError = null;
 
+    await initializeMcpClient(child);
+
     return {
       status: 'running',
       pid: child.pid,
       novelPath,
       startedAt: new Date(startTime).toISOString(),
+      usingSynapse: isUsingSynapse,
     };
   }
 
@@ -151,6 +365,15 @@ export function createMcpRuntimeManager({
         status: 'stopped',
         alreadyStopped: true,
       };
+    }
+
+    if (mcpClient) {
+      try {
+        await mcpClient.shutdown();
+      } catch {
+        // Ignore shutdown errors
+      }
+      mcpClient = null;
     }
 
     const child = processRef;
@@ -187,6 +410,13 @@ export function createMcpRuntimeManager({
       processRef = null;
       runtimeNovelPath = null;
       startTime = null;
+      mcpClient = null;
+      mcpTransport = null;
+      toolMapper = null;
+      argumentTransformer = null;
+      responseNormalizer = null;
+      isUsingSynapse = false;
+      reconnectAttempts = 0;
     }
 
     return {
@@ -208,9 +438,10 @@ export function createMcpRuntimeManager({
       throw error;
     }
 
-    const attempts = Math.max(1, Number(retries || 0) + 1);
+    const maxRetries = Math.max(0, Number(retries || 0));
+    const maxAttempts = maxRetries + 1;
 
-    for (let attempt = 1; attempt <= attempts; attempt++) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       const startedAt = nowFn();
       let timeoutId;
 
@@ -219,13 +450,64 @@ export function createMcpRuntimeManager({
           timeoutId = setTimeoutFn(() => reject(createTimeoutError(toolName, timeoutMs)), timeoutMs);
         });
 
-        const result = await Promise.race([
-          toolExecutor(runtimeNovelPath, toolName, args),
-          timeoutPromise,
-        ]);
+        let result;
+
+        // Check if we should use Synapse
+        const canUseSynapse = isUsingSynapse && mcpClient && toolMapper.hasMapping(toolName);
+        console.log(`[MCP] callTool "${toolName}" attempt=${attempt}, canUseSynapse=${canUseSynapse}, isUsingSynapse=${isUsingSynapse}, hasClient=${!!mcpClient}, hasMapping=${toolMapper.hasMapping(toolName)}`);
+        
+        if (canUseSynapse) {
+          // Use Project Synapse via MCP client
+          const synapseTool = toolMapper.mapTool(toolName);
+          const synapseArgs = argumentTransformer.transform(toolName, args);
+          console.log(`[MCP] → Synapse tool="${synapseTool}", args=${JSON.stringify(synapseArgs).slice(0, 200)}`);
+          
+          const synapseResult = await Promise.race([
+            mcpClient.callTool(synapseTool, synapseArgs, timeoutMs),
+            timeoutPromise,
+          ]);
+          
+          result = responseNormalizer.normalize(toolName, synapseResult);
+          console.log(`[MCP] ← Synapse response: status=${result?.status}, data keys=${result?.data ? Object.keys(result.data) : 'none'}`);
+          
+          // If Synapse returns error, try fallback to local tools
+          if (result?.status === 'error') {
+            const error = toToolError(result, toolName);
+            
+            // If error is retryable and we have retries left, try fallback
+            if (isRetryableError(error) && attempt < maxAttempts) {
+              pushLog({
+                timestamp: new Date().toISOString(),
+                toolName,
+                args,
+                attempt,
+                status: 'error',
+                error: error.message,
+                code: error.code,
+                action: 'falling_back_to_local',
+              });
+              
+              // Try local tool executor as fallback
+              result = await Promise.race([
+                toolExecutor(runtimeNovelPath, toolName, args),
+                timeoutPromise,
+              ]);
+            }
+          }
+        } else {
+          // Fallback to local wiki tools
+          console.log(`[MCP] → Local tool "${toolName}" (Synapse unavailable)`);
+          result = await Promise.race([
+            toolExecutor(runtimeNovelPath, toolName, args),
+            timeoutPromise,
+          ]);
+          console.log(`[MCP] ← Local result: status=${result?.status}, data=${JSON.stringify(result?.data).slice(0, 200)}`);
+        }
 
         if (result?.status === 'error') {
-          throw toToolError(result, toolName);
+          const err = toToolError(result, toolName);
+          console.error(`[MCP] Tool "${toolName}" returned error: ${err.message} (code=${err.code})`);
+          throw err;
         }
 
         clearTimeoutFn(timeoutId);
@@ -237,11 +519,15 @@ export function createMcpRuntimeManager({
           attempt,
           durationMs: Math.max(0, nowFn() - startedAt),
           status: result?.status || 'ok',
+          viaSynapse: canUseSynapse,
         });
 
         return result;
       } catch (error) {
         clearTimeoutFn(timeoutId);
+
+        const isRetryable = isRetryableError(error);
+        const isLastAttempt = attempt >= maxAttempts;
 
         pushLog({
           timestamp: new Date().toISOString(),
@@ -252,9 +538,30 @@ export function createMcpRuntimeManager({
           status: 'error',
           error: error.message,
           code: error.code || 'MCP_TOOL_CALL_FAILED',
+          retryable: isRetryable,
+          isLastAttempt,
         });
 
-        if (attempt >= attempts) {
+        // If Synapse failed with connection error, try to reconnect
+        if (isRetryable && error.code?.startsWith('MCP_CONNECTION') && canUseSynapse) {
+          await reconnectMcpClient();
+        }
+
+        // If retryable and not last attempt, wait before retrying
+        if (isRetryable && !isLastAttempt) {
+          const delay = getRetryDelay(attempt, retryConfig.baseDelay, retryConfig.maxDelay);
+          pushLog({
+            timestamp: new Date().toISOString(),
+            toolName,
+            attempt,
+            action: 'retry_delay',
+            delayMs: delay,
+          });
+          await new Promise(resolve => setTimeoutFn(resolve, delay));
+          continue;
+        }
+
+        if (isLastAttempt) {
           lastError = error.message;
           throw error;
         }
@@ -274,6 +581,8 @@ export function createMcpRuntimeManager({
         novelPath: null,
         uptimeMs: 0,
         lastError,
+        usingSynapse: false,
+        reconnectAttempts,
       };
     }
 
@@ -283,6 +592,9 @@ export function createMcpRuntimeManager({
       novelPath: runtimeNovelPath,
       uptimeMs: startTime ? Math.max(0, nowFn() - startTime) : 0,
       lastError,
+      usingSynapse: isUsingSynapse,
+      synapseTools: isUsingSynapse && mcpClient ? mcpClient.getTools().map(t => t.name) : [],
+      reconnectAttempts,
     };
   }
 

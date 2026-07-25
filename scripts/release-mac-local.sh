@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Load environment variables from .env file (must be placed in root directory)
+echo "Loading environment variables from .env..."
+set -a # Automatically export all subsequent assignments to environment variables
+source .env
+set +a # Turn off automatic export
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
@@ -25,10 +31,12 @@ NODE
 }
 
 echo "[1/4] Building renderer..."
+# Export NEO4J_PASSWORD so it's available during the build process if needed by the source code
+export NEO4J_PASSWORD
 npm run build
 
 echo "[2/5] Packaging macOS DMG..."
-ZUOJIA_RENDERER_MODE=production npm run package:mac
+ZUOJIA_RENDERER_MODE=production NEO4J_PASSWORD="$NEOJAI_PASS" npm run package:mac
 
 DMG_PATH="$(ls -1t dist/zuojia-v*.dmg 2>/dev/null | head -n 1 || true)"
 if [[ -z "$DMG_PATH" ]]; then
@@ -99,3 +107,4 @@ echo "- DMG: $DMG_PATH"
 echo "- SHA256: dist/$DMG_NAME.sha256"
 echo "- Bundle smoke log: $LOG_FILE"
 echo "- DMG smoke log: $DMG_SMOKE_LOG"
+

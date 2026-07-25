@@ -100,15 +100,31 @@ This list reflects what is currently wired in the app code.
 
 For full release details, see `docs/release-notes-v2.0.1.md`.
 
-## AI Foundation (V3 Preview)
+## AI Foundation
 
-An initial local AI foundation is now scaffolded for v3 planning:
+Local AI foundation with llama.cpp, Neo4j 2026, and Project Synapse:
 
-- local llama.cpp runtime direction with Qwen2.5 7B Instruct model family
-- read-only MCP wiki server tools for retrieval and inference context
-- lightweight wiki-link-based knowledge graph generation
+- **LLM runtime:** `llama-server` (llama.cpp) with `unsloth/gemma-4-E2B-it-GGUF` Q3_K_S model (~2.3 GB, auto-downloaded)
+- **Knowledge graph:** Neo4j 2026 with fulltext, vector, and property indexes
+- **MCP bridge:** Project Synapse (Python/FastMCP) exposes `query_knowledge`, `ingest_text`, and wiki tools
+- **Orchestrator:** Automatic 6-step startup when a novel opens: kill orphans → start Neo4j → start MCP → ingest wiki → start LLM
+- **Per-novel storage:** Neo4j data at `<novel>/.zuojia/neo4j-data/`, LLM model at `~/.zuojia/models/`
 
-See `docs/llm-mcp-foundation.md` for the model naming, runtime notes, and MCP server usage.
+### Requirements
+
+- Neo4j 2026 (`brew install neo4j`)
+- llama.cpp (`brew install llama.cpp`)
+- uv (`pip install uv` or `brew install uv`)
+- Project Synapse at `~/code/project-synapse-mcp`
+
+### How It Works
+
+1. Open a novel — orchestrator starts Neo4j, Project Synapse, and llama-server
+2. Wiki `.md` files are ingested into Neo4j as entities, facts, and relationships
+3. LLM Chat queries the knowledge graph via MCP when wiki-related keywords are detected
+4. Wiki context is injected into the LLM system prompt for grounded responses
+
+See `docs/llm-mcp-foundation.md` for full architecture, configuration, and schema details.
 
 ## Requirements
 

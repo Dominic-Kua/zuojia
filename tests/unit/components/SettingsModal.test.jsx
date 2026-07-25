@@ -14,6 +14,7 @@ vi.mock('../../../src/lib/ipc-client', () => ({
     health: vi.fn(),
     startRuntime: vi.fn(),
     stopRuntime: vi.fn(),
+    chat: vi.fn(),
   },
 }));
 

@@ -8,9 +8,10 @@ import { PushButton } from './components/PushButton'
 import { SettingsModal } from './components/SettingsModal'
 import { DiagnosticsPanel } from './components/DiagnosticsPanel'
 import { SnapshotButton } from './components/SnapshotButton'
-import { AskWikiAssistant } from './components/AskWikiAssistant'
+
 import { LlmChatWindow } from './components/LlmChatWindow'
 import { useWikiPages } from './hooks/useWikiPages'
+import { neo4jHandlers } from './lib/ipc-client'
 
 export default function App(){
   const [novelPath, setNovelPath] = useState(null);
@@ -125,12 +126,18 @@ export default function App(){
     setNovelPath(path);
   };
 
-  const handleNovelOpened = (path) => {
+  const handleNovelOpened = async (path) => {
     setNovelPath(path);
+    
+    // Note: NOT starting Neo4j runtime because we're using existing Neo4j instance
+    // Project Synapse connects to Neo4j at bolt://localhost:7687 with password as set in environment variables
   };
 
-  const handleCloseNovel = () => {
+  const handleCloseNovel = async () => {
     setNovelPath(null);
+    
+    // Note: NOT stopping Neo4j runtime because we're using existing Neo4j instance
+    // Project Synapse continues using Neo4j at bolt://localhost:7687
   };
 
   const toggleTheme = () => {
@@ -238,7 +245,6 @@ export default function App(){
           <SnapshotButton novelPath={novelPath} />
           <CommitButton novelPath={novelPath} />
           <PushButton novelPath={novelPath} />
-          <AskWikiAssistant novelPath={novelPath} />
           <LlmChatWindow novelPath={novelPath} />
           <DiagnosticsPanel novelPath={novelPath} onIndexRebuilt={refreshWikiPages} onRestored={handleRestored} />
           <SettingsModal novelPath={novelPath} />
