@@ -57,6 +57,8 @@ export const appHandlers = {
   selectNovelDirectory: () => invokeHandler('app:selectNovelDirectory'),
   listNovels: () => invokeHandler('app:listNovels'),
   markNovelOpened: (novelPath) => invokeHandler('app:markNovelOpened', { novelPath }),
+  startNovelServices: (novelPath) => invokeHandler('app:startNovelServices', { novelPath }),
+  stopNovelServices: () => invokeHandler('app:stopNovelServices'),
 };
 
 export const gitHandlers = {
