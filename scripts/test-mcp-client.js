@@ -76,7 +76,7 @@ class IntegrationTest {
         NEO4J_PASSWORD: '***REMOVED***',
       };
 
-      this.synapseProc = spawn(process.execPath, [bridgePath], {
+      this.synapseProc = spawn('node', [bridgePath], {
         stdio: ['pipe', 'pipe', 'pipe'],
         env,
       });
