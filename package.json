@@ -63,6 +63,14 @@
           "dictionary-en/**",
           "dictionary-en-gb/**"
         ]
+      },
+      {
+        "from": "helper",
+        "to": "helper",
+        "filter": [
+          "**/*.py",
+          "**/pyproject.toml"
+        ]
       }
     ],
     "mac": {

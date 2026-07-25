@@ -36,7 +36,7 @@ export NEO4J_PASSWORD
 npm run build
 
 echo "[2/5] Packaging macOS DMG..."
-ZUOJIA_RENDERER_MODE=production NEO4J_PASSWORD="$NEOJAI_PASS" npm run package:mac
+ZUOJIA_RENDERER_MODE=production npm run package:mac
 
 DMG_PATH="$(ls -1t dist/zuojia-v*.dmg 2>/dev/null | head -n 1 || true)"
 if [[ -z "$DMG_PATH" ]]; then
