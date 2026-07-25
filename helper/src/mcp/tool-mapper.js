@@ -25,6 +25,9 @@ export class ToolMapper {
       ['wiki_neo4j_get_related', 'explore_connections'],
       ['wiki_neo4j_find_paths', 'explore_connections'],
       ['wiki_neo4j_query', null], // No direct equivalent
+
+      // Synapse ingestion tools
+      ['ingest_text', 'ingest_text'],
     ]);
 
     // Build reverse map

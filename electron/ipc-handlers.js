@@ -20,6 +20,7 @@ import { loadLlmConfig, saveLlmConfig, validateLlmConfig } from './llm-config.js
 import { createLlmRuntimeManager } from './llm-runtime.js';
 import { createMcpRuntimeManager } from './mcp-runtime.js';
 import { createNeo4jRuntimeManager } from './neo4j-runtime.js';
+import { createOrchestrator } from './orchestrator.js';
 import http from 'http';
 /**
  * Register all IPC handlers
@@ -35,10 +36,11 @@ function wrapHandler(fn) {
 const llmRuntime = createLlmRuntimeManager();
 const mcpRuntime = createMcpRuntimeManager();
 const neo4jRuntime = createNeo4jRuntimeManager();
+const orchestrator = createOrchestrator(neo4jRuntime, mcpRuntime, llmRuntime, app);
 let handlersRegistered = false;
 let beforeQuitBound = false;
 
-const LLM_RUNTIME_OVERRIDE_KEYS = ['executablePath', 'modelName', 'host', 'port', 'temperature', 'maxTokens'];
+const LLM_RUNTIME_OVERRIDE_KEYS = ['executablePath', 'modelName', 'modelUrl', 'modelDir', 'host', 'port', 'temperature', 'maxTokens', 'ngl', 'ctxSize'];
 
 function pickLlmRuntimeOverrides(settings = {}) {
   if (!settings || typeof settings !== 'object') {
@@ -71,10 +73,8 @@ export function registerHandlers() {
   handlersRegistered = true;
 
   if (!beforeQuitBound) {
-    app.on('before-quit', () => {
-      void llmRuntime.stop();
-      void mcpRuntime.stop();
-      void neo4jRuntime.stop();
+    app.on('before-quit', async () => {
+      await orchestrator.stopAll();
     });
     beforeQuitBound = true;
   }
@@ -486,26 +486,25 @@ export function registerHandlers() {
     })
   );
 
-  async function chatOllama(config, messages) {
+  async function chatLlamaCpp(config, messages) {
     const postData = JSON.stringify({
       model: config.modelName,
       messages,
       stream: false,
-      options: {
-        temperature: config.temperature,
-        num_predict: config.maxTokens,
-      },
+      temperature: config.temperature,
+      max_tokens: config.maxTokens,
     });
 
     return new Promise((resolve, reject) => {
       const options = {
         hostname: config.host || '127.0.0.1',
-        port: config.port || 11434,
-        path: '/api/chat',
+        port: config.port || 8080,
+        path: '/v1/chat/completions',
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(postData),
+          'Authorization': 'Bearer no-key',
         },
         timeout: 120000,
       };
@@ -519,23 +518,24 @@ export function registerHandlers() {
           try {
             if (res.statusCode >= 200 && res.statusCode < 300) {
               const parsed = JSON.parse(data);
-              resolve({ content: parsed.message?.content || '' });
+              const content = parsed.choices?.[0]?.message?.content || '';
+              resolve({ content });
             } else {
-              reject(new Error(`Ollama returned ${res.statusCode}: ${data}`));
+              reject(new Error(`llama-server returned ${res.statusCode}: ${data}`));
             }
           } catch (err) {
-            reject(new Error(`Failed to parse Ollama response: ${err.message}`));
+            reject(new Error(`Failed to parse llama-server response: ${err.message}`));
           }
         });
       });
 
       req.on('error', (error) => {
-        reject(new Error(`Ollama chat request failed: ${error.message}`));
+        reject(new Error(`llama-server chat request failed: ${error.message}`));
       });
 
       req.on('timeout', () => {
         req.destroy();
-        reject(new Error('Ollama chat request timed out'));
+        reject(new Error('llama-server chat request timed out'));
       });
 
       req.write(postData);
@@ -556,7 +556,11 @@ export function registerHandlers() {
           throw new Error('LLM model is not configured');
         }
 
-        const response = await chatOllama(config, messages);
+        const sysMsg = messages.find(m => m.role === 'system');
+        const hasWikiContext = sysMsg?.content?.includes('knowledge graph');
+        console.log(`[LLM-IPC] ${messages.length} messages, wiki context in system prompt: ${hasWikiContext}, system prompt preview: ${sysMsg?.content?.slice(0, 150)}...`);
+
+        const response = await chatLlamaCpp(config, messages);
         return {
           status: 'ok',
           data: response.content,
@@ -942,6 +946,53 @@ export function registerHandlers() {
         },
         timestamp: new Date().toISOString(),
       };
+    })
+  );
+
+  // Novel services orchestrator handlers
+  ipcMain.handle(
+    'app:startNovelServices',
+    wrapHandler(async ({ novelPath }) => {
+      try {
+        const result = await orchestrator.startAll({ novelPath });
+        return {
+          status: 'ok',
+          data: result,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: error.code || 'NOVEL_SERVICES_START_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
+    })
+  );
+
+  ipcMain.handle(
+    'app:stopNovelServices',
+    wrapHandler(async () => {
+      try {
+        const result = await orchestrator.stopAll();
+        return {
+          status: 'ok',
+          data: result,
+          timestamp: new Date().toISOString(),
+        };
+      } catch (error) {
+        return {
+          status: 'error',
+          error: {
+            code: error.code || 'NOVEL_SERVICES_STOP_ERROR',
+            message: error.message,
+          },
+          timestamp: new Date().toISOString(),
+        };
+      }
     })
   );
 

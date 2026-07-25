@@ -1,7 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { llmHandlers, mcpHandlers } from '../lib/ipc-client';
 
-export function LlmChatWindow({ novelPath }) {
+const NEO4J_SEARCH_TIMEOUT = 180000;
+const WIKI_SEARCH_TIMEOUT = 30000;
+
+function ServiceStatusBadge({ label, status }) {
+  const s = status?.status || 'unknown';
+  const cls = s === 'running' ? 'ok' : s === 'error' ? 'error' : s === 'skipped' ? 'skip' : 'pending';
+  return (
+    <span className={`service-badge service-badge-${cls}`} title={status?.error || ''}>
+      {label}: {cls === 'ok' ? 'Ready' : cls === 'error' ? 'Error' : cls === 'skip' ? 'N/A' : 'Starting'}
+    </span>
+  );
+}
+
+export function LlmChatWindow({ novelPath, servicesStatus, servicesLoading }) {
   const [showWindow, setShowWindow] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -54,77 +67,61 @@ export function LlmChatWindow({ novelPath }) {
     scrollToBottom();
   }, [messages]);
 
-  const isWikiRelatedQuery = (query) => {
-    // Simple heuristic for wiki-related queries
-    const wikiKeywords = [
-      'character', 'characters', 'world', 'setting', 'location', 'locations',
-      'plot', 'story', 'novel', 'wiki', 'page', 'pages', 'who is', 'what is',
-      'when is', 'where is', 'how does', 'why does', 'describe', 'explain',
-      'background', 'history', 'lore', 'timeline', 'relationship', 'relationships',
-      'vampire', 'vampires', 'blood', 'monster', 'monsters', 'creature', 'creatures',
-      'supernatural', 'magic', 'spell', 'spells', 'witch', 'witches', 'werewolf',
-      'werewolves', 'ghost', 'ghosts', 'demon', 'demons', 'angel', 'angels',
-      'dragon', 'dragons', 'elf', 'elves', 'dwarf', 'dwarves', 'orc', 'orcs',
-      'kingdom', 'empire', 'city', 'town', 'village', 'castle', 'dungeon',
-      'quest', 'adventure', 'weapon', 'weapons', 'sword', 'swords', 'magic'
-    ];
-    
-    const lowercaseQuery = query.toLowerCase();
-    return wikiKeywords.some(keyword => lowercaseQuery.includes(keyword));
-  };
-
   const queryWikiForContext = async (query) => {
     try {
       setIsQueryingWiki(true);
-      
-      // Start MCP server if not running
+      console.log(`[Wiki] queryWikiForContext called, isMcpRunning=${isMcpRunning}, novelPath=${novelPath}`);
+
       if (!isMcpRunning) {
+        console.log('[Wiki] MCP not running — attempting to start...');
         try {
-          console.log('[Wiki] Starting MCP server...');
           await mcpHandlers.startServer(novelPath);
           setIsMcpRunning(true);
-          console.log('[Wiki] MCP server started');
+          console.log('[Wiki] MCP server started successfully');
         } catch (startErr) {
-          console.error('Failed to start MCP server:', startErr);
+          console.error('[Wiki] Failed to start MCP server:', startErr);
           setIsQueryingWiki(false);
           return null;
         }
       }
-      
-      console.log('[Wiki] Querying:', query);
-      
-      // Try Neo4j search first (takes longer on first run due to model download)
-      console.log('[Wiki] Calling wiki_neo4j_search...');
-      const result = await mcpHandlers.callTool(
-        'wiki_neo4j_search',
-        { query, limit: 5 },
-        { timeoutMs: QUERY_TIMEOUT_MS, retries: 1 }
-      );
 
-      if (result.status === 'ok' && result.data && result.data.results && result.data.results.length > 0) {
-        console.log('[Wiki] Got results:', result.data.results.length);
-        return result.data.results;
+      // Try Neo4j search first
+      try {
+        console.log(`[Wiki] Calling wiki_neo4j_search with query="${query}"`);
+        const result = await mcpHandlers.callTool(
+          'wiki_neo4j_search',
+          { query, limit: 5 },
+          { timeoutMs: NEO4J_SEARCH_TIMEOUT, retries: 1 }
+        );
+        console.log('[Wiki] wiki_neo4j_search result:', JSON.stringify(result).slice(0, 300));
+
+        if (result?.status === 'ok' && result?.data?.results?.length > 0) {
+          console.log(`[Wiki] Neo4j search returned ${result.data.results.length} results`);
+          return result.data.results;
+        }
+        console.log('[Wiki] Neo4j search returned no results, falling back...');
+      } catch (neo4jErr) {
+        console.warn('[Wiki] Neo4j search failed, trying fallback:', neo4jErr.message);
       }
 
-      console.log('[Wiki] Neo4j search returned no results, trying fallback...');
-      
       // Fallback to basic wiki search
+      console.log(`[Wiki] Calling wiki_search with query="${query}"`);
       const fallbackResult = await mcpHandlers.callTool(
         'wiki_search',
         { query, limit: 5 },
-        { timeoutMs: FALLBACK_TIMEOUT_MS, retries: 1 }
+        { timeoutMs: WIKI_SEARCH_TIMEOUT, retries: 1 }
       );
+      console.log('[Wiki] wiki_search result:', JSON.stringify(fallbackResult).slice(0, 300));
 
-      if (fallbackResult.status === 'ok' && fallbackResult.data && fallbackResult.data.results) {
-        console.log('[Wiki] Fallback got results:', fallbackResult.data.results.length);
+      if (fallbackResult?.status === 'ok' && fallbackResult?.data?.results?.length > 0) {
+        console.log(`[Wiki] Fallback search returned ${fallbackResult.data.results.length} results`);
         return fallbackResult.data.results;
       }
 
-      console.log('[Wiki] No results found');
+      console.log('[Wiki] No results from either search');
       return null;
     } catch (error) {
-      console.error('Failed to query wiki:', error);
-      // Show error to user via a system message
+      console.error('[Wiki] Failed to query wiki:', error);
       setMessages(prev => [...prev, {
         role: 'system',
         content: `Wiki query failed: ${error.message}. First query may take 2-3 minutes to download embedding model.`,
@@ -159,29 +156,33 @@ export function LlmChatWindow({ novelPath }) {
     }]);
 
     try {
-      // Check if query is wiki-related and MCP is available
+      // Always try to get wiki context if MCP is available
       let wikiContext = null;
-      if (isWikiRelatedQuery(userMessage) && isMcpRunning) {
+      console.log(`[Chat] isMcpRunning=${isMcpRunning}, isLlmRunning=${isLlmRunning}`);
+      if (isMcpRunning) {
         wikiContext = await queryWikiForContext(userMessage);
+        console.log(`[Chat] wikiContext result:`, wikiContext ? `${wikiContext.length} items` : 'null');
+      } else {
+        console.log('[Chat] MCP not running — skipping wiki context');
       }
 
       const conversation = messages
         .filter(message => message.role === 'user' || message.role === 'assistant')
         .map(message => ({ role: message.role, content: message.content }));
-      
-      // Add system prompt for wiki context if available
+
       const systemPrompt = `You are a writing assistant for a novel. ${
-        wikiContext 
+        wikiContext
           ? `Here is relevant context from the novel's wiki knowledge graph:\n${JSON.stringify(wikiContext, null, 2)}\n\nUse this context to answer the user's question about the novel's world, characters, plot, or setting. If the context doesn't contain the answer, say so and ask for clarification.`
-          : 'Use the MCP tools to research wiki topics before answering questions about the novel\'s world, characters, plot, or setting.'
+          : 'Answer questions about the novel\'s world, characters, plot, or setting based on your general knowledge. If you need specific details from the wiki, let the user know the wiki search didn\'t return relevant results.'
       }`;
 
       conversation.unshift({
         role: 'system',
         content: systemPrompt
       });
-      
+
       conversation.push({ role: 'user', content: userMessage });
+      console.log(`[Chat] Sending ${conversation.length} messages to LLM, system prompt ${wikiContext ? 'INCLUDES' : 'excludes'} wiki context`);
 
       const response = await llmHandlers.chat(conversation);
 
@@ -232,24 +233,21 @@ export function LlmChatWindow({ novelPath }) {
         await llmHandlers.startRuntime(config.data);
         setIsLlmRunning(true);
         setLlmStatus('running');
-        
-        // Also start MCP server for wiki queries
-        try {
-          await mcpHandlers.startServer(novelPath);
-          setIsMcpRunning(true);
-          setMessages(prev => [...prev, {
-            role: 'system',
-            content: 'LLM runtime started. Wiki query system is ready.',
-            timestamp: new Date().toISOString()
-          }]);
-        } catch (mcpErr) {
-          console.warn('MCP server failed to start:', mcpErr);
-          setMessages(prev => [...prev, {
-            role: 'system',
-            content: 'LLM runtime started. Wiki query system unavailable.',
-            timestamp: new Date().toISOString()
-          }]);
+
+        if (!isMcpRunning) {
+          try {
+            await mcpHandlers.startServer(novelPath);
+            setIsMcpRunning(true);
+          } catch (mcpErr) {
+            console.warn('MCP server failed to start:', mcpErr);
+          }
         }
+
+        setMessages(prev => [...prev, {
+          role: 'system',
+          content: `LLM runtime started.${isMcpRunning ? ' Wiki query system ready.' : ''}`,
+          timestamp: new Date().toISOString()
+        }]);
       }
     } catch (err) {
       console.error('Failed to start LLM:', err);
@@ -290,20 +288,31 @@ export function LlmChatWindow({ novelPath }) {
     return null;
   }
 
+  const showStartupStatus = servicesLoading || (servicesStatus && servicesStatus.status !== 'already_running' && servicesStatus.status !== 'ok');
+
   return (
     <>
-      <button 
-        className="btn ghost" 
-        data-testid="llm-chat-button"
-        onClick={() => setShowWindow(true)}
-        title="Open LLM Chat"
-      >
-        LLM Chat
-      </button>
+      <div className={`llm-chat-btn-wrapper${servicesLoading ? ' llm-connecting' : ''}`}>
+        <button
+          className="btn ghost"
+          data-testid="llm-chat-button"
+          onClick={() => !servicesLoading && setShowWindow(true)}
+          disabled={servicesLoading}
+          title={servicesLoading ? 'Connecting to services...' : 'Open LLM Chat'}
+        >
+          LLM Chat
+        </button>
+        {servicesLoading && (
+          <div className="llm-connecting-overlay">
+            <span className="llm-connecting-spinner" />
+            <span>Connecting</span>
+          </div>
+        )}
+      </div>
 
       {showWindow && (
         <div className="llm-chat-overlay" data-testid="llm-chat-overlay" onClick={() => setShowWindow(false)}>
-          <div 
+          <div
             className={`llm-chat-window${isCollapsed ? ' collapsed' : ''}`}
             data-testid="llm-chat-window"
             role="dialog"
@@ -320,14 +329,14 @@ export function LlmChatWindow({ novelPath }) {
                  <div className="mcp-status-indicator" data-status={isMcpRunning ? 'running' : 'stopped'}>
                    Wiki: {isMcpRunning ? 'Ready' : 'Offline'}
                  </div>
-                <button 
+                <button
                   className="btn ghost btn-sm"
                   onClick={() => setIsCollapsed(!isCollapsed)}
                   aria-label={isCollapsed ? 'Expand chat' : 'Collapse chat'}
                 >
                   {isCollapsed ? '◢' : '◥'}
                 </button>
-                <button 
+                <button
                   className="btn ghost btn-sm"
                   onClick={() => setShowWindow(false)}
                   aria-label="Close chat"
@@ -339,6 +348,20 @@ export function LlmChatWindow({ novelPath }) {
 
             {!isCollapsed && (
               <>
+                {showStartupStatus && (
+                  <div className="llm-startup-status" data-testid="llm-startup-status">
+                    {servicesLoading ? (
+                      <span>Starting services...</span>
+                    ) : servicesStatus ? (
+                      <div className="service-badges">
+                        <ServiceStatusBadge label="Neo4j" status={servicesStatus.neo4j} />
+                        <ServiceStatusBadge label="MCP" status={servicesStatus.mcp} />
+                        <ServiceStatusBadge label="LLM" status={servicesStatus.llm} />
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+
                 <div className="llm-chat-messages" data-testid="llm-chat-messages">
                   {messages.length === 0 ? (
                     <div className="llm-chat-placeholder">
@@ -350,7 +373,7 @@ export function LlmChatWindow({ novelPath }) {
                     </div>
                   ) : (
                     messages.map((msg, idx) => (
-                      <div 
+                      <div
                         key={idx}
                         className={`llm-message ${msg.role}${msg.isLoading ? ' loading' : ''}${msg.isError ? ' error' : ''}`}
                         data-testid={`llm-message-${msg.role}`}
