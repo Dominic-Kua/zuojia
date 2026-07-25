@@ -30,6 +30,7 @@ const TOOL_NAMES = new Set([
   'wiki_neo4j_get_related',
   'wiki_neo4j_find_paths',
   'wiki_neo4j_query',
+  'ingest_text',
 ]);
 
 const RETRYABLE_ERROR_CODES = new Set([
@@ -303,6 +304,7 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
         NEO4J_URI: 'bolt://localhost:7687',
         NEO4J_USER: 'neo4j',
         NEO4J_PASSWORD: neo4j_pass,
+        NEO4J_DATABASE: 'wiki',
       },
     });
 
@@ -452,11 +454,13 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
 
         // Check if we should use Synapse
         const canUseSynapse = isUsingSynapse && mcpClient && toolMapper.hasMapping(toolName);
+        console.log(`[MCP] callTool "${toolName}" attempt=${attempt}, canUseSynapse=${canUseSynapse}, isUsingSynapse=${isUsingSynapse}, hasClient=${!!mcpClient}, hasMapping=${toolMapper.hasMapping(toolName)}`);
         
         if (canUseSynapse) {
           // Use Project Synapse via MCP client
           const synapseTool = toolMapper.mapTool(toolName);
           const synapseArgs = argumentTransformer.transform(toolName, args);
+          console.log(`[MCP] → Synapse tool="${synapseTool}", args=${JSON.stringify(synapseArgs).slice(0, 200)}`);
           
           const synapseResult = await Promise.race([
             mcpClient.callTool(synapseTool, synapseArgs, timeoutMs),
@@ -464,6 +468,7 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
           ]);
           
           result = responseNormalizer.normalize(toolName, synapseResult);
+          console.log(`[MCP] ← Synapse response: status=${result?.status}, data keys=${result?.data ? Object.keys(result.data) : 'none'}`);
           
           // If Synapse returns error, try fallback to local tools
           if (result?.status === 'error') {
@@ -491,14 +496,18 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
           }
         } else {
           // Fallback to local wiki tools
+          console.log(`[MCP] → Local tool "${toolName}" (Synapse unavailable)`);
           result = await Promise.race([
             toolExecutor(runtimeNovelPath, toolName, args),
             timeoutPromise,
           ]);
+          console.log(`[MCP] ← Local result: status=${result?.status}, data=${JSON.stringify(result?.data).slice(0, 200)}`);
         }
 
         if (result?.status === 'error') {
-          throw toToolError(result, toolName);
+          const err = toToolError(result, toolName);
+          console.error(`[MCP] Tool "${toolName}" returned error: ${err.message} (code=${err.code})`);
+          throw err;
         }
 
         clearTimeoutFn(timeoutId);

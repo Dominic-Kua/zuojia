@@ -2,13 +2,17 @@ import fs from 'fs/promises';
 import path from 'path';
 
 export const DEFAULT_LLM_CONFIG = {
-  provider: 'ollama',
-  executablePath: '/opt/homebrew/bin/ollama',
-  modelName: 'gemma4:e2b',
+  provider: 'llamacpp',
+  executablePath: '/opt/homebrew/bin/llama-server',
+  modelName: 'gemma-4-E2B-it-Q3_K_S',
+  modelUrl: 'https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q3_K_S.gguf',
+  modelDir: '',  // resolved at runtime to {userData}/models/
   host: '127.0.0.1',
-  port: 11434,
+  port: 8080,
   temperature: 0.7,
   maxTokens: 4096,
+  ngl: 99,
+  ctxSize: 0,
 };
 
 const CONFIG_FILE = 'llm-config.json';
@@ -58,14 +62,23 @@ export function validateLlmConfig(input = {}) {
     throw new Error('modelName must not be empty');
   }
 
+  const modelUrl = String(merged.modelUrl || DEFAULT_LLM_CONFIG.modelUrl).trim();
+  const modelDir = String(merged.modelDir || DEFAULT_LLM_CONFIG.modelDir).trim();
+  const ngl = Math.trunc(asNumber(merged.ngl ?? DEFAULT_LLM_CONFIG.ngl, 'ngl'));
+  const ctxSize = Math.trunc(asNumber(merged.ctxSize ?? DEFAULT_LLM_CONFIG.ctxSize, 'ctxSize'));
+
   return {
     ...merged,
     executablePath,
     modelName,
+    modelUrl,
+    modelDir,
     host,
     port,
     temperature,
     maxTokens,
+    ngl,
+    ctxSize,
   };
 }
 

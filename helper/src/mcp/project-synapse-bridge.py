@@ -245,6 +245,7 @@ def main():
     env['NEO4J_URI'] = neo4j_uri
     env['NEO4J_USER'] = neo4j_user
     env['NEO4J_PASSWORD'] = neo4j_password
+    env['NEO4J_DATABASE'] = os.environ.get('NEO4J_DATABASE', 'wiki')
     env['WIKI_VAULT_PATH'] = f"{novel_path}/wiki"
 
     # Use Project Synapse installation

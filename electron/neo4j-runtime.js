@@ -47,21 +47,13 @@ export function createNeo4jRuntimeManager({
     const dataPath = getNeo4jDataPath(novelPath);
     
     const config = `# Neo4j configuration for ${path.basename(novelPath)}
-dbms.memory.heap.initial_size=512m
-dbms.memory.heap.max_size=1g
-dbms.memory.pagecache.size=512m
-dbms.directories.data=${dataPath}
-dbms.default_database=${databaseName}
-dbms.security.auth_enabled=true
-dbms.security.auth_minimum_password_length=8
-dbms.security.auth_max_failed_attempts=3
-dbms.security.auth_lock_time=5m
-dbms.connector.bolt.listen_address=:7687
-dbms.connector.http.listen_address=:7474
-dbms.connector.https.enabled=false
-dbms.logs.default=INFO
+server.memory.heap.initial_size=512m
+server.memory.heap.max_size=1g
+server.memory.pagecache.size=512m
+server.directories.data=${dataPath}
 server.directories.import=${path.join(novelPath, 'wiki')}
-# Initial password:  (from Project Synapse .env)
+initial.dbms.default_database=${databaseName}
+dbms.security.auth_enabled=false
 `;
     
     await fs.mkdir(path.dirname(configPath), { recursive: true });
@@ -100,21 +92,43 @@ server.directories.import=${path.join(novelPath, 'wiki')}
     // Ensure data directory exists
     await fs.mkdir(dataPath, { recursive: true });
 
-    // Start Neo4j process
-    const child = spawnFn('neo4j', [
-      'console',
-      '--config-dir',
-      path.dirname(configPath),
-      '--data-dir',
-      dataPath,
-      '--home',
-      dataPath,
-    ], {
+    // Check for stale auth data — if the data dir has old auth-enabled data,
+    // wipe it so auth_enabled=false can take effect
+    const systemDir = path.join(dataPath, 'databases', 'system');
+    try {
+      await fs.access(systemDir);
+      // Data dir exists with a system database — check if it has auth data
+      // that might conflict with auth_enabled=false
+      const configContent = await fs.readFile(configPath, 'utf-8');
+      if (configContent.includes('auth_enabled=false')) {
+        // Verify Neo4j can start by checking for auth store files
+        const authStore = path.join(dataDir, 'dbms', 'auth');
+        try {
+          await fs.access(authStore);
+          // Auth store exists — need to wipe for auth_enabled=false to work
+          pushLog({
+            timestamp: new Date().toISOString(),
+            type: 'neo4j_auth_reset',
+            message: 'Clearing stale auth data for auth_enabled=false',
+          });
+          await fs.rm(dataPath, { recursive: true, force: true });
+          await fs.mkdir(dataPath, { recursive: true });
+        } catch {
+          // No auth store — fine
+        }
+      }
+    } catch {
+      // No data dir yet — fresh start, fine
+    }
+
+    // Start Neo4j process — no CLI flags, config is driven by env vars + neo4j.conf
+    const neo4jHome = '/opt/homebrew/Cellar/neo4j/2026.06.0/libexec';
+    const child = spawnFn('neo4j', ['console'], {
       stdio: 'pipe',
       env: {
         ...process.env,
         NEO4J_CONF: path.dirname(configPath),
-        NEO4J_HOME: dataPath,
+        NEO4J_HOME: neo4jHome,
       },
     });
 
@@ -185,7 +199,8 @@ server.directories.import=${path.join(novelPath, 'wiki')}
       const checkInterval = setInterval(async () => {
         if (!isRunningProcess(processRef)) {
           clearInterval(checkInterval);
-          reject(new Error('Neo4j process terminated unexpectedly'));
+          const errMsg = lastError || 'Neo4j process terminated unexpectedly';
+          reject(new Error(errMsg));
           return;
         }
 
@@ -198,7 +213,7 @@ server.directories.import=${path.join(novelPath, 'wiki')}
         try {
           // Try to connect to Neo4j
           if (!driver) {
-            driver = neo4j.driver('bolt://localhost:7687', neo4j.auth.basic('neo4j', 'neo4j'));
+            driver = neo4j.driver('bolt://localhost:7687');
           }
           
           const serverInfo = await driver.getServerInfo();
@@ -325,6 +340,23 @@ server.directories.import=${path.join(novelPath, 'wiki')}
     };
   }
 
+  async function hasWikiData() {
+    if (!isRunningProcess(processRef) || !driver) {
+      return false;
+    }
+    const session = driver.session();
+    try {
+      // Check for Entity nodes (created by Synapse's ingest_text) or WikiPage nodes (legacy)
+      const countResult = await session.run(
+        'MATCH (e:Entity) RETURN count(e) AS count'
+      );
+      const count = countResult.records[0]?.get('count') || 0;
+      return count > 0;
+    } finally {
+      await session.close();
+    }
+  }
+
   async function importWikiData() {
     if (!isRunningProcess(processRef) || !runtimeNovelPath || !driver) {
       throw new Error('Neo4j runtime is not running');
@@ -334,8 +366,26 @@ server.directories.import=${path.join(novelPath, 'wiki')}
       pushLog({
         timestamp: new Date().toISOString(),
         type: 'neo4j_import_start',
-        message: 'Starting wiki data import',
+        message: 'Importing wiki data into Neo4j...',
       });
+
+      // Check if data already exists — skip import if so
+      const session = driver.session();
+      try {
+        const countResult = await session.run('MATCH (p:WikiPage) RETURN count(p) AS count');
+        const existingCount = countResult.records[0]?.get('count') || 0;
+
+        if (existingCount > 0) {
+          pushLog({
+            timestamp: new Date().toISOString(),
+            type: 'neo4j_import_skip',
+            message: `Neo4j already has ${existingCount} WikiPage nodes — skipping import`,
+          });
+          return { status: 'skipped', reason: 'already_has_data', nodesImported: 0, edgesImported: 0 };
+        }
+      } finally {
+        await session.close();
+      }
 
       // Get wiki graph data using existing wiki-tools
       const graphResult = await buildWikiKnowledgeGraphForMcp(runtimeNovelPath, 5000);
@@ -345,20 +395,28 @@ server.directories.import=${path.join(novelPath, 'wiki')}
       }
 
       const { nodes, edges } = graphResult.data;
+      pushLog({
+        timestamp: new Date().toISOString(),
+        type: 'neo4j_import_graph_built',
+        message: `Wiki graph built: ${nodes.length} nodes, ${edges.length} edges`,
+      });
+      console.log(`[Neo4j] Wiki graph built: ${nodes.length} nodes, ${edges.length} edges`);
 
-      const session = driver.session();
+      if (nodes.length === 0) {
+        pushLog({
+          timestamp: new Date().toISOString(),
+          type: 'neo4j_import_skip',
+          message: 'No wiki nodes found — skipping import',
+        });
+        return { status: 'skipped', reason: 'no_wiki_data', nodesImported: 0, edgesImported: 0 };
+      }
+
+      const importSession = driver.session();
 
       try {
-        // Clear existing data
-        await session.run(`
-          MATCH (n)
-          WHERE n:WikiPage OR n:ManuscriptPage
-          DETACH DELETE n
-        `);
-
         // Import nodes
         for (const node of nodes) {
-          await session.run(
+          await importSession.run(
             `CREATE (p:WikiPage {
               id: $id,
               title: $title,
@@ -375,7 +433,7 @@ server.directories.import=${path.join(novelPath, 'wiki')}
 
         // Import edges
         for (const edge of edges) {
-          await session.run(
+          await importSession.run(
             `MATCH (from:WikiPage {id: $from})
              MATCH (to:WikiPage {id: $to})
              CREATE (from)-[:LINKS_TO {
@@ -406,7 +464,7 @@ server.directories.import=${path.join(novelPath, 'wiki')}
           edgesImported: edges.length,
         };
       } finally {
-        await session.close();
+        await importSession.close();
       }
     } catch (error) {
       pushLog({
@@ -514,6 +572,7 @@ server.directories.import=${path.join(novelPath, 'wiki')}
     start,
     stop,
     health,
+    hasWikiData,
     importWikiData,
     queryCypher,
     naturalLanguageSearch,

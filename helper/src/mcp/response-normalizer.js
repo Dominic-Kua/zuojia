@@ -251,6 +251,17 @@ export class ResponseNormalizer {
       .map(c => c.text)
       .join('\n');
 
+    // Detect Synapse error responses (returned as text, not isError)
+    if (textContent.includes('❌') || textContent.includes('Knowledge query failed') || textContent.includes('error')) {
+      return {
+        status: 'error',
+        error: {
+          code: 'SYNAPSE_KNOWLEDGE_QUERY_FAILED',
+          message: textContent.slice(0, 500),
+        },
+      };
+    }
+
     // Try to parse JSON from the response
     try {
       const parsed = JSON.parse(textContent);
