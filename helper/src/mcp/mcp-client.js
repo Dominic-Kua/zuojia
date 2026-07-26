@@ -1,5 +1,13 @@
 import { EventEmitter } from 'events';
+import { createRequire } from 'module';
 import { McpTransport } from './mcp-transport.js';
+
+const require = createRequire(import.meta.url);
+let appVersion = '0.1.0';
+try {
+  const pkg = require('../../package.json');
+  appVersion = pkg.version || appVersion;
+} catch {}
 
 export class McpClient extends EventEmitter {
   #transport;
@@ -13,7 +21,7 @@ export class McpClient extends EventEmitter {
   #serverCapabilities = null;
   #destroyed = false;
 
-  constructor({ transport, clientInfo = { name: 'zuojia-mcp-client', version: '0.1.0' }, capabilities = {} }) {
+  constructor({ transport, clientInfo = { name: 'zuojia-mcp-client', version: appVersion }, capabilities = {} }) {
     super();
     this.#transport = transport;
     this.#clientInfo = clientInfo;
