@@ -123,10 +123,20 @@ dbms.security.auth_enabled=false
 
     // Start Neo4j process — no CLI flags, config is driven by env vars + neo4j.conf
     const neo4jHome = '/opt/homebrew/Cellar/neo4j/2026.06.0/libexec';
+    const homeDir = (typeof process.env.HOME === 'string' && process.env.HOME) || '';
+    const extraPaths = [
+      '/opt/homebrew/bin',
+      '/usr/local/bin',
+      homeDir ? `${homeDir}/.local/bin` : '',
+    ].filter(Boolean);
+    // Resolve JAVA_HOME from openjdk@21 Homebrew install if not already set
+    const javaHome = process.env.JAVA_HOME || '/opt/homebrew/Cellar/openjdk@21/21.0.12/libexec/openjdk.jdk/Contents/Home';
     const child = spawnFn('neo4j', ['console'], {
       stdio: 'pipe',
       env: {
         ...process.env,
+        PATH: [...extraPaths, process.env.PATH || ''].join(':'),
+        JAVA_HOME: javaHome,
         NEO4J_CONF: path.dirname(configPath),
         NEO4J_HOME: neo4jHome,
       },
