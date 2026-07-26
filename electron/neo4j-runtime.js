@@ -4,6 +4,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import neo4j from 'neo4j-driver';
 import { buildWikiKnowledgeGraphForMcp } from '../helper/src/mcp/wiki-tools.js';
+import { findNeo4jHome } from './find-neo4j.js';
+import { findJavaHome } from './find-java.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -122,7 +124,10 @@ dbms.security.auth_enabled=false
     }
 
     // Start Neo4j process — no CLI flags, config is driven by env vars + neo4j.conf
-    const neo4jHome = '/opt/homebrew/Cellar/neo4j/2026.06.0/libexec';
+    const neo4jHome = await findNeo4jHome();
+    if (!neo4jHome) {
+      throw new Error('Neo4j not found. Install via: brew install neo4j');
+    }
     const homeDir = (typeof process.env.HOME === 'string' && process.env.HOME) || '';
     const extraPaths = [
       '/opt/homebrew/bin',
@@ -130,7 +135,7 @@ dbms.security.auth_enabled=false
       homeDir ? `${homeDir}/.local/bin` : '',
     ].filter(Boolean);
     // Resolve JAVA_HOME from openjdk@21 Homebrew install if not already set
-    const javaHome = process.env.JAVA_HOME || '/opt/homebrew/Cellar/openjdk@21/21.0.12/libexec/openjdk.jdk/Contents/Home';
+    const javaHome = await findJavaHome();
     const child = spawnFn('neo4j', ['console'], {
       stdio: 'pipe',
       env: {
