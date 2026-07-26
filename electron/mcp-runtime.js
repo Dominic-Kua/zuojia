@@ -96,6 +96,17 @@ async function executeWikiTool(novelPath, toolName, args = {}) {
     });
   }
 
+  // Fallback for Neo4j tools - map to basic wiki search
+  if (toolName === 'wiki_neo4j_search' || toolName === 'wiki_neo4j_get_related' || toolName === 'wiki_neo4j_find_paths') {
+    return searchWikiPagesForMcp(novelPath, String(args.query || ''), Number(args.limit || 10));
+  }
+
+  if (toolName === 'wiki_neo4j_query') {
+    const error = new Error('wiki_neo4j_query requires Neo4j backend and is not available in fallback mode');
+    error.code = 'MCP_TOOL_RESULT_ERROR';
+    throw error;
+  }
+
   const error = new Error(`Unsupported MCP tool: ${toolName}`);
   error.code = 'MCP_UNKNOWN_TOOL';
   throw error;
