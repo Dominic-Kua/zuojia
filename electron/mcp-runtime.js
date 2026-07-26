@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import {
   listWikiPagesForMcp,
@@ -300,8 +301,11 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
       await stop();
     }
 
-    const serverPath = process.resourcesPath
+    const packagedServerPath = process.resourcesPath
       ? path.join(process.resourcesPath, 'helper', 'src', 'mcp', 'project-synapse-bridge.js')
+      : null;
+    const serverPath = packagedServerPath && fs.existsSync(packagedServerPath)
+      ? packagedServerPath
       : path.join(__dirname, '../helper/src/mcp/project-synapse-bridge.js');
     const neo4j_pass = process.env.NEO4J_PASSWORD;
     const child = spawnFn('node', [serverPath], {
@@ -357,10 +361,17 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
     startTime = nowFn();
     lastError = null;
 
-    await initializeMcpClient(child);
+    const initialized = await initializeMcpClient(child);
+
+    const running = Boolean(child.pid) && child.exitCode === null;
+    if (!running && !initialized) {
+      processRef = null;
+      runtimeNovelPath = null;
+      startTime = null;
+    }
 
     return {
-      status: 'running',
+      status: running ? 'running' : 'failed',
       pid: child.pid,
       novelPath,
       startedAt: new Date(startTime).toISOString(),
