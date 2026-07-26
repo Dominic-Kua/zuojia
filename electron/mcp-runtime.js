@@ -510,7 +510,7 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
             toolExecutor(runtimeNovelPath, toolName, args),
             timeoutPromise,
           ]);
-          console.log(`[MCP] ← Local result: status=${result?.status}, data=${JSON.stringify(result?.data).slice(0, 200)}`);
+          console.log(`[MCP] ← Local result: status=${result?.status}, data=${JSON.stringify(result?.data ?? null).slice(0, 200)}`);
         }
 
         if (result?.status === 'error') {
