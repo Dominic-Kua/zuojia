@@ -65,12 +65,8 @@
         ]
       },
       {
-        "from": "helper",
-        "to": "helper",
-        "filter": [
-          "**/*.py",
-          "**/pyproject.toml"
-        ]
+        "from": "helper/src/mcp/project-synapse-bridge.js",
+        "to": "helper/src/mcp/project-synapse-bridge.js"
       }
     ],
     "mac": {

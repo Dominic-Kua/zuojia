@@ -5,8 +5,7 @@
 
 const DEFAULT_CONFIG = {
   process: {
-    pythonCommand: 'python3.13',
-    serverPath: 'helper/src/mcp/project-synapse-bridge.py',
+    serverPath: 'helper/src/mcp/project-synapse-bridge.js',
     env: {
       ZUOJIA_NOVEL_PATH: '',
       NEO4J_URI: 'bolt://localhost:7687',
@@ -52,8 +51,7 @@ const DEFAULT_CONFIG = {
 export function createConfigFromEnv() {
   return {
     process: {
-      pythonCommand: process.env.ZUOJIA_MCP_PYTHON_CMD || 'python3.13',
-      serverPath: process.env.ZUOJIA_MCP_SERVER_PATH || 'helper/src/mcp/project-synapse-bridge.py',
+      serverPath: process.env.ZUOJIA_MCP_SERVER_PATH || 'helper/src/mcp/project-synapse-bridge.js',
       env: {
         ZUOJIA_NOVEL_PATH: process.env.ZUOJIA_NOVEL_PATH || '',
         NEO4J_URI: process.env.NEO4J_URI || 'bolt://localhost:7687',
