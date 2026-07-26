@@ -7,7 +7,7 @@ A local-first desktop writing app for novelists who want Markdown files, wiki-st
 - [What This App Does](#what-this-app-does)
 - [Implemented Features](#implemented-features)
 - [Release Notes](#release-notes)
-- [AI Foundation (V3 Preview)](#ai-foundation-v3-preview)
+- [AI Foundation](#ai-foundation)
 - [Requirements](#requirements)
 - [Getting Started](#getting-started)
 - [How To Use The App](#how-to-use-the-app)
@@ -22,9 +22,9 @@ A local-first desktop writing app for novelists who want Markdown files, wiki-st
 
 Each novel lives under `~/.zuojia/<novel-slug>/` and uses this structure:
 
-- `manuscript/`: chapter Markdown files
-- `wiki/`: wiki page Markdown files for characters, locations, lore
-- `meta/`: index, backups, spellcheck dictionary, and metadata
+- `manuscript/` — chapter Markdown files
+- `wiki/` — wiki page Markdown files for characters, locations, lore
+- `meta/` — index, backups, spellcheck dictionary, and metadata
 
 The app focuses on a writing workflow where you can:
 
@@ -34,6 +34,7 @@ The app focuses on a writing workflow where you can:
 - Follow wiki links directly from the manuscript
 - Track word counts (chapter, manuscript, today)
 - Back up/push work through Git
+- Ask an LLM questions grounded in your worldbuilding notes
 
 ## Implemented Features
 
@@ -90,13 +91,22 @@ This list reflects what is currently wired in the app code.
 
 ## Release Notes
 
+### v3.0.0
+
+- Replaced the Python bridge with a pure Node.js MCP client for Project Synapse
+- Added dynamic Neo4j and JDK path resolution (Homebrew Cellar versions, PATH fallback)
+- Extracted hardcoded config into shared defaults modules (`neo4j-defaults.js`, `llm-defaults.js`, `constants.js`, `platform-paths.js`)
+- Aligned SettingsModal defaults with `llama-server` (port 8080, model auto-discovery)
+- Fixed MCP tool error propagation so `WIKI_NOT_FOUND` and similar codes are preserved
+- Added comprehensive test suite: 630+ unit, integration, and E2E tests
+
 ### v2.0.1
 
-- Fixed packaged-app startup regressions that could lead to a blank or unusable app after installation.
-- Restored release branding in packaged builds, including the app name `作家` and app icon.
-- Hardened release behavior so release/test flows target production renderer mode while dev flows stay in development mode.
-- Added artifact-level release validation: local release now smoke-tests both the packaged `.app` bundle and the mounted `.dmg` artifact before publish.
-- Added checksum generation in the local mac release flow for uploaded DMG verification.
+- Fixed packaged-app startup regressions that could lead to a blank or unusable app after installation
+- Restored release branding in packaged builds, including the app name `作家` and app icon
+- Hardened release behavior so release/test flows target production renderer mode while dev flows stay in development mode
+- Added artifact-level release validation: local release now smoke-tests both the packaged `.app` bundle and the mounted `.dmg` artifact before publish
+- Added checksum generation in the local mac release flow for uploaded DMG verification
 
 For full release details, see `docs/release-notes-v2.0.1.md`.
 
@@ -110,13 +120,6 @@ Local AI foundation with llama.cpp, Neo4j 2026, and Project Synapse:
 - **Orchestrator:** Automatic 6-step startup when a novel opens: kill orphans → start Neo4j → start MCP → ingest wiki → start LLM
 - **Per-novel storage:** Neo4j data at `<novel>/.zuojia/neo4j-data/`, LLM model at `~/.zuojia/models/`
 
-### Requirements
-
-- Neo4j 2026 (`brew install neo4j`)
-- llama.cpp (`brew install llama.cpp`)
-- uv (`pip install uv` or `brew install uv`)
-- Project Synapse at `~/code/project-synapse-mcp`
-
 ### How It Works
 
 1. Open a novel — orchestrator starts Neo4j, Project Synapse, and llama-server
@@ -128,32 +131,41 @@ See `docs/llm-mcp-foundation.md` for full architecture, configuration, and schem
 
 ## Requirements
 
+### App
+
 - macOS
 - Node.js and npm
 - Git available in your shell
 - Electron runtime dependencies installed via npm
 - Pandoc and a TeX engine (`xelatex` or `pdflatex`) for PDF export
 
+### AI Features (optional)
+
+- Neo4j 2026 (`brew install neo4j`)
+- llama.cpp (`brew install llama.cpp`)
+- uv (`pip install uv` or `brew install uv`)
+- Project Synapse cloned to `~/code/project-synapse-mcp`
+
 ## Getting Started
 
 1. Install dependencies:
 
-```bash
-npm install
-```
+   ```bash
+   npm install
+   ```
 
-1. Start development mode:
+2. Start development mode:
 
-```bash
-npm run dev
-```
+   ```bash
+   npm run dev
+   ```
 
-This starts Vite and Electron together using `scripts/dev.sh`.
+   This starts Vite and Electron together using `scripts/dev.sh`.
 
-1. In the app:
+3. In the app:
 
-- Click `+ New Novel` to create a project, or
-- Click `Open Novel` to load an existing novel folder
+   - Click `+ New Novel` to create a project, or
+   - Click `Open Novel` to load an existing novel folder
 
 ## How To Use The App
 
@@ -206,34 +218,48 @@ Exported PDFs are written to `meta/exports/`, and export logs are written to `me
 ## Developer Commands
 
 ```bash
-npm run dev           # Start Vite + Electron (recommended)
-npm run dev:node      # Start dev via Node launcher
-npm run dev:vite      # Start only Vite
-npm start             # Start Electron app
-npm run build         # Build renderer with Vite
-npm run test          # Run unit tests
-npm run test:watch    # Run tests in watch mode
-npm run test:coverage # Run tests with coverage
-npm run test:integration
-npm run test:e2e
-npm run test:all
+npm run dev               # Start Vite + Electron (recommended)
+npm run dev:node          # Start dev via Node launcher
+npm run dev:vite          # Start only Vite
+npm start                 # Start Electron app
+npm run build             # Build renderer with Vite
+npm run test              # Run unit tests
+npm run test:watch        # Run tests in watch mode
+npm run test:coverage     # Run tests with coverage
+npm run test:integration  # Run integration tests
+npm run test:e2e          # Run end-to-end tests
+npm run test:all          # Run all tests
 ```
 
 ## Testing
 
-- Unit and integration tests run with Vitest
-- E2E tests run with Playwright + Electron
-- See `tests/e2e/README.md` for E2E details
+The project has **630+ tests** across unit, integration, and E2E layers:
+
+| Layer | Framework | Run with |
+|-------|-----------|----------|
+| Unit | Vitest (jsdom + node) | `npm run test` |
+| Integration | Vitest | `npm run test:integration` |
+| E2E | Playwright + Electron | `npm run test:e2e` |
+
+### What's covered
+
+- **Electron layer:** IPC handlers, orchestrator, Neo4j/MCP/LLM runtime managers
+- **React UI:** Sidebar, chapter list, settings, LLM chat, word count hooks
+- **Helper modules:** Wiki CRUD, word counting, spellcheck, git operations
+- **MCP integration:** Client, config, transport, tool mapper, wiki tools
+
+See `tests/e2e/README.md` for E2E test details.
 
 ## Project Structure
 
 ```text
-src/                 React renderer code
-electron/            Electron main/preload + IPC handlers
-helper/              Helper modules for index/git/wiki/stats/backup logic
-tests/               Unit, integration, and e2e tests
-scripts/             Development launch scripts
-_bmad-output/        Planning and implementation artifacts
+src/                 React renderer code (components, hooks, lib)
+electron/            Electron main/preload + IPC handlers, runtime managers
+helper/              Helper modules (wiki CRUD, git, stats, MCP client)
+tests/               Unit (Vitest), integration, and E2E (Playwright) tests
+docs/                Architecture docs, release notes, plugin specs
+scripts/             Development launch scripts and release tooling
+_bmad-output/        Planning artifacts, story specs, sprint tracking
 ```
 
 ## Current Scope Notes
