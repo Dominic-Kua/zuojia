@@ -15,6 +15,13 @@ import { createToolMapper } from '../helper/src/mcp/tool-mapper.js';
 import { createArgumentTransformer } from '../helper/src/mcp/argument-transformer.js';
 import { createResponseNormalizer } from '../helper/src/mcp/response-normalizer.js';
 import { createConfig } from '../helper/src/mcp/mcp-config.js';
+import { NEO4J_BOLT_URI, NEO4J_USERNAME, NEO4J_DATABASE } from './neo4j-defaults.js';
+import { PATH_ENRICHMENT } from './platform-paths.js';
+import {
+  SIGTERM_TO_SIGKILL_MS,
+  GRACEFUL_EXIT_FALLBACK_MS,
+  WIKI_DEFAULT_LIMIT,
+} from './constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -60,7 +67,7 @@ function createTimeoutError(toolName, timeoutMs) {
 
 async function executeWikiTool(novelPath, toolName, args = {}) {
   if (toolName === 'wiki_list_pages') {
-    return listWikiPagesForMcp(novelPath, Number(args.limit || 200));
+    return listWikiPagesForMcp(novelPath, Number(args.limit || WIKI_DEFAULT_LIMIT));
   }
 
   if (toolName === 'wiki_get_page') {
@@ -72,7 +79,7 @@ async function executeWikiTool(novelPath, toolName, args = {}) {
   }
 
   if (toolName === 'wiki_get_backlinks') {
-    return getWikiBacklinksForMcp(novelPath, String(args.slug || ''), Number(args.limit || 200));
+    return getWikiBacklinksForMcp(novelPath, String(args.slug || ''), Number(args.limit || WIKI_DEFAULT_LIMIT));
   }
 
   if (toolName === 'wiki_build_graph') {
@@ -297,23 +304,16 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
       ? path.join(process.resourcesPath, 'helper', 'src', 'mcp', 'project-synapse-bridge.js')
       : path.join(__dirname, '../helper/src/mcp/project-synapse-bridge.js');
     const neo4j_pass = process.env.NEO4J_PASSWORD;
-    const homeDir = (typeof process.env.HOME === 'string' && process.env.HOME) || '';
-    const extraPaths = [
-      '/opt/homebrew/bin',
-      '/usr/local/bin',
-      homeDir ? `${homeDir}/.local/bin` : '',
-      homeDir ? `${homeDir}/.cargo/bin` : '',
-    ].filter(Boolean);
     const child = spawnFn('node', [serverPath], {
       stdio: 'pipe',
       env: {
         ...process.env,
-        PATH: [...extraPaths, process.env.PATH || ''].join(':'),
+        PATH: [...PATH_ENRICHMENT, process.env.PATH || ''].join(':'),
         ZUOJIA_NOVEL_PATH: novelPath,
-        NEO4J_URI: 'bolt://localhost:7687',
-        NEO4J_USER: 'neo4j',
+        NEO4J_URI: NEO4J_BOLT_URI,
+        NEO4J_USER: NEO4J_USERNAME,
         NEO4J_PASSWORD: neo4j_pass,
-        NEO4J_DATABASE: 'wiki',
+        NEO4J_DATABASE: NEO4J_DATABASE,
       },
     });
 
@@ -408,9 +408,9 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
         } catch {
           // Ignore kill errors.
         }
-        setTimeoutFn(() => resolveExit(), 2000);
+        setTimeoutFn(() => resolveExit(), GRACEFUL_EXIT_FALLBACK_MS);
       }
-    }, 5000);
+    }, SIGTERM_TO_SIGKILL_MS);
 
     await waitForExit;
     clearTimeoutFn(timeout);
