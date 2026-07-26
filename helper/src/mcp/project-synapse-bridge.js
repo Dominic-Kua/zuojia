@@ -9,14 +9,16 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 
-const logDir = path.join(process.cwd(), 'logs');
-fs.mkdirSync(logDir, { recursive: true });
-const logFile = path.join(logDir, 'project_synapse_bridge.log');
+let logFile = null;
 
 function log(level, msg) {
   const line = `${new Date().toISOString()} [SynapseBridge] [${level}] ${msg}\n`;
-  fs.appendFileSync(logFile, line);
   process.stderr.write(line);
+  if (logFile) {
+    try {
+      fs.appendFileSync(logFile, line);
+    } catch {}
+  }
 }
 
 function isJsonRpc(line) {
@@ -40,6 +42,13 @@ function main() {
     process.exit(1);
   }
 
+  try {
+    const zuojiaDir = path.join(novelPath, '.zuojia');
+    fs.mkdirSync(zuojiaDir, { recursive: true });
+    logFile = path.join(zuojiaDir, 'bridge.log');
+    fs.writeFileSync(logFile, '');
+  } catch {}
+
   const synapsePath = path.join(process.env.HOME, 'code', 'project-synapse-mcp');
   if (!fs.existsSync(path.join(synapsePath, 'pyproject.toml'))) {
     const err = { jsonrpc: '2.0', error: { code: -32603, message: 'Project Synapse not found at ' + synapsePath }, id: null };
@@ -53,6 +62,14 @@ function main() {
   env.NEO4J_PASSWORD = process.env.NEO4J_PASSWORD || 'neo4j';
   env.NEO4J_DATABASE = process.env.NEO4J_DATABASE || 'wiki';
   env.WIKI_VAULT_PATH = path.join(novelPath, 'wiki');
+  const homeDir = (typeof process.env.HOME === 'string' && process.env.HOME) || '';
+  const extraPaths = [
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    homeDir ? `${homeDir}/.local/bin` : '',
+    homeDir ? `${homeDir}/.cargo/bin` : '',
+  ].filter(Boolean);
+  env.PATH = [...extraPaths, process.env.PATH || ''].join(':');
 
   log('INFO', `Starting Synapse from ${synapsePath}, novel=${novelPath}, db=${env.NEO4J_DATABASE}`);
 
