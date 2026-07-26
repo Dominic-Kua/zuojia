@@ -297,10 +297,18 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
       ? path.join(process.resourcesPath, 'helper', 'src', 'mcp', 'project-synapse-bridge.js')
       : path.join(__dirname, '../helper/src/mcp/project-synapse-bridge.js');
     const neo4j_pass = process.env.NEO4J_PASSWORD;
+    const homeDir = (typeof process.env.HOME === 'string' && process.env.HOME) || '';
+    const extraPaths = [
+      '/opt/homebrew/bin',
+      '/usr/local/bin',
+      homeDir ? `${homeDir}/.local/bin` : '',
+      homeDir ? `${homeDir}/.cargo/bin` : '',
+    ].filter(Boolean);
     const child = spawnFn('node', [serverPath], {
       stdio: 'pipe',
       env: {
         ...process.env,
+        PATH: [...extraPaths, process.env.PATH || ''].join(':'),
         ZUOJIA_NOVEL_PATH: novelPath,
         NEO4J_URI: 'bolt://localhost:7687',
         NEO4J_USER: 'neo4j',
@@ -454,8 +462,8 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
         let result;
 
         // Check if we should use Synapse
-        const canUseSynapse = isUsingSynapse && mcpClient && toolMapper.hasMapping(toolName);
-        console.log(`[MCP] callTool "${toolName}" attempt=${attempt}, canUseSynapse=${canUseSynapse}, isUsingSynapse=${isUsingSynapse}, hasClient=${!!mcpClient}, hasMapping=${toolMapper.hasMapping(toolName)}`);
+        const canUseSynapse = isUsingSynapse && Boolean(mcpClient) && Boolean(toolMapper) && toolMapper.hasMapping(toolName);
+        console.log(`[MCP] callTool "${toolName}" attempt=${attempt}, canUseSynapse=${canUseSynapse}, isUsingSynapse=${isUsingSynapse}, hasClient=${!!mcpClient}, hasMapping=${toolMapper ? toolMapper.hasMapping(toolName) : false}`);
         
         if (canUseSynapse) {
           // Use Project Synapse via MCP client
