@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { gitHandlers, llmHandlers } from '../lib/ipc-client';
+import {
+  LLM_EXECUTABLE_PATH,
+  LLM_MODEL_NAME,
+  LLM_HOST,
+  LLM_PORT,
+  LLM_TEMPERATURE,
+  LLM_MAX_TOKENS,
+} from '../../electron/llm-defaults.js';
 
 const DEFAULT_SETTINGS = {
   remoteUrl: '',
@@ -8,12 +16,12 @@ const DEFAULT_SETTINGS = {
 };
 
 const DEFAULT_LLM_SETTINGS = {
-  executablePath: '/opt/homebrew/bin/ollama',
-  modelName: 'gemma4:e2b',
-  host: '127.0.0.1',
-  port: 11434,
-  temperature: 0.7,
-  maxTokens: 4096,
+  executablePath: LLM_EXECUTABLE_PATH,
+  modelName: LLM_MODEL_NAME,
+  host: LLM_HOST,
+  port: LLM_PORT,
+  temperature: LLM_TEMPERATURE,
+  maxTokens: LLM_MAX_TOKENS,
 };
 
 export function SettingsModal({ novelPath }) {
@@ -282,7 +290,7 @@ export function SettingsModal({ novelPath }) {
                          type="text"
                          value={llmSettings.executablePath}
                          onChange={handleLlmChange('executablePath')}
-                         placeholder="/opt/homebrew/bin/ollama"
+                          placeholder={LLM_EXECUTABLE_PATH}
                        />
                      </label>
 
@@ -295,7 +303,7 @@ export function SettingsModal({ novelPath }) {
                          type="text"
                          value={llmSettings.modelName}
                          onChange={handleLlmChange('modelName')}
-                         placeholder="gemma4:e2b"
+                          placeholder={LLM_MODEL_NAME}
                        />
                      </label>
 
@@ -321,7 +329,7 @@ export function SettingsModal({ novelPath }) {
                          type="number"
                          value={llmSettings.port}
                          onChange={handleLlmNumberChange('port')}
-                         placeholder="11434"
+                          placeholder={LLM_PORT}
                        />
                      </label>
 
