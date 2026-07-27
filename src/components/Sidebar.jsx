@@ -481,6 +481,10 @@ export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggl
     setSelectedSlug(slug);
   };
 
+  if (!isFloating && wikiDetached) {
+    return null;
+  }
+
   return (
     <div className="sidebar-inner">
       <div className="sidebar-section">

@@ -25,7 +25,12 @@ test.describe('Wiki Link Syntax & Resolution E2E', () => {
   test.beforeEach(async () => {
     // Launch the Electron app
     ({ app, page } = await launchElectronApp());
-    
+
+    // Clear localStorage to reset wiki panel state
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+
     // Generate unique novel name for this test run
     testNovelName = `test-wiki-links-${Date.now()}`;
     testNovelPath = path.join(os.homedir(), '.zuojia', testNovelName);
