@@ -21,6 +21,10 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
   test.beforeEach(async () => {
     ({ app, page } = await launchElectronApp());
 
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+
     testNovelName = `test-snapshot-${Date.now()}`;
     testNovelPath = path.join(os.homedir(), '.zuojia', testNovelName);
 

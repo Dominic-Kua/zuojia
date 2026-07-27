@@ -120,43 +120,44 @@ test.describe('Git Integration E2E', () => {
     const nonGitNovelName = `e2e-non-git-${Date.now()}`;
     const nonGitNovelPath = path.join(os.homedir(), '.zuojia', nonGitNovelName);
     
-    await fs.mkdir(path.join(nonGitNovelPath, 'manuscript'), { recursive: true });
-    await fs.mkdir(path.join(nonGitNovelPath, 'wiki'), { recursive: true });
-    await fs.mkdir(path.join(nonGitNovelPath, 'meta'), { recursive: true });
+    try {
+      await fs.mkdir(path.join(nonGitNovelPath, 'manuscript'), { recursive: true });
+      await fs.mkdir(path.join(nonGitNovelPath, 'wiki'), { recursive: true });
+      await fs.mkdir(path.join(nonGitNovelPath, 'meta'), { recursive: true });
 
-    await fs.writeFile(
-      path.join(nonGitNovelPath, 'meta', 'index.json'),
-      JSON.stringify({
-        title: nonGitNovelName,
-        chapters: [],
-        wiki: [],
-      }, null, 2)
-    );
+      await fs.writeFile(
+        path.join(nonGitNovelPath, 'meta', 'index.json'),
+        JSON.stringify({
+          title: nonGitNovelName,
+          chapters: [],
+          wiki: [],
+        }, null, 2)
+      );
 
-    await fs.writeFile(
-      path.join(nonGitNovelPath, 'manuscript', 'chapter-01.md'),
-      '# Chapter 1\n\nTest.'
-    );
+      await fs.writeFile(
+        path.join(nonGitNovelPath, 'manuscript', 'chapter-01.md'),
+        '# Chapter 1\n\nTest.'
+      );
 
-    // Close current novel and wait for the sidebar to fully disappear
-    await page.getByTestId('close-novel-button').click();
-    await expect(page.getByTestId('novel-list')).toBeVisible({ timeout: 10000 });
-    
-    // Open non-git novel
-    const novelList = page.getByTestId('novel-list');
-    await expect(novelList).toBeVisible({ timeout: 15000 });
-    const novelItem = page.locator('.novel-list-item').filter({ hasText: nonGitNovelName });
-    await expect(novelItem).toBeVisible({ timeout: 10000 });
-    const openButton = novelItem.locator('.novel-list-open');
-    await openButton.click();
-    
-    // Wait for sidebar to load
-    await expect(page.getByRole('heading', { name: 'Wiki', exact: true })).toBeVisible({ timeout: 15000 });
+      // Close current novel and wait for the sidebar to fully disappear
+      await page.getByTestId('close-novel-button').click();
+      await expect(page.getByTestId('novel-list')).toBeVisible({ timeout: 10000 });
+      
+      // Open non-git novel
+      const novelList = page.getByTestId('novel-list');
+      await expect(novelList).toBeVisible({ timeout: 15000 });
+      const novelItem = page.locator('.novel-list-item').filter({ hasText: nonGitNovelName });
+      await expect(novelItem).toBeVisible({ timeout: 10000 });
+      const openButton = novelItem.locator('.novel-list-open');
+      await openButton.click();
+      
+      // Wait for sidebar to load
+      await expect(page.getByRole('heading', { name: 'Wiki', exact: true })).toBeVisible({ timeout: 15000 });
 
-    // Pull button should NOT be visible (no remote configured for non-git novel)
-    await expect(page.getByTestId('git-pull-button')).not.toBeVisible({ timeout: 5000 });
-
-    // Cleanup
-    try { await fs.rm(nonGitNovelPath, { recursive: true, force: true }); } catch {}
+      // Pull button should NOT be visible (no remote configured for non-git novel)
+      await expect(page.getByTestId('git-pull-button')).not.toBeVisible({ timeout: 5000 });
+    } finally {
+      try { await fs.rm(nonGitNovelPath, { recursive: true, force: true }); } catch {}
+    }
   });
 });

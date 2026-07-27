@@ -94,6 +94,10 @@ test.describe('Wiki Online E2E', () => {
 
   test.beforeEach(async () => {
     ({ app, page } = await launchElectronApp());
+
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
   });
 
   test.afterEach(async () => {

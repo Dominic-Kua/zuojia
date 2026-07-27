@@ -64,6 +64,11 @@ test.describe('Spellcheck Dictionary E2E', () => {
 
   test.beforeEach(async () => {
     ({ app, page } = await launchElectronApp());
+
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+
     testNovelName = `test-spellcheck-${Date.now()}`;
     testNovelPath = path.join(os.homedir(), '.zuojia', testNovelName);
     await createNovel();
