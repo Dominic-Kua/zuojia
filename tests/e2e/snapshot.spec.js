@@ -45,6 +45,9 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
 
     const novelExists = await fs.access(testNovelPath).then(() => true).catch(() => false);
     expect(novelExists).toBe(true);
+
+    // Wait for the app to finish loading the novel before exercising IPC
+    await expect(page.getByTestId('manuscript-editor')).toBeVisible({ timeout: 10000 });
   });
 
   test.afterEach(async () => {
@@ -97,13 +100,15 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
   });
 
   test('should list snapshots sorted newest first', async () => {
-    // Create two snapshots sequentially; natural IPC round-trip latency provides
-    // sufficient timestamp separation without an explicit sleep.
+    // Create two snapshots with an explicit delay to guarantee distinct timestamps
     const first = await page.evaluate(
       async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'first' }),
       { novelPath: testNovelPath }
     );
     expect(first.status).toBe('ok');
+
+    // Ensure the second snapshot gets a different millisecond timestamp
+    await page.waitForTimeout(50);
 
     const second = await page.evaluate(
       async ({ novelPath }) => window.electronAPI.invoke('helper:backup:createSnapshot', { novelPath, label: 'second' }),
@@ -230,14 +235,6 @@ test.describe('Story 4.1: Snapshot (Local Backup)', () => {
     await fs.writeFile(path.join(testNovelPath, 'manuscript', 'chapter-01.md'), '# Chapter 1');
     await fs.mkdir(path.join(testNovelPath, 'wiki'), { recursive: true });
     await fs.writeFile(path.join(testNovelPath, 'wiki', 'alice.md'), '# Alice');
-
-    // Previous permission-hardening checks in this suite can leave restrictive
-    // modes behind if the filesystem applies umask differently; normalize before
-    // verifying snapshot content coverage.
-    const metaDir = path.join(testNovelPath, 'meta');
-    const dictPath = path.join(metaDir, 'spellcheck-dict.json');
-    await fs.chmod(metaDir, 0o755).catch(() => {});
-    await fs.chmod(dictPath, 0o644).catch(() => {});
 
     let result;
     await expect.poll(

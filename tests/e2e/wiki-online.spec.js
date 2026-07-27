@@ -4,8 +4,8 @@ import os from 'os';
 import path from 'path';
 import fs from 'fs/promises';
 
-const TEST_NOVEL_NAME = `e2e-wiki-online-${Date.now()}`;
-const TEST_NOVEL_PATH = path.join(os.homedir(), '.zuojia', TEST_NOVEL_NAME);
+let TEST_NOVEL_NAME;
+let TEST_NOVEL_PATH;
 
 async function createTestNovelWithWiki() {
   await fs.mkdir(path.join(TEST_NOVEL_PATH, 'manuscript'), { recursive: true });
@@ -89,6 +89,8 @@ test.describe('Wiki Online E2E', () => {
   let app, page;
 
   test.beforeAll(async () => {
+    TEST_NOVEL_NAME = `e2e-wiki-online-${Date.now()}`;
+    TEST_NOVEL_PATH = path.join(os.homedir(), '.zuojia', TEST_NOVEL_NAME);
     await createTestNovelWithWiki();
   });
 

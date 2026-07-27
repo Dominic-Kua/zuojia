@@ -4,8 +4,8 @@ import path from 'path';
 import fs from 'fs/promises';
 import { launchElectronApp, closeElectronApp } from './helpers/electron-launcher.js';
 
-const TEST_NOVEL_NAME = `e2e-wiki-floating-${Date.now()}`;
-const TEST_NOVEL_PATH = path.join(os.homedir(), '.zuojia', TEST_NOVEL_NAME);
+let TEST_NOVEL_NAME;
+let TEST_NOVEL_PATH;
 
 async function createTestNovelWithWiki() {
   await fs.mkdir(path.join(TEST_NOVEL_PATH, 'manuscript'), { recursive: true });
@@ -51,6 +51,8 @@ test.describe('Wiki Floating Panel E2E', () => {
   let app, page;
 
   test.beforeAll(async () => {
+    TEST_NOVEL_NAME = `e2e-wiki-floating-${Date.now()}`;
+    TEST_NOVEL_PATH = path.join(os.homedir(), '.zuojia', TEST_NOVEL_NAME);
     await createTestNovelWithWiki();
   });
 
