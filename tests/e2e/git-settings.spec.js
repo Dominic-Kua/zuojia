@@ -48,7 +48,7 @@ test.describe('Story 4.5: Git Configuration', () => {
     await page.getByTestId('git-remote-url-input').fill(remotePath);
     await page.getByTestId('git-branch-input').fill('main');
     await page.getByTestId('git-ssh-key-input').fill('~/.ssh/id_rsa');
-    await page.getByTestId('git-settings-save').click();
+    await page.getByTestId('settings-save').click();
 
     await expect(page.getByTestId('settings-dialog')).not.toBeVisible({ timeout: 5000 });
 

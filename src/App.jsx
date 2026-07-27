@@ -57,6 +57,7 @@ export default function App(){
   const [wikiDetached, setWikiDetached] = useState(() => {
     try {
       const stored = window.localStorage.getItem('zuojia-wiki-docked');
+      // stored is 'true' for docked, 'false' for detached
       return stored === 'false'; // true = detached, false = docked (default)
     } catch {
       return false;
@@ -443,10 +444,10 @@ export default function App(){
           onMouseDown={() => setIsResizingSidebar(true)}
         />
         <aside className={`sidebar${wikiDetached ? ' collapsed' : ''}`} data-testid="sidebar-section" style={{ width: `${sidebarWidth}px` }}>
-          <Sidebar 
-            key={restoreKey}
+          <Sidebar
+            key={`${restoreKey}-${novelPath}`}
             ref={sidebarRef}
-            novelPath={novelPath} 
+            novelPath={novelPath}
             openPageSlug={wikiPageToOpen}
             wikiDetached={wikiDetached}
             onToggleWikiDetached={setWikiDetached}

@@ -150,14 +150,26 @@ export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggl
 
   // Git repo detection
   useEffect(() => {
+    // Reset all git state synchronously when novelPath changes
+    setIsGitRepo(false);
+    setSyncStatus({
+      isRepo: false,
+      lastPush: null,
+      ahead: 0,
+      behind: 0,
+      hasRemote: false,
+      branch: null,
+      upstreamBranch: null,
+    });
+    setDirtyState({ isRepo: false, dirtyCount: 0, files: [] });
+
     if (!novelPath) {
-      setIsGitRepo(false);
       return;
     }
     const checkRepo = async () => {
       try {
         const result = await gitHandlers.isRepo(novelPath);
-        setIsGitRepo(result);
+        setIsGitRepo(result?.isRepo ?? false);
       } catch (err) {
         console.error('Failed to check git repo:', err);
         setIsGitRepo(false);
@@ -183,8 +195,8 @@ export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggl
     const fetchSyncStatus = async () => {
       try {
         const result = await gitHandlers.getSyncStatus(novelPath);
-        if (result?.data) {
-          setSyncStatus(result.data);
+        if (result) {
+          setSyncStatus(result);
         }
       } catch (err) {
         console.error('Failed to fetch sync status:', err);
@@ -204,11 +216,11 @@ export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggl
     const fetchDirtyState = async () => {
       try {
         const result = await gitHandlers.getStatus(novelPath);
-        if (result?.data) {
+        if (result) {
           setDirtyState({
-            isRepo: result.data.hasChanges !== undefined,
-            dirtyCount: result.data.changeCount || 0,
-            files: result.data.changes || [],
+            isRepo: result.hasChanges !== undefined,
+            dirtyCount: result.changeCount || 0,
+            files: result.changes || [],
           });
         }
       } catch (err) {
@@ -229,14 +241,22 @@ export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggl
     
     try {
       const result = await gitHandlers.pull(novelPath);
-      if (result?.status === 'ok') {
+      // pull returns { success, output, filesUpdated, branch } on success
+      // or throws on error
+      if (result?.success) {
         // Refresh sync status and dirty state after pull
         const [syncResult, dirtyResult] = await Promise.all([
           gitHandlers.getSyncStatus(novelPath),
-          gitHandlers.getDirtyState(novelPath),
+          gitHandlers.getStatus(novelPath),
         ]);
-        if (syncResult?.data) setSyncStatus(syncResult.data);
-        if (dirtyResult?.data) setDirtyState(dirtyResult.data);
+        if (syncResult) setSyncStatus(syncResult);
+        if (dirtyResult) {
+          setDirtyState({
+            isRepo: dirtyResult.hasChanges !== undefined,
+            dirtyCount: dirtyResult.changeCount || 0,
+            files: dirtyResult.changes || [],
+          });
+        }
       } else if (result?.error) {
         setPullError(result.error.message);
       }
@@ -641,38 +661,42 @@ export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggl
         <h3>Sync Status</h3>
         {!isGitRepo ? (
           <div className="sidebar-muted-copy">Not a git repository</div>
-        ) : !syncStatus.hasRemote ? (
-          <div className="sidebar-muted-copy">No remote configured</div>
         ) : (
           <>
             <div className="sync-status-row">
               <span>Branch: {syncStatus.branch}</span>
               {syncStatus.upstreamBranch && <span>→ {syncStatus.upstreamBranch}</span>}
             </div>
-            <div className="sync-status-row">
-              <span>Last push: {syncStatus.lastPush ? new Date(syncStatus.lastPush).toLocaleString() : 'Never'}</span>
-            </div>
-            <div className="sync-status-row">
-              <span>Ahead: {syncStatus.ahead}</span>
-              <span>Behind: {syncStatus.behind}</span>
-            </div>
+            {!syncStatus.hasRemote ? (
+              <div className="sidebar-muted-copy">No remote configured</div>
+            ) : (
+              <>
+                <div className="sync-status-row">
+                  <span>Last push: {syncStatus.lastPush ? new Date(syncStatus.lastPush).toLocaleString() : 'Never'}</span>
+                </div>
+                <div className="sync-status-row">
+                  <span>Ahead: {syncStatus.ahead}</span>
+                  <span>Behind: {syncStatus.behind}</span>
+                </div>
+                <div className="sync-actions">
+                  <button
+                    type="button"
+                    className="btn ghost btn-sm"
+                    onClick={handlePull}
+                    disabled={isPulling}
+                    data-testid="git-pull-button"
+                  >
+                    {isPulling ? 'Pulling...' : 'Pull'}
+                  </button>
+                  {pullError && <div className="error-message">{pullError}</div>}
+                </div>
+              </>
+            )}
             {dirtyState.dirtyCount > 0 && (
               <div className="sync-status-row dirty-indicator">
                 <span>Uncommitted: {dirtyState.dirtyCount}</span>
               </div>
             )}
-            <div className="sync-actions">
-              <button
-                type="button"
-                className="btn ghost btn-sm"
-                onClick={handlePull}
-                disabled={isPulling || !syncStatus.hasRemote}
-                data-testid="git-pull-button"
-              >
-                {isPulling ? 'Pulling...' : 'Pull'}
-              </button>
-              {pullError && <div className="error-message">{pullError}</div>}
-            </div>
           </>
         )}
       </div>
