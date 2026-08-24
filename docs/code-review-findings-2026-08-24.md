@@ -305,6 +305,10 @@ SIGTERM to `npm` doesn't kill the vite grandchild (port 5173 held); `strictPort:
 
 ## Cross-cutting themes
 
+### Follow-up findings (2026-08-24, post-fix e2e runs)
+
+- **[High] E2E suite ran against stale dist/ builds** — the Playwright launcher forces production mode, so Electron loads dist/index.html; running `npx playwright test` directly (vs `npm run test:e2e`) silently tested old code. The mysterious `helper:git:isRepo` handler-missing log was a ghost from a July 27 build (the caller was already removed from source). Fixed: added tests/e2e/e2e-global-setup.js which rebuilds dist/ when source is newer, wired into playwright.config.js globalSetup.
+
 1. **Save-path races** need one primitive: a per-target "flush pending writes and await quiescence" reused by chapter switch, novel close, snapshot restore, export, and wiki page switch (C3, C4, H8, H9, H10, M16, M22, M29).
 2. **CJK correctness is the product's core promise (作家) and currently fails** in word count (C5), IME stability (H7), novel creation (H12), wiki links (H13), PDF export (H14).
 3. **Security posture**: shell injection (C1, C7), leaked credential (C2), no IPC validation/allowlist (H2, H3). Fix these before any packaging/release.

@@ -108,15 +108,20 @@ export default function Sidebar({ novelPath, openPageSlug }){
     });
   }, [buildAssetUrl]);
 
-  const handleSelectPage = useCallback((slug) => {
-    // Flush any pending autosave before switching pages
+  const handleSelectPage = useCallback(async (slug) => {
+    // Flush any pending autosave and AWAIT it before switching — otherwise a
+    // later reload of this page can read pre-edit content from disk and the
+    // next autosave would overwrite the user's edits with stale text.
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
-      // Save immediately with current state
+      autosaveTimerRef.current = null;
       if (novelPath && selectedSlug && isDirty) {
-        wikiHandlers.update(novelPath, selectedSlug, wikiContent, wikiTags).catch((err) => {
+        try {
+          await wikiHandlers.update(novelPath, selectedSlug, wikiContent, wikiTags);
+          setIsDirty(false);
+        } catch (err) {
           console.error('Failed to autosave before page switch:', err);
-        });
+        }
       }
     }
     setSelectedSlug(slug);
@@ -175,6 +180,15 @@ export default function Sidebar({ novelPath, openPageSlug }){
     }
   }, [createPage, newTitle, notifySpellcheckDictionaryChanged]);
 
+  // Mirror of `pages` for title lookup inside the content loader — keeps
+  // `pages` out of the load effect's deps so a background page-list refresh
+  // (create/delete/rename elsewhere) can't reload the editor and wipe
+  // in-progress edits.
+  const pagesRef = useRef(pages);
+  useEffect(() => {
+    pagesRef.current = pages;
+  }, [pages]);
+
   useEffect(() => {
     const loadWikiContent = async () => {
       if (!selectedSlug || !novelPath) {
@@ -192,11 +206,11 @@ export default function Sidebar({ novelPath, openPageSlug }){
         const result = await wikiHandlers.read(novelPath, selectedSlug);
         const content = result?.content || '';
         const tags = result?.tags || [];
-        
+
         // Find page title from pages list
-        const pageInfo = pages.find((p) => p.slug === selectedSlug);
+        const pageInfo = pagesRef.current.find((p) => p.slug === selectedSlug);
         const title = pageInfo?.title || selectedSlug;
-        
+
         setWikiContent(content);
         setWikiTags(tags);
         setTagInput(tags.join(', '));
@@ -212,7 +226,7 @@ export default function Sidebar({ novelPath, openPageSlug }){
     };
 
     loadWikiContent();
-  }, [novelPath, selectedSlug, pages]);
+  }, [novelPath, selectedSlug]);
 
   useEffect(() => {
     if (!selectedSlug || !novelPath) {

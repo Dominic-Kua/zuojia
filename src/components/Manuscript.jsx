@@ -138,7 +138,7 @@ const getSerializedOffset = (editor, targetNode, targetOffset) => {
   return length
 }
 
-export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, editorFontSize = 18 }){
+export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, editorFontSize = 18, registerEditorFlush }){
   const editorRef = useRef(null)
   const saveTimerRef = useRef(null)
   const highlightTimerRef = useRef(null)
@@ -148,6 +148,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
   // stale in-flight load from writing one chapter's text into another.
   const loadedChapterRef = useRef(null)
   const loadRequestSeqRef = useRef(0)
+  const isComposingRef = useRef(false)
   const spellcheckResizeStartYRef = useRef(0)
   const spellcheckResizeStartHeightRef = useRef(0)
 
@@ -576,6 +577,28 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
     }
   }, [])
 
+  // Expose an imperative flush so destructive operations outside this
+  // component (snapshot restore, novel close) can await pending debounced
+  // saves instead of racing them.
+  useEffect(() => {
+    if (!registerEditorFlush) {
+      return undefined
+    }
+    const unregister = registerEditorFlush(async () => {
+      // Cancel the debounce timer — we're saving right now
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+      // Only save when the loaded content provably belongs to the selected chapter
+      if (!currentChapter || !novelPath || loadedChapterRef.current !== currentChapter) {
+        return
+      }
+      await saveChapter(currentChapter, content)
+    })
+    return unregister
+  }, [registerEditorFlush, currentChapter, novelPath, content, saveChapter])
+
   useEffect(() => {
     if (!isResizingSpellcheck) {
       return undefined
@@ -757,16 +780,30 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
       clearTimeout(highlightTimerRef.current)
       highlightTimerRef.current = null
     }
-    
+
     // Re-apply content after a brief idle delay.
     // We intentionally do not compare against editor.textContent here because
     // contenteditable block structure can omit logical line breaks in textContent.
+    // Skipped while an IME composition is active — replacing the DOM mid-
+    // composition aborts/corrupts CJK input; the final compositionend event
+    // triggers a full refresh instead.
     highlightTimerRef.current = setTimeout(() => {
-      if (editorRef.current) {
+      if (editorRef.current && !isComposingRef.current) {
         applyEditorContent(plainContent)
       }
       highlightTimerRef.current = null
     }, 500)
+  }
+
+  // IME (input method editor) composition tracking for CJK input
+  const handleCompositionStart = () => {
+    isComposingRef.current = true
+  }
+
+  const handleCompositionEnd = (e) => {
+    isComposingRef.current = false
+    // Composition finished — safe to re-highlight with the final text
+    handleInput(e)
   }
 
   const handleSpellcheckResizeStart = (event) => {
@@ -812,6 +849,8 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
         autoCorrect="off"
         autoCapitalize="off"
         onInput={handleInput}
+        onCompositionStart={handleCompositionStart}
+        onCompositionEnd={handleCompositionEnd}
         onBlur={handleEditorBlur}
         aria-busy={loading || isLoadingChapter}
         data-testid="manuscript-editor"

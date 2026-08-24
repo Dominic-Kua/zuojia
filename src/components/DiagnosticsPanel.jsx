@@ -11,7 +11,7 @@ function formatTimestamp(ts) {
   return new Date(ts).toLocaleString();
 }
 
-export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored }) {
+export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored, onBeforeRestore }) {
   const [showDialog, setShowDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isRebuilding, setIsRebuilding] = useState(false);
@@ -124,6 +124,12 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored }) {
     setIsRestoring(true);
     setError(null);
     try {
+      // Flush the editor's pending debounced save BEFORE taking any backup,
+      // so both the safety snapshot and the restore see complete on-disk
+      // state and an in-flight autosave can't clobber restored files later.
+      if (onBeforeRestore) {
+        await onBeforeRestore();
+      }
       if (createSafetyBackup) {
         await backupHandlers.createSnapshot(novelPath, 'pre-restore safety backup');
       }

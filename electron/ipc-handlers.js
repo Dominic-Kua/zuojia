@@ -27,8 +27,88 @@ import http from 'http';
  * Formats responses as structured envelopes
  */
 
+// ── IPC payload validation ───────────────────────────────────────────────────
+// Renderer-supplied values flow into fs and child_process calls downstream,
+// so every handler validates its payload before doing any work.
+
+// Values used directly as path components must not contain separators or
+// parent-directory references.
+function containsPathTraversal(value) {
+  return (
+    typeof value !== 'string' ||
+    value.includes('..') ||
+    value.startsWith('/') ||
+    value.startsWith('\\') ||
+    /^[a-zA-Z]:/.test(value)
+  );
+}
+
+function validateHandlerPayload(payload) {
+  if (payload == null || typeof payload !== 'object') {
+    return null;
+  }
+
+  for (const [key, value] of Object.entries(payload)) {
+    if (typeof value !== 'string' || value.length === 0) {
+      continue;
+    }
+
+    if (key === 'novelPath') {
+      if (!path.isAbsolute(value)) {
+        return `${key} must be an absolute filesystem path`;
+      }
+      if (value.includes('..')) {
+        return `${key} must not contain parent-directory references`;
+      }
+      continue;
+    }
+
+    // Plain filenames (chapters) may never contain separators
+    if (key === 'filename' && /[\\/]/.test(value)) {
+      return `${key} must be a plain filename without path separators`;
+    }
+
+    // Slugs are interpolated into file paths (wiki/<slug>.md)
+    if (key === 'slug' && containsPathTraversal(value)) {
+      return `${key} contains illegal path characters`;
+    }
+    if (key === 'oldSlug' && containsPathTraversal(value)) {
+      return `${key} contains illegal path characters`;
+    }
+
+    // Snapshot timestamps locate backup directories on disk
+    if (key === 'timestamp' && containsPathTraversal(value)) {
+      return `${key} is not a valid snapshot timestamp`;
+    }
+
+    // Neo4j database names must be simple identifiers
+    if (key === 'databaseName' && !/^[a-zA-Z0-9_-]+$/.test(value)) {
+      return `${key} must contain only letters, numbers, hyphens, and underscores`;
+    }
+
+    // Spellcheck dictionary words become dict-file entries
+    if (key === 'word' && /[\\/\n]/.test(value)) {
+      return `${key} must be a single word`;
+    }
+  }
+
+  return null;
+}
+
+function invalidInputEnvelope(message) {
+  return {
+    status: 'error',
+    error: { code: 'INVALID_INPUT', message },
+    timestamp: new Date().toISOString(),
+  };
+}
+
 function wrapHandler(fn) {
   return async (event, payload) => {
+    const problem = validateHandlerPayload(payload);
+    if (problem) {
+      return invalidInputEnvelope(problem);
+    }
     return await fn(payload);
   };
 }
@@ -73,8 +153,23 @@ export function registerHandlers() {
   handlersRegistered = true;
 
   if (!beforeQuitBound) {
-    app.on('before-quit', async () => {
-      await orchestrator.stopAll();
+    // Electron does not await before-quit listeners — without
+    // preventDefault the app quits while stopAll() is still tearing down
+    // llama-server/Neo4j/MCP children, leaving them orphaned.
+    let teardownComplete = false;
+    app.on('before-quit', async (event) => {
+      if (teardownComplete) {
+        return;
+      }
+      event.preventDefault();
+      try {
+        await orchestrator.stopAll();
+      } catch (err) {
+        console.error('[quit] error stopping services:', err);
+      } finally {
+        teardownComplete = true;
+        app.quit();
+      }
     });
     beforeQuitBound = true;
   }

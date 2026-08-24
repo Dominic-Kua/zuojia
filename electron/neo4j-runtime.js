@@ -1,4 +1,4 @@
-import { spawn } from 'child_process';
+import { spawn, execFileSync } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -122,23 +122,77 @@ dbms.security.auth_enabled=false
     }
 
     // Start Neo4j process — no CLI flags, config is driven by env vars + neo4j.conf
-    const neo4jHome = '/opt/homebrew/Cellar/neo4j/2026.06.0/libexec';
     const homeDir = (typeof process.env.HOME === 'string' && process.env.HOME) || '';
     const extraPaths = [
       '/opt/homebrew/bin',
       '/usr/local/bin',
       homeDir ? `${homeDir}/.local/bin` : '',
     ].filter(Boolean);
-    // Resolve JAVA_HOME from openjdk@21 Homebrew install if not already set
-    const javaHome = process.env.JAVA_HOME || '/opt/homebrew/Cellar/openjdk@21/21.0.12/libexec/openjdk.jdk/Contents/Home';
+
+    // Resolve JAVA_HOME: env var wins, else probe Homebrew openjdk@21 installs
+    let javaHome = process.env.JAVA_HOME || '';
+    if (!javaHome) {
+      const openjdkRoots = [
+        '/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home',
+        '/opt/homebrew/Cellar/openjdk@21',
+      ];
+      for (const root of openjdkRoots) {
+        try {
+          if (root.includes('Cellar')) {
+            // Pick whatever version is installed rather than a pinned one
+            const versions = await fs.readdir(root);
+            for (const version of versions.sort().reverse()) {
+              const candidate = path.join(root, version, 'libexec/openjdk.jdk/Contents/Home');
+              await fs.access(candidate);
+              javaHome = candidate;
+              break;
+            }
+          } else {
+            await fs.access(root);
+            javaHome = root;
+          }
+          if (javaHome) break;
+        } catch {
+          // Try next candidate
+        }
+      }
+    }
+
+    // Resolve NEO4J_HOME: env var wins, else ask Homebrew, else probe Cellar
+    let neo4jHome = process.env.ZUOJIA_NEO4J_HOME || process.env.NEO4J_HOME || '';
+    if (!neo4jHome) {
+      try {
+        neo4jHome = execFileSync('brew', ['--prefix', 'neo4j'], { encoding: 'utf-8' }).trim();
+      } catch {
+        try {
+          const cellar = '/opt/homebrew/Cellar/neo4j';
+          const versions = await fs.readdir(cellar);
+          for (const version of versions.sort().reverse()) {
+            const candidate = path.join(cellar, version, 'libexec');
+            await fs.access(candidate);
+            neo4jHome = candidate;
+            break;
+          }
+        } catch {
+          // Leave empty — spawn will fail with a clear error below
+        }
+      }
+    }
+
+    pushLog({
+      timestamp: new Date().toISOString(),
+      type: 'neo4j_paths',
+      message: `NEO4J_HOME=${neo4jHome || '(unresolved)'} JAVA_HOME=${javaHome || '(system default)'}`,
+    });
+
     const child = spawnFn('neo4j', ['console'], {
       stdio: 'pipe',
       env: {
         ...process.env,
         PATH: [...extraPaths, process.env.PATH || ''].join(':'),
-        JAVA_HOME: javaHome,
+        ...(javaHome ? { JAVA_HOME: javaHome } : {}),
+        ...(neo4jHome ? { NEO4J_HOME: neo4jHome } : {}),
         NEO4J_CONF: path.dirname(configPath),
-        NEO4J_HOME: neo4jHome,
       },
     });
 
