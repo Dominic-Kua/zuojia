@@ -15,6 +15,10 @@ test.describe('Story 4.5: Git Configuration', () => {
   test.beforeEach(async () => {
     ({ app, page } = await launchElectronApp());
 
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+
     testNovelName = `test-git-settings-${Date.now()}`;
     testNovelPath = path.join(os.homedir(), '.zuojia', testNovelName);
     remotePath = path.join(os.tmpdir(), `zuojia-remote-${Date.now()}.git`);
@@ -48,7 +52,7 @@ test.describe('Story 4.5: Git Configuration', () => {
     await page.getByTestId('git-remote-url-input').fill(remotePath);
     await page.getByTestId('git-branch-input').fill('main');
     await page.getByTestId('git-ssh-key-input').fill('~/.ssh/id_rsa');
-    await page.getByTestId('git-settings-save').click();
+    await page.getByTestId('settings-save').click();
 
     await expect(page.getByTestId('settings-dialog')).not.toBeVisible({ timeout: 5000 });
 

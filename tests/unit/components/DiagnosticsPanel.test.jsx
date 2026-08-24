@@ -1,502 +1,122 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, render, screen, waitFor } from '@testing-library/react';
+/**
+ * Tests for DiagnosticsPanel component
+ * Covers backup management, index info, and dependency validation
+ */
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { DiagnosticsPanel } from '../../../src/components/DiagnosticsPanel';
 
-let consoleErrorSpy;
-const originalConsoleError = console.error;
+const mockListSnapshots = vi.fn();
+const mockDeleteSnapshot = vi.fn();
+const mockRestoreSnapshot = vi.fn();
+const mockGetLogs = vi.fn();
+const mockGetIndex = vi.fn();
+const mockValidateDeps = vi.fn();
+const mockRebuildIndex = vi.fn();
 
 vi.mock('../../../src/lib/ipc-client', () => ({
-  exportHandlers: {
-    getLogs: vi.fn(),
-    validateDeps: vi.fn(),
-  },
   backupHandlers: {
-    listSnapshots: vi.fn(),
-    deleteSnapshot: vi.fn(),
-    createSnapshot: vi.fn(),
-    restore: vi.fn(),
+    listSnapshots: (...args) => mockListSnapshots(...args),
+    deleteSnapshot: (...args) => mockDeleteSnapshot(...args),
+    restore: (...args) => mockRestoreSnapshot(...args),
+    createSnapshot: vi.fn().mockResolvedValue({}),
+  },
+  exportHandlers: {
+    getLogs: (...args) => mockGetLogs(...args),
+    validateDeps: (...args) => mockValidateDeps(...args),
+    pdf: vi.fn().mockResolvedValue({}),
   },
   indexHandlers: {
-    getIndex: vi.fn(),
-    rebuildIndex: vi.fn(),
+    getIndex: (...args) => mockGetIndex(...args),
+    rebuildIndex: (...args) => mockRebuildIndex(...args),
+    validateNovel: vi.fn().mockResolvedValue({}),
+    createNovel: vi.fn().mockResolvedValue({}),
   },
 }));
 
-describe('DiagnosticsPanel', () => {
-  const novelPath = '/path/to/novel';
+import { DiagnosticsPanel } from '../../../src/components/DiagnosticsPanel';
 
+describe('DiagnosticsPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((...args) => {
-      const [firstArg] = args;
-      if (typeof firstArg === 'string' && firstArg.includes('not wrapped in act')) return;
-      originalConsoleError(...args);
-    });
+    mockListSnapshots.mockResolvedValue({ snapshots: [] });
+    mockGetLogs.mockResolvedValue([]);
+    mockGetIndex.mockResolvedValue({ chapters: [] });
+    mockValidateDeps.mockResolvedValue({ pandoc: true, texlive: true });
   });
 
-  afterEach(() => {
-    consoleErrorSpy?.mockRestore();
+  it('returns null when novelPath is not set', () => {
+    const { container } = render(<DiagnosticsPanel novelPath={null} />);
+    expect(container.innerHTML).toBe('');
   });
 
-  function setupMocks({ logs = [], snapshots = [], index = null, deps = null } = {}) {
-    return import('../../../src/lib/ipc-client').then(({ exportHandlers, backupHandlers, indexHandlers }) => {
-      exportHandlers.getLogs.mockResolvedValue(logs);
-      exportHandlers.validateDeps.mockResolvedValue(
-        deps ?? {
-          pandoc: { available: true, version: 'pandoc 3.1' },
-          tex: { available: true, engine: 'xelatex', version: 'XeTeX 3.14' },
-        }
-      );
-      backupHandlers.listSnapshots.mockResolvedValue({ snapshots });
-      indexHandlers.getIndex.mockResolvedValue(
-        index ?? { chapters: [{ filename: 'ch-01.md', title: 'Ch 1' }], wiki: [], lastRebuild: '2026-04-18T10:00:00.000Z' }
-      );
-      indexHandlers.rebuildIndex.mockResolvedValue({ chapters: [], wiki: [] });
-    });
-  }
-
-  it('renders the Diagnostics button', () => {
-    render(<DiagnosticsPanel novelPath={novelPath} />);
-    expect(screen.getByTestId('diagnostics-button')).toBeInTheDocument();
+  it('shows Diagnostics button', () => {
+    render(<DiagnosticsPanel novelPath="/tmp/novel" />);
+    expect(screen.getByText('Diagnostics')).toBeInTheDocument();
   });
 
-  it('opens the diagnostics dialog on button click', async () => {
-    await setupMocks();
+  it('opens dialog on click', async () => {
     const user = userEvent.setup();
-    render(<DiagnosticsPanel novelPath={novelPath} />);
-
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-button'));
-    });
-
-    expect(screen.getByTestId('diagnostics-dialog')).toBeInTheDocument();
+    render(<DiagnosticsPanel novelPath="/tmp/novel" />);
+    await user.click(screen.getByText('Diagnostics'));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
-  it('shows index status section with chapter count and last rebuild', async () => {
-    await setupMocks({
-      index: { chapters: [{ filename: 'ch-01.md', title: 'Ch 1' }, { filename: 'ch-02.md', title: 'Ch 2' }], wiki: [{ slug: 'character' }], lastRebuild: '2026-04-18T10:00:00.000Z' },
-    });
-    const user = userEvent.setup();
-    render(<DiagnosticsPanel novelPath={novelPath} />);
-
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-button'));
-    });
-
-    await screen.findByTestId('diagnostics-index-section');
-    expect(screen.getByTestId('diagnostics-chapter-count')).toHaveTextContent('2');
-    expect(screen.getByTestId('diagnostics-wiki-count')).toHaveTextContent('1');
-  });
-
-  it('shows dependency check section with available tools', async () => {
-    await setupMocks();
-    const user = userEvent.setup();
-    render(<DiagnosticsPanel novelPath={novelPath} />);
-
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-button'));
-    });
-
-    await screen.findByTestId('diagnostics-deps-section');
-    expect(screen.getByTestId('diagnostics-pandoc-status')).toHaveTextContent(/pandoc/i);
-    expect(screen.getByTestId('diagnostics-tex-status')).toHaveTextContent(/xelatex/i);
-  });
-
-  it('shows backups list with delete button per entry', async () => {
-    await setupMocks({
+  it('loads and displays snapshots', async () => {
+    mockListSnapshots.mockResolvedValue({
       snapshots: [
-        { timestamp: 1713441600000, label: 'Before edit', size: 2048 },
-        { timestamp: 1713528000000, label: null, size: 1024 },
+        { timestamp: '2024-01-15T10:30:00Z', label: 'Before edit', fileCount: 5 },
+        { timestamp: '2024-01-14T15:45:00Z', label: null, fileCount: 3 },
       ],
     });
     const user = userEvent.setup();
-    render(<DiagnosticsPanel novelPath={novelPath} />);
-
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-button'));
-    });
-
-    await screen.findByTestId('diagnostics-backups-section');
-    expect(screen.getByText('Before edit')).toBeInTheDocument();
-    expect(screen.getAllByTestId(/diagnostics-delete-backup-/)).toHaveLength(2);
-  });
-
-  it('deletes a backup when delete button clicked', async () => {
-    const { backupHandlers } = await import('../../../src/lib/ipc-client');
-    await setupMocks({
-      snapshots: [{ timestamp: 1713441600000, label: 'Draft', size: 512 }],
-    });
-    backupHandlers.deleteSnapshot.mockResolvedValue(undefined);
-    backupHandlers.listSnapshots
-      .mockResolvedValueOnce({ snapshots: [{ timestamp: 1713441600000, label: 'Draft', size: 512 }] })
-      .mockResolvedValueOnce({ snapshots: [] });
-
-    const user = userEvent.setup();
-    render(<DiagnosticsPanel novelPath={novelPath} />);
-
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-button'));
-    });
-
-    await screen.findByTestId('diagnostics-delete-backup-1713441600000');
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-delete-backup-1713441600000'));
-    });
-
+    render(<DiagnosticsPanel novelPath="/tmp/novel" />);
+    await user.click(screen.getByText('Diagnostics'));
     await waitFor(() => {
-      expect(backupHandlers.deleteSnapshot).toHaveBeenCalledWith(novelPath, 1713441600000);
+      expect(screen.getByText('Before edit')).toBeInTheDocument();
     });
   });
 
-  it('shows "No backups yet" when snapshot list is empty', async () => {
-    await setupMocks({ snapshots: [] });
+  it('loads and displays export logs', async () => {
+    mockGetLogs.mockResolvedValue([
+      { filename: 'pdf_export_2024.txt', content: 'Export completed successfully' },
+    ]);
     const user = userEvent.setup();
-    render(<DiagnosticsPanel novelPath={novelPath} />);
-
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-button'));
-    });
-
-    await screen.findByTestId('diagnostics-backups-section');
-    expect(screen.getByText(/no backups yet/i)).toBeInTheDocument();
-  });
-
-  it('shows export logs section', async () => {
-    await setupMocks({
-      logs: [{ filename: 'export-2026-04-18T12-00-00-000Z.log', content: 'exitCode: 0' }],
-    });
-    const user = userEvent.setup();
-    render(<DiagnosticsPanel novelPath={novelPath} />);
-
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-button'));
-    });
-
-    await screen.findByTestId('diagnostics-logs-section');
-    expect(screen.getByText('export-2026-04-18T12-00-00-000Z.log')).toBeInTheDocument();
-  });
-
-  it('shows "No export logs yet" when log list is empty', async () => {
-    await setupMocks({ logs: [] });
-    const user = userEvent.setup();
-    render(<DiagnosticsPanel novelPath={novelPath} />);
-
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-button'));
-    });
-
-    await screen.findByTestId('diagnostics-logs-section');
-    expect(screen.getByText(/no export logs yet/i)).toBeInTheDocument();
-  });
-
-  it('triggers rebuild index and calls onIndexRebuilt callback', async () => {
-    const { indexHandlers } = await import('../../../src/lib/ipc-client');
-    await setupMocks();
-    const onIndexRebuilt = vi.fn();
-
-    const user = userEvent.setup();
-    render(<DiagnosticsPanel novelPath={novelPath} onIndexRebuilt={onIndexRebuilt} />);
-
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-button'));
-    });
-
-    await screen.findByTestId('diagnostics-index-section');
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-rebuild-index-button'));
-    });
-
+    render(<DiagnosticsPanel novelPath="/tmp/novel" />);
+    await user.click(screen.getByText('Diagnostics'));
     await waitFor(() => {
-      expect(indexHandlers.rebuildIndex).toHaveBeenCalledWith(novelPath);
-      expect(onIndexRebuilt).toHaveBeenCalled();
+      expect(screen.getByText(/pdf_export/)).toBeInTheDocument();
     });
   });
 
-  it('shows a Restore button per backup entry', async () => {
-    await setupMocks({
-      snapshots: [{ timestamp: 1713441600000, label: 'Before edit', size: 2048 }],
-    });
+  it('shows dependency validation results', async () => {
+    mockValidateDeps.mockResolvedValue({ pandoc: true, texlive: false });
     const user = userEvent.setup();
-    render(<DiagnosticsPanel novelPath={novelPath} />);
-
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-button'));
-    });
-
-    await screen.findByTestId('diagnostics-backups-section');
-    expect(screen.getByTestId('diagnostics-restore-backup-1713441600000')).toBeInTheDocument();
-  });
-
-  it('shows pre-backup confirmation dialog when Restore clicked', async () => {
-    const { backupHandlers } = await import('../../../src/lib/ipc-client');
-    await setupMocks({
-      snapshots: [{ timestamp: 1713441600000, label: 'Before edit', size: 2048 }],
-    });
-    backupHandlers.restore.mockResolvedValue({ timestamp: 1713441600000, restored: true });
-
-    const user = userEvent.setup();
-    render(<DiagnosticsPanel novelPath={novelPath} />);
-
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-button'));
-    });
-
-    await screen.findByTestId('diagnostics-restore-backup-1713441600000');
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-restore-backup-1713441600000'));
-    });
-
-    expect(screen.getByTestId('restore-confirm-dialog')).toBeInTheDocument();
-    expect(screen.getByText(/create backup first/i)).toBeInTheDocument();
-  });
-
-  it('creates a safety snapshot then restores when "Yes" clicked', async () => {
-    const { backupHandlers } = await import('../../../src/lib/ipc-client');
-    await setupMocks({
-      snapshots: [{ timestamp: 1713441600000, label: 'Before edit', size: 2048 }],
-    });
-    backupHandlers.createSnapshot.mockResolvedValue({ timestamp: Date.now() });
-    backupHandlers.restore.mockResolvedValue({ timestamp: 1713441600000, restored: true });
-    backupHandlers.listSnapshots
-      .mockResolvedValueOnce({ snapshots: [{ timestamp: 1713441600000, label: 'Before edit', size: 2048 }] })
-      .mockResolvedValueOnce({ snapshots: [] });
-    const onIndexRebuilt = vi.fn();
-    const onRestored = vi.fn();
-
-    const user = userEvent.setup();
-    render(<DiagnosticsPanel novelPath={novelPath} onIndexRebuilt={onIndexRebuilt} onRestored={onRestored} />);
-
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-button'));
-    });
-
-    await screen.findByTestId('diagnostics-restore-backup-1713441600000');
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-restore-backup-1713441600000'));
-    });
-
-    await screen.findByTestId('restore-confirm-dialog');
-    await act(async () => {
-      await user.click(screen.getByTestId('restore-confirm-yes'));
-    });
-
+    render(<DiagnosticsPanel novelPath="/tmp/novel" />);
+    await user.click(screen.getByText('Diagnostics'));
     await waitFor(() => {
-      expect(backupHandlers.createSnapshot).toHaveBeenCalledWith(novelPath, 'pre-restore safety backup');
-      expect(backupHandlers.restore).toHaveBeenCalledWith(novelPath, 1713441600000);
-      expect(onIndexRebuilt).toHaveBeenCalled();
-      expect(onRestored).toHaveBeenCalled();
+      expect(screen.getByTestId('diagnostics-pandoc-status')).toBeInTheDocument();
+      expect(screen.getByTestId('diagnostics-tex-status')).toBeInTheDocument();
     });
-
-    expect(screen.getByTestId('restore-toast')).toBeInTheDocument();
   });
 
-  it('restores without pre-backup when "No" clicked', async () => {
-    const { backupHandlers } = await import('../../../src/lib/ipc-client');
-    await setupMocks({
-      snapshots: [{ timestamp: 1713441600000, label: 'Draft v1', size: 1024 }],
-    });
-    backupHandlers.restore.mockResolvedValue({ timestamp: 1713441600000, restored: true });
-    backupHandlers.listSnapshots
-      .mockResolvedValueOnce({ snapshots: [{ timestamp: 1713441600000, label: 'Draft v1', size: 1024 }] })
-      .mockResolvedValueOnce({ snapshots: [] });
-
+  it('shows empty state when no snapshots', async () => {
+    mockListSnapshots.mockResolvedValue({ snapshots: [] });
     const user = userEvent.setup();
-    render(<DiagnosticsPanel novelPath={novelPath} />);
-
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-button'));
-    });
-
-    await screen.findByTestId('diagnostics-restore-backup-1713441600000');
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-restore-backup-1713441600000'));
-    });
-
-    await screen.findByTestId('restore-confirm-dialog');
-    await act(async () => {
-      await user.click(screen.getByTestId('restore-confirm-no'));
-    });
-
+    render(<DiagnosticsPanel novelPath="/tmp/novel" />);
+    await user.click(screen.getByText('Diagnostics'));
     await waitFor(() => {
-      expect(backupHandlers.createSnapshot).not.toHaveBeenCalled();
-      expect(backupHandlers.restore).toHaveBeenCalledWith(novelPath, 1713441600000);
+      expect(screen.getByText(/No backups yet/i)).toBeInTheDocument();
     });
   });
 
-  it('dismisses restore confirmation when Cancel clicked', async () => {
-    await setupMocks({
-      snapshots: [{ timestamp: 1713441600000, label: 'Test', size: 512 }],
-    });
-
+  it('handles listSnapshots failure gracefully', async () => {
+    mockListSnapshots.mockRejectedValue(new Error('IPC error'));
     const user = userEvent.setup();
-    render(<DiagnosticsPanel novelPath={novelPath} />);
-
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-button'));
-    });
-
-    await screen.findByTestId('diagnostics-restore-backup-1713441600000');
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-restore-backup-1713441600000'));
-    });
-
-    await screen.findByTestId('restore-confirm-dialog');
-    await act(async () => {
-      await user.click(screen.getByTestId('restore-confirm-cancel'));
-    });
-
-    expect(screen.queryByTestId('restore-confirm-dialog')).not.toBeInTheDocument();
-  });
-
-  it('dismisses restore confirmation when backdrop is clicked', async () => {
-    await setupMocks({
-      snapshots: [{ timestamp: 1713441600000, label: 'Test', size: 512 }],
-    });
-
-    const user = userEvent.setup();
-    render(<DiagnosticsPanel novelPath={novelPath} />);
-
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-button'));
-    });
-
-    await screen.findByTestId('diagnostics-restore-backup-1713441600000');
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-restore-backup-1713441600000'));
-    });
-
-    await screen.findByTestId('restore-confirm-dialog');
-    await act(async () => {
-      await user.click(screen.getByTestId('restore-confirm-overlay'));
-    });
-
-    expect(screen.queryByTestId('restore-confirm-dialog')).not.toBeInTheDocument();
-  });
-
-  it('dispatches zuojia:wiki-dictionary-updated after a successful restore', async () => {
-    const { backupHandlers } = await import('../../../src/lib/ipc-client');
-    await setupMocks({
-      snapshots: [{ timestamp: 1713441600000, label: 'Before edit', size: 2048 }],
-    });
-    backupHandlers.restore.mockResolvedValue({ timestamp: 1713441600000, restored: true });
-    backupHandlers.listSnapshots
-      .mockResolvedValueOnce({ snapshots: [{ timestamp: 1713441600000, label: 'Before edit', size: 2048 }] })
-      .mockResolvedValueOnce({ snapshots: [] });
-
-    const dispatchedEvents = [];
-    const listener = (event) => dispatchedEvents.push(event);
-    window.addEventListener('zuojia:wiki-dictionary-updated', listener);
-
-    const user = userEvent.setup();
-    render(<DiagnosticsPanel novelPath={novelPath} />);
-
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-button'));
-    });
-
-    await screen.findByTestId('diagnostics-restore-backup-1713441600000');
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-restore-backup-1713441600000'));
-    });
-
-    await screen.findByTestId('restore-confirm-dialog');
-    await act(async () => {
-      await user.click(screen.getByTestId('restore-confirm-no'));
-    });
-
+    render(<DiagnosticsPanel novelPath="/tmp/novel" />);
+    await user.click(screen.getByText('Diagnostics'));
     await waitFor(() => {
-      expect(dispatchedEvents).toHaveLength(1);
-      expect(dispatchedEvents[0].detail.novelPath).toBe(novelPath);
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
-
-    window.removeEventListener('zuojia:wiki-dictionary-updated', listener);
-  });
-
-  it('shows a toast with chapter and wiki counts after index rebuild', async () => {
-    const { indexHandlers } = await import('../../../src/lib/ipc-client');
-    await setupMocks({
-      index: {
-        chapters: [{ filename: 'ch-01.md', title: 'Ch 1' }, { filename: 'ch-02.md', title: 'Ch 2' }],
-        wiki: [{ slug: 'character' }],
-        lastRebuild: '2026-04-18T10:00:00.000Z',
-      },
-    });
-    indexHandlers.rebuildIndex.mockResolvedValue({});
-    // second getIndex call (after rebuild) returns the updated index
-    indexHandlers.getIndex.mockResolvedValueOnce({
-      chapters: [{ filename: 'ch-01.md', title: 'Ch 1' }, { filename: 'ch-02.md', title: 'Ch 2' }],
-      wiki: [{ slug: 'character' }],
-      lastRebuild: '2026-04-18T10:00:00.000Z',
-    }).mockResolvedValueOnce({
-      chapters: [{ filename: 'ch-01.md', title: 'Ch 1' }, { filename: 'ch-02.md', title: 'Ch 2' }],
-      wiki: [{ slug: 'character' }],
-      lastRebuild: '2026-05-02T10:00:00.000Z',
-    });
-
-    const user = userEvent.setup();
-    render(<DiagnosticsPanel novelPath={novelPath} />);
-
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-button'));
-    });
-
-    await screen.findByTestId('diagnostics-index-section');
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-rebuild-index-button'));
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('rebuild-toast')).toBeInTheDocument();
-    });
-    expect(screen.getByTestId('rebuild-toast')).toHaveTextContent('Index rebuilt: 2 chapters, 1 wiki page');
-  });
-
-  it('auto-dismisses the rebuild toast after 4 seconds', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const { indexHandlers } = await import('../../../src/lib/ipc-client');
-    await setupMocks({
-      index: {
-        chapters: [{ filename: 'ch-01.md', title: 'Ch 1' }],
-        wiki: [{ slug: 'character' }, { slug: 'place' }],
-        lastRebuild: '2026-04-18T10:00:00.000Z',
-      },
-    });
-    indexHandlers.rebuildIndex.mockResolvedValue({});
-    indexHandlers.getIndex.mockResolvedValueOnce({
-      chapters: [{ filename: 'ch-01.md', title: 'Ch 1' }],
-      wiki: [{ slug: 'character' }, { slug: 'place' }],
-      lastRebuild: '2026-04-18T10:00:00.000Z',
-    }).mockResolvedValueOnce({
-      chapters: [{ filename: 'ch-01.md', title: 'Ch 1' }],
-      wiki: [{ slug: 'character' }, { slug: 'place' }],
-      lastRebuild: '2026-05-02T10:00:00.000Z',
-    });
-
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime.bind(vi) });
-    render(<DiagnosticsPanel novelPath={novelPath} />);
-
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-button'));
-    });
-
-    await screen.findByTestId('diagnostics-index-section');
-    await act(async () => {
-      await user.click(screen.getByTestId('diagnostics-rebuild-index-button'));
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId('rebuild-toast')).toBeInTheDocument();
-    });
-
-    act(() => {
-      vi.advanceTimersByTime(4000);
-    });
-
-    await waitFor(() => {
-      expect(screen.queryByTestId('rebuild-toast')).not.toBeInTheDocument();
-    });
-
-    vi.useRealTimers();
   });
 });

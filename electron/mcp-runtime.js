@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import {
   listWikiPagesForMcp,
@@ -15,6 +16,13 @@ import { createToolMapper } from '../helper/src/mcp/tool-mapper.js';
 import { createArgumentTransformer } from '../helper/src/mcp/argument-transformer.js';
 import { createResponseNormalizer } from '../helper/src/mcp/response-normalizer.js';
 import { createConfig } from '../helper/src/mcp/mcp-config.js';
+import { NEO4J_BOLT_URI, NEO4J_USERNAME, NEO4J_DATABASE } from './neo4j-defaults.js';
+import { PATH_ENRICHMENT } from './platform-paths.js';
+import {
+  SIGTERM_TO_SIGKILL_MS,
+  GRACEFUL_EXIT_FALLBACK_MS,
+  WIKI_DEFAULT_LIMIT,
+} from './constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -60,7 +68,7 @@ function createTimeoutError(toolName, timeoutMs) {
 
 async function executeWikiTool(novelPath, toolName, args = {}) {
   if (toolName === 'wiki_list_pages') {
-    return listWikiPagesForMcp(novelPath, Number(args.limit || 200));
+    return listWikiPagesForMcp(novelPath, Number(args.limit || WIKI_DEFAULT_LIMIT));
   }
 
   if (toolName === 'wiki_get_page') {
@@ -72,7 +80,7 @@ async function executeWikiTool(novelPath, toolName, args = {}) {
   }
 
   if (toolName === 'wiki_get_backlinks') {
-    return getWikiBacklinksForMcp(novelPath, String(args.slug || ''), Number(args.limit || 200));
+    return getWikiBacklinksForMcp(novelPath, String(args.slug || ''), Number(args.limit || WIKI_DEFAULT_LIMIT));
   }
 
   if (toolName === 'wiki_build_graph') {
@@ -86,6 +94,17 @@ async function executeWikiTool(novelPath, toolName, args = {}) {
       maxDepth: Number(args.maxDepth || 3),
       maxEdges: Number(args.maxEdges || 2000),
     });
+  }
+
+  // Fallback for Neo4j tools - map to basic wiki search
+  if (toolName === 'wiki_neo4j_search' || toolName === 'wiki_neo4j_get_related' || toolName === 'wiki_neo4j_find_paths') {
+    return searchWikiPagesForMcp(novelPath, String(args.query || ''), Number(args.limit || 10));
+  }
+
+  if (toolName === 'wiki_neo4j_query') {
+    const error = new Error('wiki_neo4j_query requires Neo4j backend and is not available in fallback mode');
+    error.code = 'MCP_TOOL_RESULT_ERROR';
+    throw error;
   }
 
   const error = new Error(`Unsupported MCP tool: ${toolName}`);
@@ -293,27 +312,23 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
       await stop();
     }
 
-    const serverPath = process.resourcesPath
+    const packagedServerPath = process.resourcesPath
       ? path.join(process.resourcesPath, 'helper', 'src', 'mcp', 'project-synapse-bridge.js')
+      : null;
+    const serverPath = packagedServerPath && fs.existsSync(packagedServerPath)
+      ? packagedServerPath
       : path.join(__dirname, '../helper/src/mcp/project-synapse-bridge.js');
     const neo4j_pass = process.env.NEO4J_PASSWORD;
-    const homeDir = (typeof process.env.HOME === 'string' && process.env.HOME) || '';
-    const extraPaths = [
-      '/opt/homebrew/bin',
-      '/usr/local/bin',
-      homeDir ? `${homeDir}/.local/bin` : '',
-      homeDir ? `${homeDir}/.cargo/bin` : '',
-    ].filter(Boolean);
     const child = spawnFn('node', [serverPath], {
       stdio: 'pipe',
       env: {
         ...process.env,
-        PATH: [...extraPaths, process.env.PATH || ''].join(':'),
+        PATH: [...PATH_ENRICHMENT, process.env.PATH || ''].join(':'),
         ZUOJIA_NOVEL_PATH: novelPath,
-        NEO4J_URI: 'bolt://localhost:7687',
-        NEO4J_USER: 'neo4j',
+        NEO4J_URI: NEO4J_BOLT_URI,
+        NEO4J_USER: NEO4J_USERNAME,
         NEO4J_PASSWORD: neo4j_pass,
-        NEO4J_DATABASE: 'wiki',
+        NEO4J_DATABASE: NEO4J_DATABASE,
       },
     });
 
@@ -357,10 +372,17 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
     startTime = nowFn();
     lastError = null;
 
-    await initializeMcpClient(child);
+    const initialized = await initializeMcpClient(child);
+
+    const running = Boolean(child.pid) && child.exitCode === null;
+    if (!running && !initialized) {
+      processRef = null;
+      runtimeNovelPath = null;
+      startTime = null;
+    }
 
     return {
-      status: 'running',
+      status: running ? 'running' : 'failed',
       pid: child.pid,
       novelPath,
       startedAt: new Date(startTime).toISOString(),
@@ -408,9 +430,9 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
         } catch {
           // Ignore kill errors.
         }
-        setTimeoutFn(() => resolveExit(), 2000);
+        setTimeoutFn(() => resolveExit(), GRACEFUL_EXIT_FALLBACK_MS);
       }
-    }, 5000);
+    }, SIGTERM_TO_SIGKILL_MS);
 
     await waitForExit;
     clearTimeoutFn(timeout);
@@ -510,7 +532,7 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
             toolExecutor(runtimeNovelPath, toolName, args),
             timeoutPromise,
           ]);
-          console.log(`[MCP] ← Local result: status=${result?.status}, data=${JSON.stringify(result?.data).slice(0, 200)}`);
+          console.log(`[MCP] ← Local result: status=${result?.status}, data=${JSON.stringify(result?.data ?? null).slice(0, 200)}`);
         }
 
         if (result?.status === 'error') {

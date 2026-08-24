@@ -5,9 +5,9 @@
  * Spawns `uv run` to start Synapse, proxies JSON-RPC over stdio.
  */
 
-const { spawn } = require('child_process');
-const path = require('path');
-const fs = require('fs');
+import { spawn } from 'child_process';
+import path from 'path';
+import fs from 'fs';
 
 let logFile = null;
 
@@ -49,7 +49,7 @@ function main() {
     fs.writeFileSync(logFile, '');
   } catch {}
 
-  const synapsePath = path.join(process.env.HOME, 'code', 'project-synapse-mcp');
+  const synapsePath = process.env.SYNAPSE_PATH || path.join(process.env.HOME, 'code', 'project-synapse-mcp');
   if (!fs.existsSync(path.join(synapsePath, 'pyproject.toml'))) {
     const err = { jsonrpc: '2.0', error: { code: -32603, message: 'Project Synapse not found at ' + synapsePath }, id: null };
     process.stdout.write(JSON.stringify(err) + '\n');

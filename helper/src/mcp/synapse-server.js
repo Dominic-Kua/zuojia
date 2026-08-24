@@ -12,11 +12,12 @@ import {
   buildWikiKnowledgeGraphForMcp,
   traverseWikiKnowledgeGraphForMcp,
 } from './wiki-tools.js';
+import { NEO4J_BOLT_URI, NEO4J_USERNAME, NEO4J_PASSWORD as NEO4J_DEFAULT_PASSWORD } from '../../../electron/neo4j-defaults.js';
 
 const novelPath = process.env.ZUOJIA_NOVEL_PATH;
-const NEO4J_URI = process.env.NEO4J_URI || 'bolt://localhost:7687';
-const NEO4J_USER = process.env.NEO4J_USER || 'neo4j';
-const NEO4J_PASSWORD = process.env.NEO4J_PASSWORD || 'neo4j';
+const NEO4J_URI = process.env.NEO4J_URI || NEO4J_BOLT_URI;
+const NEO4J_USER = process.env.NEO4J_USER || NEO4J_USERNAME;
+const NEO4J_PASSWORD = process.env.NEO4J_PASSWORD || NEO4J_DEFAULT_PASSWORD;
 
 if (!novelPath) {
   console.error('Missing required env var: ZUOJIA_NOVEL_PATH');

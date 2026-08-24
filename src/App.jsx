@@ -53,6 +53,33 @@ export default function App(){
     return 18;
   });
 
+  // Wiki floating panel state
+  const [wikiDetached, setWikiDetached] = useState(() => {
+    try {
+      const stored = window.localStorage.getItem('zuojia-wiki-docked');
+      // stored is 'true' for docked, 'false' for detached
+      return stored === 'false'; // true = detached, false = docked (default)
+    } catch {
+      return false;
+    }
+  });
+  const [wikiPanelPosition, setWikiPanelPosition] = useState(() => {
+    try {
+      const stored = window.localStorage.getItem('zuojia-wiki-position');
+      if (stored) {
+        const pos = JSON.parse(stored);
+        if (typeof pos.x === 'number' && typeof pos.y === 'number') {
+          return pos;
+        }
+      }
+    } catch {
+      // Ignore
+    }
+    return { x: 100, y: 100 }; // default position
+  });
+  const [isDraggingWikiPanel, setIsDraggingWikiPanel] = useState(false);
+  const dragStartRef = useRef({ x: 0, y: 0, panelX: 0, panelY: 0 });
+
   useEffect(() => {
     return () => {
       if (wikiPageTimeoutRef.current !== null) {
@@ -114,6 +141,47 @@ export default function App(){
       window.removeEventListener('mouseup', onMouseUp);
     };
   }, [isResizingSidebar]);
+
+  // Wiki floating panel drag handlers
+  useEffect(() => {
+    if (!isDraggingWikiPanel) {
+      return undefined;
+    }
+
+    const onMouseMove = (event) => {
+      const dx = event.clientX - dragStartRef.current.x;
+      const dy = event.clientY - dragStartRef.current.y;
+      
+      // Constrain to viewport bounds (with panel dimensions accounted for)
+      const panelWidth = 360; // matches sidebar width
+      const panelHeight = 600; // approximate panel height
+      const maxX = window.innerWidth - panelWidth - 20;
+      const maxY = window.innerHeight - panelHeight - 20;
+      
+      const newX = Math.max(20, Math.min(maxX, dragStartRef.current.panelX + dx));
+      const newY = Math.max(20, Math.min(maxY, dragStartRef.current.panelY + dy));
+      
+      setWikiPanelPosition({ x: newX, y: newY });
+    };
+
+    const onMouseUp = () => {
+      setIsDraggingWikiPanel(false);
+      // Persist position
+      try {
+        window.localStorage.setItem('zuojia-wiki-position', JSON.stringify(wikiPanelPosition));
+      } catch {
+        // Ignore
+      }
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [isDraggingWikiPanel, wikiPanelPosition]);
 
   // Get wiki pages for the manuscript component
   const { pages: wikiPages, refresh: refreshWikiPages } = useWikiPages(novelPath);
@@ -195,6 +263,85 @@ export default function App(){
       wikiPageTimeoutRef.current = null;
     }, 100);
   }, []);
+
+  // Wiki floating panel drag handlers
+  const handleWikiPanelDragStart = useCallback((e) => {
+    if (!wikiDetached) return;
+    const target = e.target.closest('.wiki-panel-titlebar');
+    if (!target) return;
+    
+    e.preventDefault();
+    setIsDraggingWikiPanel(true);
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      panelX: wikiPanelPosition.x,
+      panelY: wikiPanelPosition.y,
+    };
+  }, [wikiDetached, wikiPanelPosition]);
+
+  const handleWikiPanelDragMove = useCallback((e) => {
+    if (!isDraggingWikiPanel) return;
+    
+    const deltaX = e.clientX - dragStartRef.current.x;
+    const deltaY = e.clientY - dragStartRef.current.y;
+    
+    const newX = dragStartRef.current.panelX + deltaX;
+    const newY = dragStartRef.current.panelY + deltaY;
+    
+    // Constrain to viewport bounds (with some padding)
+    const panelWidth = 380; // approximate panel width
+    const panelHeight = 600; // approximate panel height
+    const maxX = window.innerWidth - panelWidth - 20;
+    const maxY = window.innerHeight - panelHeight - 80; // account for topbar
+    
+    const clampedX = Math.max(20, Math.min(newX, maxX));
+    const clampedY = Math.max(80, Math.min(newY, maxY)); // 80px for topbar
+    
+    setWikiPanelPosition({ x: clampedX, y: clampedY });
+  }, [isDraggingWikiPanel]);
+
+  const handleWikiPanelDragEnd = useCallback(() => {
+    if (!isDraggingWikiPanel) return;
+    setIsDraggingWikiPanel(false);
+    // Persist position
+    try {
+      window.localStorage.setItem('zuojia-wiki-position', JSON.stringify(wikiPanelPosition));
+    } catch {
+      // Ignore
+    }
+  }, [isDraggingWikiPanel, wikiPanelPosition]);
+
+  useEffect(() => {
+    if (isDraggingWikiPanel) {
+      window.addEventListener('mousemove', handleWikiPanelDragMove);
+      window.addEventListener('mouseup', handleWikiPanelDragEnd);
+      return () => {
+        window.removeEventListener('mousemove', handleWikiPanelDragMove);
+        window.removeEventListener('mouseup', handleWikiPanelDragEnd);
+      };
+    }
+  }, [isDraggingWikiPanel, handleWikiPanelDragMove, handleWikiPanelDragEnd]);
+
+  // Persist wiki detached state
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('zuojia-wiki-docked', String(!wikiDetached));
+    } catch {
+      // Ignore
+    }
+  }, [wikiDetached]);
+
+  // Persist wiki panel position
+  useEffect(() => {
+    if (wikiDetached) {
+      try {
+        window.localStorage.setItem('zuojia-wiki-position', JSON.stringify(wikiPanelPosition));
+      } catch {
+        // Ignore
+      }
+    }
+  }, [wikiDetached, wikiPanelPosition]);
 
   // Show novel selector if no novel is loaded
   if (!novelPath) {
@@ -296,15 +443,78 @@ export default function App(){
           data-testid="sidebar-resizer"
           onMouseDown={() => setIsResizingSidebar(true)}
         />
-        <aside className="sidebar" data-testid="sidebar-section" style={{ width: `${sidebarWidth}px` }}>
-          <Sidebar 
-            key={restoreKey}
+        <aside className={`sidebar${wikiDetached ? ' collapsed' : ''}`} data-testid="sidebar-section" style={{ width: `${sidebarWidth}px` }}>
+          <Sidebar
+            key={`${restoreKey}-${novelPath}`}
             ref={sidebarRef}
-            novelPath={novelPath} 
+            novelPath={novelPath}
             openPageSlug={wikiPageToOpen}
+            wikiDetached={wikiDetached}
+            onToggleWikiDetached={setWikiDetached}
           />
         </aside>
       </main>
+      {/* Floating Wiki Panel (outside main-grid for fixed positioning) */}
+      {wikiDetached && novelPath && (
+        <div
+          className="wiki-panel"
+          style={{
+            '--wiki-panel-x': `${wikiPanelPosition.x}px`,
+            '--wiki-panel-y': `${wikiPanelPosition.y}px`,
+            zIndex: 1000,
+          }}
+          data-testid="wiki-floating-panel"
+        >
+          <div
+            className="wiki-panel-titlebar"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setIsDraggingWikiPanel(true);
+              dragStartRef.current = {
+                x: e.clientX,
+                y: e.clientY,
+                panelX: wikiPanelPosition.x,
+                panelY: wikiPanelPosition.y,
+              };
+            }}
+            data-testid="wiki-floating-panel-titlebar"
+          >
+            <h3>Wiki</h3>
+            <div className="wiki-floating-panel-actions">
+              <button
+                type="button"
+                className="btn ghost btn-sm"
+                onClick={() => setWikiDetached(false)}
+                data-testid="wiki-dock-button"
+                aria-label="Dock wiki panel"
+              >
+                Dock
+              </button>
+            </div>
+          </div>
+          <div className="wiki-panel-content">
+            <Sidebar 
+              key={`floating-${restoreKey}`}
+              novelPath={novelPath} 
+              openPageSlug={wikiPageToOpen}
+              wikiDetached={wikiDetached}
+              onToggleWikiDetached={setWikiDetached}
+              isFloating={true}
+            />
+          </div>
+        </div>
+      )}
+      {/* Drag overlay for floating panel */}
+      <div style={{ display: 'contents' }}>
+        {isDraggingWikiPanel && (
+          <>
+            <div
+              className="wiki-floating-panel-drag-overlay"
+              data-testid="wiki-floating-panel-drag-overlay"
+            />
+          </>
+        )}
+      </div>
     </div>
   )
 }

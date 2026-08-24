@@ -4,6 +4,22 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import neo4j from 'neo4j-driver';
 import { buildWikiKnowledgeGraphForMcp } from '../helper/src/mcp/wiki-tools.js';
+import { findNeo4jHome } from './find-neo4j.js';
+import { findJavaHome } from './find-java.js';
+import {
+  NEO4J_BOLT_URI,
+  NEO4J_USERNAME,
+  NEO4J_PASSWORD,
+  NEO4J_DATA_DIR_NAME,
+  NEO4J_CONFIG_NAME,
+  NEO4J_CONFIG_INI_DIR,
+} from './neo4j-defaults.js';
+import { PATH_ENRICHMENT } from './platform-paths.js';
+import {
+  SIGTERM_TO_SIGKILL_MS,
+  GRACEFUL_EXIT_FALLBACK_MS,
+  NEO4J_STARTUP_TIMEOUT_MS,
+} from './constants.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,11 +51,11 @@ export function createNeo4jRuntimeManager({
   }
 
   function getNeo4jDataPath(novelPath) {
-    return path.join(novelPath, '.zuojia', 'neo4j-data');
+    return path.join(novelPath, NEO4J_CONFIG_INI_DIR, NEO4J_DATA_DIR_NAME);
   }
 
   function getNeo4jConfigPath(novelPath) {
-    return path.join(novelPath, '.zuojia', 'neo4j.conf');
+    return path.join(novelPath, NEO4J_CONFIG_INI_DIR, NEO4J_CONFIG_NAME);
   }
 
   async function writeNeo4jConfig(novelPath) {
@@ -102,7 +118,7 @@ dbms.security.auth_enabled=false
       const configContent = await fs.readFile(configPath, 'utf-8');
       if (configContent.includes('auth_enabled=false')) {
         // Verify Neo4j can start by checking for auth store files
-        const authStore = path.join(dataDir, 'dbms', 'auth');
+        const authStore = path.join(dataPath, 'dbms', 'auth');
         try {
           await fs.access(authStore);
           // Auth store exists — need to wipe for auth_enabled=false to work
@@ -122,20 +138,17 @@ dbms.security.auth_enabled=false
     }
 
     // Start Neo4j process — no CLI flags, config is driven by env vars + neo4j.conf
-    const neo4jHome = '/opt/homebrew/Cellar/neo4j/2026.06.0/libexec';
-    const homeDir = (typeof process.env.HOME === 'string' && process.env.HOME) || '';
-    const extraPaths = [
-      '/opt/homebrew/bin',
-      '/usr/local/bin',
-      homeDir ? `${homeDir}/.local/bin` : '',
-    ].filter(Boolean);
+    const neo4jHome = await findNeo4jHome();
+    if (!neo4jHome) {
+      throw new Error('Neo4j not found. Install via: brew install neo4j');
+    }
     // Resolve JAVA_HOME from openjdk@21 Homebrew install if not already set
-    const javaHome = process.env.JAVA_HOME || '/opt/homebrew/Cellar/openjdk@21/21.0.12/libexec/openjdk.jdk/Contents/Home';
+    const javaHome = await findJavaHome();
     const child = spawnFn('neo4j', ['console'], {
       stdio: 'pipe',
       env: {
         ...process.env,
-        PATH: [...extraPaths, process.env.PATH || ''].join(':'),
+        PATH: [...PATH_ENRICHMENT, process.env.PATH || ''].join(':'),
         JAVA_HOME: javaHome,
         NEO4J_CONF: path.dirname(configPath),
         NEO4J_HOME: neo4jHome,
@@ -202,7 +215,7 @@ dbms.security.auth_enabled=false
     lastError = null;
 
     // Wait for Neo4j to be ready (max 30 seconds)
-    const maxWaitTime = 30000;
+    const maxWaitTime = NEO4J_STARTUP_TIMEOUT_MS;
     const startWait = nowFn();
     
     return new Promise((resolve, reject) => {
@@ -223,7 +236,7 @@ dbms.security.auth_enabled=false
         try {
           // Try to connect to Neo4j
           if (!driver) {
-            driver = neo4j.driver('bolt://localhost:7687');
+            driver = neo4j.driver(NEO4J_BOLT_URI);
           }
           
           const serverInfo = await driver.getServerInfo();
@@ -287,9 +300,9 @@ dbms.security.auth_enabled=false
         } catch {
           // Ignore kill errors.
         }
-        setTimeoutFn(() => resolveExit(), 2000);
+        setTimeoutFn(() => resolveExit(), GRACEFUL_EXIT_FALLBACK_MS);
       }
-    }, 5000);
+    }, SIGTERM_TO_SIGKILL_MS);
 
     await waitForExit;
     clearTimeoutFn(timeout);
@@ -326,7 +339,7 @@ dbms.security.auth_enabled=false
     let serverInfo = null;
     try {
       if (!driver) {
-        driver = neo4j.driver('bolt://localhost:7687', neo4j.auth.basic('neo4j', 'neo4j'));
+        driver = neo4j.driver(NEO4J_BOLT_URI, neo4j.auth.basic(NEO4J_USERNAME, NEO4J_PASSWORD));
       }
       serverInfo = await driver.getServerInfo();
     } catch (err) {

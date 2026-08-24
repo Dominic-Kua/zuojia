@@ -105,7 +105,7 @@ describe('ToolMapper', () => {
 
   it('should get all mappings as Map', () => {
     const allMappings = mapper.getAllMappings();
-    expect(allMappings.size).toBe(10);
+    expect(allMappings.size).toBe(11);
     expect(allMappings.get('wiki_list_pages')).toBe('wiki_list_pages');
     expect(allMappings.get('wiki_get_backlinks')).toBeNull();
   });

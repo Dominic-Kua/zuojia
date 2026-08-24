@@ -6,6 +6,7 @@ import { createNovel, getIndex, validateNovel, rebuildIndex, readChapter, writeC
 import { commitChapter, createManualCommit, getCommitHistory, listChangedFiles } from '../helper/src/git/commit.js';
 import { getGitSettings, saveGitSettings } from '../helper/src/git/config.js';
 import { pushToRemote } from '../helper/src/git/push.js';
+import { isGitRepo, getGitStatus, getSyncStatus, pullFromRemote } from '../helper/src/git/status.js';
 import { calculateWordCount } from '../helper/src/stats/word-count.js';
 import { getManuscriptWordCount } from '../helper/src/stats/manuscript-count.js';
 import { getWordsWrittenToday } from '../helper/src/git/history.js';
@@ -170,6 +171,35 @@ export function registerHandlers() {
     'helper:git:push',
     wrapHandler(async ({ novelPath }) => {
       return await pushToRemote(novelPath);
+    })
+  );
+
+  // New Git Integration handlers (Epic 6)
+  ipcMain.handle(
+    'helper:git:isRepo',
+    wrapHandler(async ({ novelPath }) => {
+      return isGitRepo(novelPath);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:git:status',
+    wrapHandler(async ({ novelPath }) => {
+      return getGitStatus(novelPath);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:git:syncStatus',
+    wrapHandler(async ({ novelPath }) => {
+      return getSyncStatus(novelPath);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:git:pull',
+    wrapHandler(async ({ novelPath }) => {
+      return pullFromRemote(novelPath);
     })
   );
 

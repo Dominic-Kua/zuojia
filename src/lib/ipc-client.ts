@@ -72,6 +72,9 @@ export const gitHandlers = {
   push: (novelPath) => invokeHandler('helper:git:push', { novelPath }),
   saveConfig: (novelPath, settings) => invokeHandler('helper:git:saveConfig', { novelPath, settings }),
   history: (novelPath, limit) => invokeHandler('helper:git:history', { novelPath, limit }),
+  isRepo: (novelPath) => invokeHandler('helper:git:isRepo', { novelPath }),
+  getSyncStatus: (novelPath) => invokeHandler('helper:git:syncStatus', { novelPath }),
+  getStatus: (novelPath) => invokeHandler('helper:git:status', { novelPath }),
 };
 
 export const statsHandlers = {

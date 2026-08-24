@@ -13,6 +13,10 @@ test.describe('Story 4.2: Manual Commit Flow', () => {
   test.beforeEach(async () => {
     ({ app, page } = await launchElectronApp());
 
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+
     testNovelName = `test-commit-${Date.now()}`;
     testNovelPath = path.join(os.homedir(), '.zuojia', testNovelName);
 

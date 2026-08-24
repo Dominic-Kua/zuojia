@@ -1,0 +1,11 @@
+export const LLM_EXECUTABLE_PATH = '/opt/homebrew/bin/llama-server';
+export const LLM_MODEL_NAME = 'gemma-4-E2B-it-Q3_K_S';
+export const LLM_MODEL_URL = 'https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q3_K_S.gguf';
+export const LLM_HOST = '127.0.0.1';
+export const LLM_PORT = 8080;
+export const LLM_TEMPERATURE = 0.7;
+export const LLM_MAX_TOKENS = 4096;
+export const LLM_NGL = 99;
+export const LLM_CTX_SIZE = 0;
+export const LLM_CONFIG_FILE = 'llm-config.json';
+export const LLM_MAX_ALLOWED_TOKENS = 1_000_000;
