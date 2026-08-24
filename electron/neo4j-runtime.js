@@ -129,6 +129,10 @@ dbms.security.auth_enabled=false
       homeDir ? `${homeDir}/.local/bin` : '',
     ].filter(Boolean);
 
+    // Numeric-aware version ordering so '21.0.10' beats '21.0.9'
+    const newestVersionFirst = (a, b) =>
+      b.localeCompare(a, undefined, { numeric: true });
+
     // Resolve JAVA_HOME: env var wins, else probe Homebrew openjdk@21 installs
     let javaHome = process.env.JAVA_HOME || '';
     if (!javaHome) {
@@ -141,7 +145,7 @@ dbms.security.auth_enabled=false
           if (root.includes('Cellar')) {
             // Pick whatever version is installed rather than a pinned one
             const versions = await fs.readdir(root);
-            for (const version of versions.sort().reverse()) {
+            for (const version of versions.sort(newestVersionFirst)) {
               const candidate = path.join(root, version, 'libexec/openjdk.jdk/Contents/Home');
               await fs.access(candidate);
               javaHome = candidate;
@@ -162,12 +166,16 @@ dbms.security.auth_enabled=false
     let neo4jHome = process.env.ZUOJIA_NEO4J_HOME || process.env.NEO4J_HOME || '';
     if (!neo4jHome) {
       try {
-        neo4jHome = execFileSync('brew', ['--prefix', 'neo4j'], { encoding: 'utf-8' }).trim();
+        const brewPrefix = execFileSync('brew', ['--prefix', 'neo4j'], { encoding: 'utf-8' }).trim();
+        // Some brew versions exit 0 printing the expected prefix even when
+        // the keg isn't installed — only accept an existing directory.
+        await fs.access(brewPrefix);
+        neo4jHome = brewPrefix;
       } catch {
         try {
           const cellar = '/opt/homebrew/Cellar/neo4j';
           const versions = await fs.readdir(cellar);
-          for (const version of versions.sort().reverse()) {
+          for (const version of versions.sort(newestVersionFirst)) {
             const candidate = path.join(cellar, version, 'libexec');
             await fs.access(candidate);
             neo4jHome = candidate;

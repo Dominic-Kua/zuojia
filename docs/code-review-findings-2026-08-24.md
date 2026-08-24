@@ -307,7 +307,23 @@ SIGTERM to `npm` doesn't kill the vite grandchild (port 5173 held); `strictPort:
 
 ### Follow-up findings (2026-08-24, post-fix e2e runs)
 
+**Fixed in second pass:**
 - **[High] E2E suite ran against stale dist/ builds** — the Playwright launcher forces production mode, so Electron loads dist/index.html; running `npx playwright test` directly (vs `npm run test:e2e`) silently tested old code. The mysterious `helper:git:isRepo` handler-missing log was a ghost from a July 27 build (the caller was already removed from source). Fixed: added tests/e2e/e2e-global-setup.js which rebuilds dist/ when source is newer, wired into playwright.config.js globalSetup.
+- **[High] "Start LLM" button was a silent no-op** — LlmChatWindow checked `config.status === 'ok'` on an already-unwrapped config, so startRuntime was never called. Fixed; unit-test mocks that enshrined the wrong envelope shape updated to match reality.
+- **[High] Failed chapter load silently disabled all saves** — introduced by the C3/C4 ownership guard: on load error `loadedChapterRef` stayed null and every save path silently bailed. Now surfaces a visible error banner explaining editing is paused until reselect.
+- **[Medium] Restore could be clobbered by autosave fired mid-restore** — flush protocol extended with suspend/resume; saves are suspended for the duration of restore and resumed in a finally block.
+- **[Medium] Backend slugifier divergence** — helper `generateSlug` made unicode-aware so created pages match renderer link slugs end-to-end (CJK and accented titles).
+- **[Low] Sidebar page-switch interleave** — navigation is optimistic; per-slug pending-flush map makes the loader await its own in-flight write.
+- **[Low] before-quit double-entry + unbounded hang** — teardown re-entry guarded; stopAll raced against a 10s timeout.
+- **[Low] Neo4j/JDK version probe sorted lexicographically; brew --prefix output used without existence check** — both fixed.
+- **[Low] Dead `gitHandlers.pull` channel removed** — no handler existed; would have failed at the preload gate.
+
+**Documented, not fixed (need design decisions / larger refactors):**
+- **[Medium] Quit during service startup can orphan newly spawned children** (`orchestrator.js`) — needs a shutdown-requested flag checked by each start step.
+- **[Medium] Wiki ingest silently no-ops when Synapse isn't initialized** — degraded status should surface to UI.
+- **[Medium] Wiki list-pages normalizes filenames into slugs but CRUD uses them verbatim** — pages whose filenames aren't kebab-case are visible but inert. Needs one canonical round-trip.
+- **[Medium] Renaming a wiki page breaks inbound [[links]]** — no reference rewriting; feature-level fix required.
+- **[Low] LaTeX template hardcodes PingFang SC (macOS-only)** — acceptable if macOS-only is the product invariant; otherwise probe fonts in validate-deps.
 
 1. **Save-path races** need one primitive: a per-target "flush pending writes and await quiescence" reused by chapter switch, novel close, snapshot restore, export, and wiki page switch (C3, C4, H8, H9, H10, M16, M22, M29).
 2. **CJK correctness is the product's core promise (作家) and currently fails** in word count (C5), IME stability (H7), novel creation (H12), wiki links (H13), PDF export (H14).

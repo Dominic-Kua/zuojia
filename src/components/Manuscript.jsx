@@ -149,6 +149,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
   const loadedChapterRef = useRef(null)
   const loadRequestSeqRef = useRef(0)
   const isComposingRef = useRef(false)
+  const savesSuspendedRef = useRef(false)
   const spellcheckResizeStartYRef = useRef(0)
   const spellcheckResizeStartHeightRef = useRef(0)
 
@@ -158,6 +159,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
   const [spellcheckIssues, setSpellcheckIssues] = useState([])
   const [spellcheckPanelHeight, setSpellcheckPanelHeight] = useState(260)
   const [isResizingSpellcheck, setIsResizingSpellcheck] = useState(false)
+  const [loadError, setLoadError] = useState(null)
 
   const {
     chapters,
@@ -515,6 +517,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
     const loadSelectedChapter = async () => {
       const requestId = ++loadRequestSeqRef.current
       loadedChapterRef.current = null
+      setLoadError(null)
       try {
         setIsLoadingChapter(true)
         const chapterData = await loadChapter(currentChapter)
@@ -529,6 +532,13 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
         applyEditorContent(nextContent)
       } catch (err) {
         console.error('Failed to load chapter content:', err)
+        // Surface the failure: saves stay gated (content ownership unknown)
+        // until a successful reload, and the user must see why.
+        if (requestId === loadRequestSeqRef.current) {
+          setLoadError(
+            `Failed to load "${currentChapter}". Editing is paused to protect your text — reselect the chapter to retry.`
+          )
+        }
       } finally {
         if (requestId === loadRequestSeqRef.current) {
           setIsLoadingChapter(false)
@@ -542,6 +552,11 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
   // Persist content changes to disk (debounced)
   useEffect(() => {
     if (!currentChapter || !novelPath) {
+      return
+    }
+
+    // Skip while a destructive operation (snapshot restore) is in flight
+    if (savesSuspendedRef.current) {
       return
     }
 
@@ -579,23 +594,37 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
 
   // Expose an imperative flush so destructive operations outside this
   // component (snapshot restore, novel close) can await pending debounced
-  // saves instead of racing them.
+  // saves instead of racing them, and suspend/resume so saves can't fire
+  // while a restore is rewriting files underneath the editor.
   useEffect(() => {
-    if (!registerEditorFlush) {
+    if (!registerEditorFlush || typeof registerEditorFlush !== 'function') {
       return undefined
     }
-    const unregister = registerEditorFlush(async () => {
-      // Cancel the debounce timer — we're saving right now
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current)
-        saveTimerRef.current = null
-      }
-      // Only save when the loaded content provably belongs to the selected chapter
-      if (!currentChapter || !novelPath || loadedChapterRef.current !== currentChapter) {
-        return
-      }
-      await saveChapter(currentChapter, content)
-    })
+    const handlers = {
+      flush: async () => {
+        // Cancel the debounce timer — we're saving right now
+        if (saveTimerRef.current) {
+          clearTimeout(saveTimerRef.current)
+          saveTimerRef.current = null
+        }
+        // Only save when the loaded content provably belongs to the selected chapter
+        if (!currentChapter || !novelPath || loadedChapterRef.current !== currentChapter) {
+          return
+        }
+        await saveChapter(currentChapter, content)
+      },
+      suspendSaves: () => {
+        if (saveTimerRef.current) {
+          clearTimeout(saveTimerRef.current)
+          saveTimerRef.current = null
+        }
+        savesSuspendedRef.current = true
+      },
+      resumeSaves: () => {
+        savesSuspendedRef.current = false
+      },
+    }
+    const unregister = registerEditorFlush(handlers)
     return unregister
   }, [registerEditorFlush, currentChapter, novelPath, content, saveChapter])
 
@@ -825,6 +854,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
         />
       )}
       {error && <div className="error-message">{error}</div>}
+      {loadError && <div className="error-message" data-testid="chapter-load-error">{loadError}</div>}
       <div className="manuscript-meta">
         <ChapterList
           chapters={chapters}

@@ -156,18 +156,27 @@ export function registerHandlers() {
     // Electron does not await before-quit listeners — without
     // preventDefault the app quits while stopAll() is still tearing down
     // llama-server/Neo4j/MCP children, leaving them orphaned.
-    let teardownComplete = false;
+    let teardownState = 'idle'; // idle | in-progress | complete
     app.on('before-quit', async (event) => {
-      if (teardownComplete) {
+      if (teardownState === 'complete') {
         return;
       }
       event.preventDefault();
+      if (teardownState === 'in-progress') {
+        // Double Cmd+Q during teardown: the first invocation will re-quit.
+        return;
+      }
+      teardownState = 'in-progress';
       try {
-        await orchestrator.stopAll();
+        // Never let a hung child block quitting forever.
+        await Promise.race([
+          orchestrator.stopAll(),
+          new Promise((resolve) => setTimeout(resolve, 10000)),
+        ]);
       } catch (err) {
         console.error('[quit] error stopping services:', err);
       } finally {
-        teardownComplete = true;
+        teardownState = 'complete';
         app.quit();
       }
     });

@@ -124,29 +124,34 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored, onBefo
     setIsRestoring(true);
     setError(null);
     try {
-      // Flush the editor's pending debounced save BEFORE taking any backup,
-      // so both the safety snapshot and the restore see complete on-disk
-      // state and an in-flight autosave can't clobber restored files later.
+      // Flush the editor's pending debounced save and SUSPEND further saves,
+      // so neither the safety snapshot nor the restored files can be clobbered
+      // by an in-flight autosave. Resume runs even on failure.
+      let resumeSaves = null;
       if (onBeforeRestore) {
-        await onBeforeRestore();
+        resumeSaves = await onBeforeRestore();
       }
-      if (createSafetyBackup) {
-        await backupHandlers.createSnapshot(novelPath, 'pre-restore safety backup');
+      try {
+        if (createSafetyBackup) {
+          await backupHandlers.createSnapshot(novelPath, 'pre-restore safety backup');
+        }
+        await backupHandlers.restore(novelPath, snap.timestamp);
+        const updated = await backupHandlers.listSnapshots(novelPath);
+        setSnapshots(updated?.snapshots ?? []);
+        if (onIndexRebuilt) {
+          onIndexRebuilt();
+        }
+        window.dispatchEvent(new CustomEvent('zuojia:wiki-dictionary-updated', {
+          detail: { novelPath },
+        }));
+        if (onRestored) {
+          onRestored();
+        }
+        const label = snap.label || formatTimestamp(snap.timestamp);
+        setRestoreToast(`Restored from ${label}`);
+      } finally {
+        resumeSaves?.();
       }
-      await backupHandlers.restore(novelPath, snap.timestamp);
-      const updated = await backupHandlers.listSnapshots(novelPath);
-      setSnapshots(updated?.snapshots ?? []);
-      if (onIndexRebuilt) {
-        onIndexRebuilt();
-      }
-      window.dispatchEvent(new CustomEvent('zuojia:wiki-dictionary-updated', {
-        detail: { novelPath },
-      }));
-      if (onRestored) {
-        onRestored();
-      }
-      const label = snap.label || formatTimestamp(snap.timestamp);
-      setRestoreToast(`Restored from ${label}`);
     } catch (err) {
       setError(err.message || 'Restore failed');
     } finally {

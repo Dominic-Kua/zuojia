@@ -179,6 +179,9 @@ function buildFrontmatter(title, tags) {
 
 /**
  * Generate URL-safe slug from title
+ * Unicode-aware: preserves CJK and accented letters so generated slugs match
+ * the renderer's normalizeSlug (src/lib/wiki-link.js) — [[林黛玉]]-style links
+ * resolve to the pages created here.
  * @param {string} title - Page title
  * @returns {string} - URL-safe slug
  */
@@ -192,8 +195,8 @@ export function generateSlug(title) {
     .trim()
     // Replace spaces and underscores with hyphens
     .replace(/[\s_]+/g, '-')
-    // Remove all non-alphanumeric characters except hyphens
-    .replace(/[^a-z0-9-]/g, '')
+    // Remove all characters that aren't unicode letters/numbers or hyphens
+    .replace(/[^\p{L}\p{N}-]+/gu, '')
     // Remove multiple consecutive hyphens
     .replace(/-+/g, '-')
     // Remove leading/trailing hyphens

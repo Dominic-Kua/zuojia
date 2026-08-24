@@ -17,7 +17,10 @@ export default async function globalSetup() {
   const distEntry = path.join(ROOT, 'dist', 'index.html');
   const srcDirs = [
     path.join(ROOT, 'src'),
+    path.join(ROOT, 'public'),
     path.join(ROOT, 'index.html'),
+    path.join(ROOT, 'vite.config.ts'),
+    path.join(ROOT, 'package.json'),
   ];
 
   const distMtime = fs.existsSync(distEntry)

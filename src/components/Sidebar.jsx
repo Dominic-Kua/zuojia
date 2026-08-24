@@ -108,24 +108,38 @@ export default function Sidebar({ novelPath, openPageSlug }){
     });
   }, [buildAssetUrl]);
 
-  const handleSelectPage = useCallback(async (slug) => {
-    // Flush any pending autosave and AWAIT it before switching — otherwise a
-    // later reload of this page can read pre-edit content from disk and the
-    // next autosave would overwrite the user's edits with stale text.
+  // Tracks in-flight flush saves by slug so a page reload can wait for its
+  // own pending write instead of reading pre-flush content from disk.
+  const pendingFlushesRef = useRef(new Map());
+
+  const handleSelectPage = useCallback((slug) => {
+    // Navigate optimistically so rapid clicks can't interleave; the flush
+    // below saves the page we're LEAVING using values captured now.
+    const fromSlug = selectedSlug;
+    const fromContent = wikiContent;
+    const fromTags = wikiTags;
+    const wasDirty = isDirty;
+
+    setSelectedSlug(slug);
+    setIsPreviewMode(true);
+
+    // Flush the previous page before its content leaves state. The loader
+    // waits on pendingFlushesRef for the target slug, so returning to this
+    // page never reads stale pre-flush content.
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
       autosaveTimerRef.current = null;
-      if (novelPath && selectedSlug && isDirty) {
-        try {
-          await wikiHandlers.update(novelPath, selectedSlug, wikiContent, wikiTags);
-          setIsDirty(false);
-        } catch (err) {
-          console.error('Failed to autosave before page switch:', err);
-        }
+      if (novelPath && fromSlug && wasDirty) {
+        const flushPromise = wikiHandlers.update(novelPath, fromSlug, fromContent, fromTags)
+          .catch((err) => console.error('Failed to autosave before page switch:', err));
+        pendingFlushesRef.current.set(fromSlug, flushPromise);
+        flushPromise.finally(() => {
+          if (pendingFlushesRef.current.get(fromSlug) === flushPromise) {
+            pendingFlushesRef.current.delete(fromSlug);
+          }
+        });
       }
     }
-    setSelectedSlug(slug);
-    setIsPreviewMode(true);
   }, [novelPath, selectedSlug, isDirty, wikiContent, wikiTags]);
   // Open page when requested from wiki link clicks in manuscript
   useEffect(() => {
@@ -203,6 +217,12 @@ export default function Sidebar({ novelPath, openPageSlug }){
       try {
         setIsLoadingWiki(true);
         setWikiLoadError(null);
+        // If this exact page has a flush save in flight, wait for it so we
+        // read the post-flush content, not stale disk state.
+        const pendingFlush = pendingFlushesRef.current.get(selectedSlug);
+        if (pendingFlush) {
+          await pendingFlush;
+        }
         const result = await wikiHandlers.read(novelPath, selectedSlug);
         const content = result?.content || '';
         const tags = result?.tags || [];

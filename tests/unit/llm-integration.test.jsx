@@ -37,16 +37,14 @@ describe('LLM Chat Integration', () => {
     const { llmHandlers } = await import('../../src/lib/ipc-client');
     // Set up default mocks
     llmHandlers.health.mockResolvedValue({ status: 'stopped', uptimeMs: 0 });
+    // getConfig returns the unwrapped config (ipc-client strips the envelope)
     llmHandlers.getConfig.mockResolvedValue({
-      status: 'ok',
-      data: {
-        executablePath: '/opt/homebrew/bin/ollama',
-        modelName: 'gemma4:e2b',
-        host: '127.0.0.1',
-        port: 11434,
-        temperature: 0.7,
-        maxTokens: 4096,
-      },
+      executablePath: '/opt/homebrew/bin/ollama',
+      modelName: 'gemma4:e2b',
+      host: '127.0.0.1',
+      port: 11434,
+      temperature: 0.7,
+      maxTokens: 4096,
     });
   });
 

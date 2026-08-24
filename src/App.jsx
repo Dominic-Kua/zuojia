@@ -35,11 +35,29 @@ export default function App(){
   const flushEditorBeforeDestructiveOp = useCallback(async () => {
     if (editorFlushRef.current) {
       try {
-        await editorFlushRef.current();
+        await editorFlushRef.current.flush();
       } catch (err) {
         console.error('Failed to flush pending editor save:', err);
       }
     }
+  }, []);
+
+  // For restores: flush pending saves, then SUSPEND new ones until the
+  // restore finishes (the returned resume function must be called in a
+  // finally block). Prevents an autosave holding pre-restore text from
+  // firing after restore rewrote the files.
+  const prepareEditorForRestore = useCallback(async () => {
+    const handlers = editorFlushRef.current;
+    if (!handlers) {
+      return null;
+    }
+    handlers.suspendSaves?.();
+    try {
+      await handlers.flush();
+    } catch (err) {
+      console.error('Failed to flush pending editor save:', err);
+    }
+    return () => handlers.resumeSaves?.();
   }, []);
   const [theme, setTheme] = useState(() => {
     try {
@@ -302,7 +320,7 @@ export default function App(){
             novelPath={novelPath}
             onIndexRebuilt={refreshWikiPages}
             onRestored={handleRestored}
-            onBeforeRestore={flushEditorBeforeDestructiveOp}
+            onBeforeRestore={prepareEditorForRestore}
           />
           <SettingsModal novelPath={novelPath} />
           <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>

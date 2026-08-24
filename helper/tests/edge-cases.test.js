@@ -168,9 +168,10 @@ describe('Edge Cases and Boundary Tests', () => {
 
     it('should handle titles with mixed scripts', async () => {
       const slug = generateSlug('Hello世界مرحبا');
-      
-      expect(slug).toBeTruthy();
-      expect(slug).toMatch(/^[a-z0-9-]+$/);
+
+      // Unicode-aware: CJK and Arabic letters are preserved so generated
+      // slugs match the renderer's normalizeSlug
+      expect(slug).toBe('hello世界مرحبا');
     });
 
     it('should handle very long titles (500+ chars)', async () => {

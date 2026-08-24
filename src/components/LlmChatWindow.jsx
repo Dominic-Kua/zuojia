@@ -228,9 +228,10 @@ export function LlmChatWindow({ novelPath, servicesStatus, servicesLoading }) {
   const handleStartLlm = async () => {
     try {
       setIsLoading(true);
+      // getConfig returns the unwrapped config object (ipc-client strips the envelope)
       const config = await llmHandlers.getConfig();
-      if (config.status === 'ok') {
-        await llmHandlers.startRuntime(config.data);
+      if (config) {
+        await llmHandlers.startRuntime(config);
         setIsLlmRunning(true);
         setLlmStatus('running');
 
