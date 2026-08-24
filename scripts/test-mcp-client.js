@@ -68,12 +68,16 @@ class IntegrationTest {
       const synapsePath = path.join(process.env.HOME || '/Users/dominickua', 'code/project-synapse-mcp');
       const bridgePath = path.join(__dirname, '../helper/src/mcp/project-synapse-bridge.js');
       
+      if (!process.env.NEO4J_PASSWORD) {
+        reject(new Error('NEO4J_PASSWORD environment variable is required'));
+        return;
+      }
+
       const env = {
         ...process.env,
         ZUOJIA_NOVEL_PATH: novelPath,
         NEO4J_URI: 'bolt://localhost:7687',
         NEO4J_USER: 'neo4j',
-        NEO4J_PASSWORD: '***REMOVED***',
       };
 
       this.synapseProc = spawn('node', [bridgePath], {

@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import { writeFile } from 'fs/promises';
-import { execFileSync, execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { createSnapshot } from '../backup/snapshot.js';
 import { createError } from '../util/error.js';
 
@@ -284,8 +284,9 @@ export async function commitChapter(novelPath, filename, content) {
     // Prevent path traversal
     const resolvedFilename = path.resolve(novelPath, 'manuscript', filename);
     const manuscriptDir = path.resolve(novelPath, 'manuscript');
-    
-    if (!resolvedFilename.startsWith(manuscriptDir)) {
+    const relativeCheck = path.relative(manuscriptDir, resolvedFilename);
+
+    if (relativeCheck.startsWith('..') || path.isAbsolute(relativeCheck)) {
       return createError('INVALID_PATH_TRAVERSAL', 'Path traversal detected',
         'Filename must be a simple filename without parent directory references');
     }
@@ -302,9 +303,9 @@ export async function commitChapter(novelPath, filename, content) {
     const hasOwnGit = fs.existsSync(path.join(novelPath, '.git'));
     if (!hasOwnGit) {
       try {
-        execSync('git init', { cwd: novelPath, stdio: 'ignore' });
-        execSync('git config user.name "zuojia"', { cwd: novelPath, stdio: 'ignore' });
-        execSync('git config user.email "zuojia@localhost"', { cwd: novelPath, stdio: 'ignore' });
+        execFileSync('git', ['init'], { cwd: novelPath, stdio: 'ignore' });
+        execFileSync('git', ['config', 'user.name', 'zuojia'], { cwd: novelPath, stdio: 'ignore' });
+        execFileSync('git', ['config', 'user.email', 'zuojia@localhost'], { cwd: novelPath, stdio: 'ignore' });
       } catch (initErr) {
         return createError('GIT_INIT_FAILED', 'Failed to initialize git repository',
           'Check file permissions and disk space', { error: initErr.message });
@@ -315,7 +316,7 @@ export async function commitChapter(novelPath, filename, content) {
     const relativeFile = path.relative(novelPath, resolvedFilename);
     
     try {
-      execSync(`git add "${relativeFile}"`, { cwd: novelPath, stdio: 'ignore' });
+      execFileSync('git', ['add', '--', relativeFile], { cwd: novelPath, stdio: 'ignore' });
     } catch (addErr) {
       return createError('GIT_ADD_FAILED', 'Failed to stage chapter',
         'Check git configuration and file permissions', { error: addErr.message });
@@ -326,10 +327,15 @@ export async function commitChapter(novelPath, filename, content) {
     const commitMessage = `autosave: ${filename}`;
 
     try {
-      execSync(`git commit -m "${commitMessage}"`, { cwd: novelPath, stdio: 'ignore' });
+      execFileSync('git', ['commit', '-m', commitMessage], {
+        cwd: novelPath,
+        stdio: 'pipe',
+        encoding: 'utf-8',
+      });
     } catch (commitErr) {
       // Git commit can fail if there are no changes - that's okay
-      if (!commitErr.message.includes('nothing to commit')) {
+      const output = `${commitErr.stdout || ''}\n${commitErr.stderr || ''}`;
+      if (!output.includes('nothing to commit')) {
         return createError('GIT_COMMIT_FAILED', 'Failed to commit changes',
           'Check git configuration and repository state', { error: commitErr.message });
       }
@@ -340,8 +346,8 @@ export async function commitChapter(novelPath, filename, content) {
     let author = 'zuojia';
     
     try {
-      commitHash = execSync('git rev-parse HEAD', { cwd: novelPath, encoding: 'utf-8' }).trim().slice(0, 7);
-      author = execSync('git config user.name', { cwd: novelPath, encoding: 'utf-8' }).trim() || 'zuojia';
+      commitHash = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: novelPath, encoding: 'utf-8' }).trim().slice(0, 7);
+      author = execFileSync('git', ['config', 'user.name'], { cwd: novelPath, encoding: 'utf-8' }).trim() || 'zuojia';
     } catch {
       // Ignore errors getting commit info - commit may not exist yet
     }

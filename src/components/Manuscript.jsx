@@ -143,6 +143,11 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
   const saveTimerRef = useRef(null)
   const highlightTimerRef = useRef(null)
   const createdDefaultRef = useRef(false)
+  // Tracks which chapter's content the `content` state actually holds.
+  // Saves are only scheduled when this matches currentChapter, preventing a
+  // stale in-flight load from writing one chapter's text into another.
+  const loadedChapterRef = useRef(null)
+  const loadRequestSeqRef = useRef(0)
   const spellcheckResizeStartYRef = useRef(0)
   const spellcheckResizeStartHeightRef = useRef(0)
 
@@ -479,6 +484,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
           await indexHandlers.rebuildIndex(novelPath)
           await refresh()
           setCurrentChapter(DEFAULT_CHAPTER_FILENAME)
+          loadedChapterRef.current = DEFAULT_CHAPTER_FILENAME
           setContent(DEFAULT_CHAPTER_CONTENT)
           applyEditorContent(DEFAULT_CHAPTER_CONTENT)
         } catch (err) {
@@ -506,16 +512,26 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
     }
 
     const loadSelectedChapter = async () => {
+      const requestId = ++loadRequestSeqRef.current
+      loadedChapterRef.current = null
       try {
         setIsLoadingChapter(true)
         const chapterData = await loadChapter(currentChapter)
+        // Discard stale responses: a newer selection/novel switch has already
+        // started its own load.
+        if (requestId !== loadRequestSeqRef.current) {
+          return
+        }
         const nextContent = chapterData?.content || ''
+        loadedChapterRef.current = currentChapter
         setContent(nextContent)
         applyEditorContent(nextContent)
       } catch (err) {
         console.error('Failed to load chapter content:', err)
       } finally {
-        setIsLoadingChapter(false)
+        if (requestId === loadRequestSeqRef.current) {
+          setIsLoadingChapter(false)
+        }
       }
     }
 
@@ -525,6 +541,13 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
   // Persist content changes to disk (debounced)
   useEffect(() => {
     if (!currentChapter || !novelPath) {
+      return
+    }
+
+    // Skip when `content` doesn't belong to the selected chapter yet (e.g. a
+    // chapter switch is still loading) — otherwise we'd write the previous
+    // chapter's text into the newly selected file.
+    if (loadedChapterRef.current !== currentChapter) {
       return
     }
 
@@ -712,6 +735,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
       await indexHandlers.rebuildIndex(novelPath)
       await refresh()
       setCurrentChapter(filename)
+      loadedChapterRef.current = filename
       setContent(chapterTitle)
       applyEditorContent(chapterTitle)
     } catch (err) {
