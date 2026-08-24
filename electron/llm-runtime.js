@@ -1,4 +1,4 @@
-import { spawn, execSync } from 'child_process';
+import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import { constants as fsConstants } from 'fs';
 import http from 'http';
@@ -42,12 +42,27 @@ async function ensureModel(config, { log }) {
 
   log(`Downloading model from ${config.modelUrl}...`);
 
-  // Download via curl (most reliable cross-platform method)
+  // Download via curl spawned with an argument array (never through a shell,
+  // so config values can't inject commands)
   try {
-    execSync(
-      `curl -L -o "${modelPath}" "${config.modelUrl}"`,
-      { stdio: 'pipe', timeout: 600000 }
-    );
+    await new Promise((resolve, reject) => {
+      const child = spawn('curl', ['-fL', '-o', modelPath, String(config.modelUrl)], {
+        stdio: 'ignore',
+      });
+      const timer = setTimeout(() => {
+        child.kill('SIGKILL');
+        reject(new Error('Model download timed out after 600 seconds'));
+      }, 600000);
+      child.on('error', (err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+      child.on('exit', (code) => {
+        clearTimeout(timer);
+        if (code === 0) resolve();
+        else reject(new Error(`curl exited with code ${code}`));
+      });
+    });
   } catch (err) {
     throw new Error(`Model download failed: ${err.message}`);
   }

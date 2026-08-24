@@ -39,7 +39,12 @@ export function calculateWordCount(content) {
 
   // Split into words
   // Word definition: sequence of word characters, optionally with hyphens or apostrophes
-  const words = text.match(/\b[\w]+(?:[-'][\w]+)*\b/g);
+  const words = text.match(/\b[\w]+(?:[-'][\w]+)*\b/g) || [];
 
-  return words ? words.length : 0;
+  // CJK scripts have no whitespace between words, so \b/\w never match them.
+  // Count each CJK character individually (the standard convention for
+  // Han/Kana; Hangul syllables are also counted per character).
+  const cjk = text.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu) || [];
+
+  return words.length + cjk.length;
 }
