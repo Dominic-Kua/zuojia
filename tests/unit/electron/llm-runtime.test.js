@@ -3,6 +3,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createLlmRuntimeManager } from '../../../electron/llm-runtime.js';
 
+// TODO(#code-review-2026-08-24): whole suite is skipped — reinstate or delete.
+// Tracked in docs/code-review-findings-2026-08-24.md (H17).
 describe.skip('llm-runtime manager', () => {
   let childProcess;
   let spawnFn;

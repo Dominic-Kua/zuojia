@@ -1,21 +1,23 @@
 % Pandoc LaTeX template for 作家 PDF export
 % Produces a clean, readable single-column document suitable for manuscripts.
-% Works with both pdflatex and xelatex.
+% Requires xelatex (pdflatex cannot render CJK text, which manuscripts need).
 \documentclass[12pt, $if(papersize)$$papersize$,$endif$oneside]{article}
 
 % ── Encoding & fonts ──────────────────────────────────────────────────────────
-\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
-
-% xelatex/lualatex font support (no-op for pdflatex)
 \usepackage{iftex}
 \ifXeTeX
   \usepackage{fontspec}
   \setmainfont{Times New Roman}[Ligatures=TeX]
+  % CJK support: required for Chinese/Japanese/Korean manuscript text.
+  \usepackage{xeCJK}
+  \setCJKmainfont{PingFang SC}
 \else\ifLuaTeX
   \usepackage{fontspec}
   \setmainfont{Times New Roman}[Ligatures=TeX]
+  \usepackage{luatexja}
 \else
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
   \usepackage{lmodern}
 \fi\fi
 
@@ -40,7 +42,7 @@
 \usepackage{footnotehyper}
 \usepackage{graphicx}
 \usepackage{microtype}
-\usepackage{selnolig}
+% NOTE: selnolig removed — it is LuaTeX-only and errors under xelatex/pdflatex.
 \usepackage{xcolor}
 
 % ── Tightlist (required by Pandoc) ────────────────────────────────────────────

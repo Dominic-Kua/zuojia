@@ -11,17 +11,13 @@ describe('validateExportDependencies', () => {
     vi.clearAllMocks();
   });
 
-  it('returns install guidance when TeX is unavailable', async () => {
+  it('returns install guidance when xelatex is unavailable', async () => {
     execFileSync.mockImplementation((cmd, args) => {
       if (cmd === 'pandoc' && args[0] === '--version') {
         return 'pandoc 3.1.0';
       }
 
       if (cmd === 'xelatex' && args[0] === '--version') {
-        throw new Error('not found');
-      }
-
-      if (cmd === 'pdflatex' && args[0] === '--version') {
         throw new Error('not found');
       }
 
@@ -32,8 +28,8 @@ describe('validateExportDependencies', () => {
 
     expect(result.status).toBe('error');
     expect(result.error.code).toBe('TEX_UNAVAILABLE');
-    expect(result.error.suggestion).toMatch(/mactex|tex/i);
-    expect(result.error.context.enginesTried).toEqual(['xelatex', 'pdflatex']);
+    expect(result.error.suggestion).toMatch(/basictex|tex/i);
+    expect(result.error.context.enginesTried).toEqual(['xelatex']);
   });
 
   it('returns available tools when pandoc and a TeX engine exist', async () => {
@@ -58,7 +54,7 @@ describe('validateExportDependencies', () => {
     expect(result.data.enginesTried).toEqual(['xelatex']);
   });
 
-  it('falls back to pdflatex when xelatex is unavailable', async () => {
+  it('does not fall back to pdflatex (cannot render CJK)', async () => {
     execFileSync.mockImplementation((cmd, args) => {
       if (cmd === 'pandoc' && args[0] === '--version') {
         return 'pandoc 3.1.0';
@@ -77,8 +73,10 @@ describe('validateExportDependencies', () => {
 
     const result = await validateExportDependencies();
 
-    expect(result.status).toBe('ok');
-    expect(result.data.tex.engine).toBe('pdflatex');
-    expect(result.data.enginesTried).toEqual(['xelatex', 'pdflatex']);
+    // pdflatex must never be selected: the export template needs xelatex
+    // for Chinese text, so falling back would silently break exports.
+    expect(result.status).toBe('error');
+    expect(result.error.code).toBe('TEX_UNAVAILABLE');
+    expect(result.error.context.enginesTried).toEqual(['xelatex']);
   });
 });

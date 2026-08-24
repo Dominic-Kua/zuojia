@@ -102,7 +102,7 @@ dbms.security.auth_enabled=false
       const configContent = await fs.readFile(configPath, 'utf-8');
       if (configContent.includes('auth_enabled=false')) {
         // Verify Neo4j can start by checking for auth store files
-        const authStore = path.join(dataDir, 'dbms', 'auth');
+        const authStore = path.join(dataPath, 'dbms', 'auth');
         try {
           await fs.access(authStore);
           // Auth store exists — need to wipe for auth_enabled=false to work
@@ -216,6 +216,18 @@ dbms.security.auth_enabled=false
 
         if (nowFn() - startWait > maxWaitTime) {
           clearInterval(checkInterval);
+          // Kill the spawned process so a slow startup doesn't leave an
+          // untracked Neo4j running behind our back.
+          if (isRunningProcess(processRef)) {
+            processRef.kill('SIGKILL');
+            processRef = null;
+            runtimeNovelPath = null;
+            startTime = null;
+          }
+          if (driver) {
+            driver.close().catch(() => {});
+            driver = null;
+          }
           reject(new Error('Neo4j startup timed out'));
           return;
         }

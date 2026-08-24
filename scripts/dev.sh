@@ -25,20 +25,23 @@ ELECTRON_PID=""
 # Cleanup function
 cleanup() {
     local EXIT_STATUS=$?
+    # Reset traps so EXIT/INT/TERM don't re-enter cleanup recursively and
+    # mask the original exit status.
+    trap - EXIT INT TERM
     echo -e "${YELLOW}Shutting down processes...${NC}"
-    
+
     if [ ! -z "$ELECTRON_PID" ]; then
         echo -e "${BLUE}Stopping Electron (PID: $ELECTRON_PID)${NC}"
         kill $ELECTRON_PID 2>/dev/null || true
     fi
-    
+
     if [ ! -z "$VITE_PID" ]; then
         echo -e "${CYAN}Stopping Vite (PID: $VITE_PID)${NC}"
         kill $VITE_PID 2>/dev/null || true
         # Also kill any child processes
         pkill -P $VITE_PID 2>/dev/null || true
     fi
-    
+
     echo -e "${GREEN}All processes stopped${NC}"
     exit $EXIT_STATUS
 }
@@ -100,12 +103,17 @@ fi
 
 # Check if Vite is already running
 if check_port $VITE_PORT; then
-    echo -e "${YELLOW}Warning: Port $VITE_PORT is already in use${NC}"
-    echo -e "${YELLOW}Using existing Vite server...${NC}"
+    # Don't blindly reuse whatever answers on the port — it may not be our
+    # Vite server. Fail loudly instead of pointing Electron at the wrong thing.
+    echo -e "${RED}Error: Port $VITE_PORT is already in use by another process${NC}"
+    echo -e "${YELLOW}If it is a stale Vite server, stop it with: lsof -ti :$VITE_PORT | xargs kill${NC}"
+    exit 1
 else
-    # Start Vite dev server in background
+    # Start Vite dev server directly (not via `npm run`) so VITE_PID is the
+    # actual vite process — an npm/sh intermediate survives SIGTERM and
+    # orphans vite, holding the port after shutdown.
     echo -e "${CYAN}Starting Vite dev server...${NC}"
-    npm run dev:vite > /tmp/zuojia-vite.log 2>&1 &
+    node node_modules/vite/bin/vite.js > /tmp/zuojia-vite.log 2>&1 &
     VITE_PID=$!
     
     echo -e "${CYAN}Vite PID: $VITE_PID${NC}"

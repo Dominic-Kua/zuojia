@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Development launcher for ä½å®¶
+ * Development launcher for 作家
  * 
  * This script:
  * 1. Starts the Vite dev server (frontend)
@@ -83,9 +83,21 @@ function waitForPort(port, maxAttempts = 30, interval = 1000) {
 }
 
 async function startVite() {
+  // Refuse to start if something else already owns the port — otherwise we'd
+  // point Electron at an unknown server (waitForPort can't tell who answers).
+  if (await checkPort(VITE_PORT)) {
+    throw new Error(
+      `Port ${VITE_PORT} is already in use. ` +
+      'Stop the existing process (lsof -ti :5173 | xargs kill) and retry.'
+    );
+  }
+
   log('VITE', 'Starting Vite dev server...', colors.cyan);
-  
-  viteProcess = spawn('npm', ['run', 'dev:vite'], {
+
+  // Spawn the vite binary directly — going through `npm run` adds an
+  // intermediate npm/sh layer that survives SIGTERM to this child, orphaning
+  // vite and holding port 5173 after shutdown.
+  viteProcess = spawn('node', ['node_modules/vite/bin/vite.js'], {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   

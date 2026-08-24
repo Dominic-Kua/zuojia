@@ -32,27 +32,14 @@ export async function validateExportDependencies() {
       },
       timestamp: new Date().toISOString(),
     };
-  } catch {
-    // Fall through to pdflatex fallback.
-  }
-
-  try {
-    enginesTried.push('pdflatex');
-    const version = getToolVersion('pdflatex');
-    return {
-      status: 'ok',
-      data: {
-        pandoc: { available: true, version: pandocVersion },
-        tex: { available: true, engine: 'pdflatex', version },
-        enginesTried,
-      },
-      timestamp: new Date().toISOString(),
-    };
   } catch (error) {
+    // No pdflatex fallback: the export template requires xelatex for CJK
+    // text (manuscripts are Chinese-first), and pdflatex would silently
+    // produce PDFs with missing glyphs.
     return createError(
       'TEX_UNAVAILABLE',
-      'A TeX engine is not installed',
-      'Install via: brew install --cask mactex-no-gui',
+      'xelatex is not installed (required for CJK-aware PDF export)',
+      'Install via: brew install --cask basictex  (then: sudo tlmgr update --self)',
       { error: error.message, enginesTried }
     );
   }

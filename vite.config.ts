@@ -6,6 +6,8 @@ export default defineConfig({
   base: './', // Use relative paths for Electron compatibility
   server: {
     port: 5173,
-    strictPort: false,
+    // Fail instead of drifting to another port — the Electron dev launchers
+    // assume Vite answers on exactly this port.
+    strictPort: true,
   },
 })

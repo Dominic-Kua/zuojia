@@ -6,6 +6,8 @@ import path from 'path';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { loadLlmConfig, saveLlmConfig, validateLlmConfig, DEFAULT_LLM_CONFIG } from '../../../electron/llm-config.js';
 
+// TODO(#code-review-2026-08-24): whole suite is skipped — reinstate or delete.
+// Tracked in docs/code-review-findings-2026-08-24.md (H17).
 describe.skip('llm-config', () => {
   let tempDir;
 
