@@ -49,7 +49,7 @@ function main() {
     fs.writeFileSync(logFile, '');
   } catch {}
 
-  const synapsePath = path.join(process.env.HOME, 'code', 'project-synapse-mcp');
+  const synapsePath = process.env.SYNAPSE_PATH || path.join(process.env.HOME, 'code', 'project-synapse-mcp');
   if (!fs.existsSync(path.join(synapsePath, 'pyproject.toml'))) {
     const err = { jsonrpc: '2.0', error: { code: -32603, message: 'Project Synapse not found at ' + synapsePath }, id: null };
     process.stdout.write(JSON.stringify(err) + '\n');

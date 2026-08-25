@@ -15,6 +15,10 @@ test.describe('Story 4.5: Git Configuration', () => {
   test.beforeEach(async () => {
     ({ app, page } = await launchElectronApp());
 
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+
     testNovelName = `test-git-settings-${Date.now()}`;
     testNovelPath = path.join(os.homedir(), '.zuojia', testNovelName);
     remotePath = path.join(os.tmpdir(), `zuojia-remote-${Date.now()}.git`);

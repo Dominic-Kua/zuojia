@@ -3,22 +3,32 @@
  * Centralized configuration for MCP runtime with environment variable support
  */
 
+import { NEO4J_BOLT_URI, NEO4J_USERNAME, NEO4J_PASSWORD } from '../../../electron/neo4j-defaults.js';
+import {
+  TOOL_CALL_TIMEOUT_MS,
+  BASE_RETRY_DELAY_MS,
+  MAX_RETRY_DELAY_MS,
+  EMBEDDING_TOOL_TIMEOUT_MS,
+  WIKI_DEFAULT_LIMIT,
+  NEO4J_STARTUP_TIMEOUT_MS,
+} from '../../../electron/constants.js';
+
 const DEFAULT_CONFIG = {
   process: {
     serverPath: 'helper/src/mcp/project-synapse-bridge.js',
     env: {
       ZUOJIA_NOVEL_PATH: '',
-      NEO4J_URI: 'bolt://localhost:7687',
-      NEO4J_USER: 'neo4j',
-      NEO4J_PASSWORD: 'neo4j',
+      NEO4J_URI: NEO4J_BOLT_URI,
+      NEO4J_USER: NEO4J_USERNAME,
+      NEO4J_PASSWORD: NEO4J_PASSWORD,
     },
   },
   mcpClient: {
     maxRetries: 3,
-    retryBaseDelay: 1000,
-    maxRetryDelay: 10000,
-    callToolTimeoutMs: 180000, // 3 minutes for first query (embedding model download)
-    initializeTimeoutMs: 120000, // 2 minutes for initialization (embedding model download)
+    retryBaseDelay: BASE_RETRY_DELAY_MS,
+    maxRetryDelay: MAX_RETRY_DELAY_MS,
+    callToolTimeoutMs: EMBEDDING_TOOL_TIMEOUT_MS,
+    initializeTimeoutMs: EMBEDDING_TOOL_TIMEOUT_MS,
   },
   synapse: {
     enabled: true,
@@ -27,20 +37,20 @@ const DEFAULT_CONFIG = {
   },
   logging: {
     logLevel: 'info',
-    maxLogs: 200,
+    maxLogs: WIKI_DEFAULT_LIMIT,
   },
   // Tool-specific timeouts (in ms)
   toolTimeouts: {
-    wiki_list_pages: 5000,
-    wiki_get_page: 5000,
-    wiki_search: 5000,
-    wiki_get_backlinks: 5000,
-    wiki_build_graph: 10000,
-    wiki_traverse_graph: 10000,
-    wiki_neo4j_search: 180000, // 3 minutes for first query (embedding model download)
-    wiki_neo4j_get_related: 30000,
-    wiki_neo4j_find_paths: 30000,
-    wiki_neo4j_query: 30000,
+    wiki_list_pages: TOOL_CALL_TIMEOUT_MS,
+    wiki_get_page: TOOL_CALL_TIMEOUT_MS,
+    wiki_search: TOOL_CALL_TIMEOUT_MS,
+    wiki_get_backlinks: TOOL_CALL_TIMEOUT_MS,
+    wiki_build_graph: MAX_RETRY_DELAY_MS,
+    wiki_traverse_graph: MAX_RETRY_DELAY_MS,
+    wiki_neo4j_search: EMBEDDING_TOOL_TIMEOUT_MS,
+    wiki_neo4j_get_related: NEO4J_STARTUP_TIMEOUT_MS,
+    wiki_neo4j_find_paths: NEO4J_STARTUP_TIMEOUT_MS,
+    wiki_neo4j_query: NEO4J_STARTUP_TIMEOUT_MS,
   },
 };
 
@@ -54,17 +64,17 @@ export function createConfigFromEnv() {
       serverPath: process.env.ZUOJIA_MCP_SERVER_PATH || 'helper/src/mcp/project-synapse-bridge.js',
       env: {
         ZUOJIA_NOVEL_PATH: process.env.ZUOJIA_NOVEL_PATH || '',
-        NEO4J_URI: process.env.NEO4J_URI || 'bolt://localhost:7687',
-        NEO4J_USER: process.env.NEO4J_USER || 'neo4j',
-        NEO4J_PASSWORD: process.env.NEO4J_PASSWORD || 'neo4j',
+        NEO4J_URI: process.env.NEO4J_URI || NEO4J_BOLT_URI,
+        NEO4J_USER: process.env.NEO4J_USER || NEO4J_USERNAME,
+        NEO4J_PASSWORD: process.env.NEO4J_PASSWORD || NEO4J_PASSWORD,
       },
     },
     mcpClient: {
       maxRetries: parseInt(process.env.ZUOJIA_MCP_MAX_RETRIES, 10) || 3,
-      retryBaseDelay: parseInt(process.env.ZUOJIA_MCP_RETRY_BASE_DELAY, 10) || 1000,
-      maxRetryDelay: parseInt(process.env.ZUOJIA_MCP_MAX_RETRY_DELAY, 10) || 10000,
-      callToolTimeoutMs: parseInt(process.env.ZUOJIA_MCP_TOOL_TIMEOUT, 10) || 180000,
-      initializeTimeoutMs: parseInt(process.env.ZUOJIA_MCP_INIT_TIMEOUT, 10) || 120000,
+      retryBaseDelay: parseInt(process.env.ZUOJIA_MCP_RETRY_BASE_DELAY, 10) || BASE_RETRY_DELAY_MS,
+      maxRetryDelay: parseInt(process.env.ZUOJIA_MCP_MAX_RETRY_DELAY, 10) || MAX_RETRY_DELAY_MS,
+      callToolTimeoutMs: parseInt(process.env.ZUOJIA_MCP_TOOL_TIMEOUT, 10) || EMBEDDING_TOOL_TIMEOUT_MS,
+      initializeTimeoutMs: parseInt(process.env.ZUOJIA_MCP_INIT_TIMEOUT, 10) || EMBEDDING_TOOL_TIMEOUT_MS,
     },
     synapse: {
       enabled: process.env.ZUOJIA_MCP_SYNAPSE_ENABLED !== 'false',
@@ -73,7 +83,7 @@ export function createConfigFromEnv() {
     },
     logging: {
       logLevel: process.env.ZUOJIA_MCP_LOG_LEVEL || 'info',
-      maxLogs: parseInt(process.env.ZUOJIA_MCP_MAX_LOGS, 10) || 200,
+      maxLogs: parseInt(process.env.ZUOJIA_MCP_MAX_LOGS, 10) || WIKI_DEFAULT_LIMIT,
     },
   };
 }

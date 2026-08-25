@@ -22,6 +22,10 @@ const ALLOWED_INVOKE_CHANNELS = new Set([
   'helper:git:saveConfig',
   'helper:git:history',
   'helper:git:push',
+  'helper:git:pull',
+  'helper:git:isRepo',
+  'helper:git:status',
+  'helper:git:syncStatus',
   // Export
   'helper:export:pdf',
   'helper:export:validateDeps',

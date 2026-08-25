@@ -1,21 +1,34 @@
 import fs from 'fs/promises';
 import path from 'path';
+import {
+  LLM_EXECUTABLE_PATH,
+  LLM_MODEL_NAME,
+  LLM_MODEL_URL,
+  LLM_HOST,
+  LLM_PORT,
+  LLM_TEMPERATURE,
+  LLM_MAX_TOKENS,
+  LLM_NGL,
+  LLM_CTX_SIZE,
+  LLM_CONFIG_FILE,
+  LLM_MAX_ALLOWED_TOKENS,
+} from './llm-defaults.js';
 
 export const DEFAULT_LLM_CONFIG = {
   provider: 'llamacpp',
-  executablePath: '/opt/homebrew/bin/llama-server',
-  modelName: 'gemma-4-E2B-it-Q3_K_S',
-  modelUrl: 'https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q3_K_S.gguf',
+  executablePath: LLM_EXECUTABLE_PATH,
+  modelName: LLM_MODEL_NAME,
+  modelUrl: LLM_MODEL_URL,
   modelDir: '',  // resolved at runtime to {userData}/models/
-  host: '127.0.0.1',
-  port: 8080,
-  temperature: 0.7,
-  maxTokens: 4096,
-  ngl: 99,
-  ctxSize: 0,
+  host: LLM_HOST,
+  port: LLM_PORT,
+  temperature: LLM_TEMPERATURE,
+  maxTokens: LLM_MAX_TOKENS,
+  ngl: LLM_NGL,
+  ctxSize: LLM_CTX_SIZE,
 };
 
-const CONFIG_FILE = 'llm-config.json';
+const CONFIG_FILE = LLM_CONFIG_FILE;
 
 function asNumber(value, field) {
   const n = Number(value);
@@ -43,8 +56,8 @@ export function validateLlmConfig(input = {}) {
     throw new Error('temperature must be between 0 and 2');
   }
 
-  if (maxTokens !== undefined && (maxTokens < 1 || maxTokens > 1000000)) {
-    throw new Error('maxTokens must be between 1 and 1000000');
+  if (maxTokens !== undefined && (maxTokens < 1 || maxTokens > LLM_MAX_ALLOWED_TOKENS)) {
+    throw new Error(`maxTokens must be between 1 and ${LLM_MAX_ALLOWED_TOKENS}`);
   }
 
   const host = String(merged.host || DEFAULT_LLM_CONFIG.host).trim();

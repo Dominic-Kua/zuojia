@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import WikiPageList from './WikiSidebar/WikiPageList'
 import { useWikiPages } from '../hooks/useWikiPages'
 import { useGitHistory } from '../hooks/useGitHistory'
-import { wikiHandlers } from '../lib/ipc-client'
+import { wikiHandlers, gitHandlers } from '../lib/ipc-client'
 import { resolveSlug } from '../lib/wiki-link-parser'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
@@ -16,7 +16,7 @@ const escapeHtml = (value) => {
     .replace(/'/g, '&#39;')
 };
 
-export default function Sidebar({ novelPath, openPageSlug }){
+export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggleWikiDetached, isFloating = false }){
   const { pages, loading, error, createPage, deletePage, renamePage, search } = useWikiPages(novelPath);
   const { commits, loading: isLoadingHistory, error: historyError } = useGitHistory(novelPath, 5);
   const [selectedSlug, setSelectedSlug] = useState(null);
@@ -38,6 +38,25 @@ export default function Sidebar({ novelPath, openPageSlug }){
   const [titleInput, setTitleInput] = useState('');
   const [isRenamingPage, setIsRenamingPage] = useState(false);
   const renameTimerRef = useRef(null);
+
+  // Git integration state
+  const [isGitRepo, setIsGitRepo] = useState(false);
+  const [syncStatus, setSyncStatus] = useState({
+    isRepo: false,
+    lastPush: null,
+    ahead: 0,
+    behind: 0,
+    hasRemote: false,
+    branch: null,
+    upstreamBranch: null,
+  });
+  const [dirtyState, setDirtyState] = useState({
+    isRepo: false,
+    dirtyCount: 0,
+    files: [],
+  });
+  const [isPulling, setIsPulling] = useState(false);
+  const [pullError, setPullError] = useState(null);
 
   const notifySpellcheckDictionaryChanged = useCallback(() => {
     if (!novelPath) {
@@ -147,6 +166,125 @@ export default function Sidebar({ novelPath, openPageSlug }){
       handleSelectPage(openPageSlug);
     }
   }, [openPageSlug, selectedSlug, handleSelectPage]);
+
+  // Git repo detection
+  useEffect(() => {
+    // Reset all git state synchronously when novelPath changes
+    setIsGitRepo(false);
+    setSyncStatus({
+      isRepo: false,
+      lastPush: null,
+      ahead: 0,
+      behind: 0,
+      hasRemote: false,
+      branch: null,
+      upstreamBranch: null,
+    });
+    setDirtyState({ isRepo: false, dirtyCount: 0, files: [] });
+
+    if (!novelPath) {
+      return;
+    }
+    const checkRepo = async () => {
+      try {
+        const result = await gitHandlers.isRepo(novelPath);
+        setIsGitRepo(result?.isRepo ?? false);
+      } catch (err) {
+        console.error('Failed to check git repo:', err);
+        setIsGitRepo(false);
+      }
+    };
+    checkRepo();
+  }, [novelPath]);
+
+  // Git sync status
+  useEffect(() => {
+    if (!novelPath || !isGitRepo) {
+      setSyncStatus({
+        isRepo: false,
+        lastPush: null,
+        ahead: 0,
+        behind: 0,
+        hasRemote: false,
+        branch: null,
+        upstreamBranch: null,
+      });
+      return;
+    }
+    const fetchSyncStatus = async () => {
+      try {
+        const result = await gitHandlers.getSyncStatus(novelPath);
+        if (result) {
+          setSyncStatus(result);
+        }
+      } catch (err) {
+        console.error('Failed to fetch sync status:', err);
+      }
+    };
+    fetchSyncStatus();
+    const interval = setInterval(fetchSyncStatus, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
+  }, [novelPath, isGitRepo]);
+
+  // Git dirty state
+  useEffect(() => {
+    if (!novelPath || !isGitRepo) {
+      setDirtyState({ isRepo: false, dirtyCount: 0, files: [] });
+      return;
+    }
+    const fetchDirtyState = async () => {
+      try {
+        const result = await gitHandlers.getStatus(novelPath);
+        if (result) {
+          setDirtyState({
+            isRepo: result.hasChanges !== undefined,
+            dirtyCount: result.changeCount || 0,
+            files: result.changes || [],
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch dirty state:', err);
+      }
+    };
+    fetchDirtyState();
+    const interval = setInterval(fetchDirtyState, 10000); // Refresh every 10 seconds
+    return () => clearInterval(interval);
+  }, [novelPath, isGitRepo, isDirty]);
+
+  // Pull from remote
+  const handlePull = useCallback(async () => {
+    if (!novelPath || !isGitRepo || isPulling) return;
+    
+    setIsPulling(true);
+    setPullError(null);
+    
+    try {
+      const result = await gitHandlers.pull(novelPath);
+      // pull returns { success, output, filesUpdated, branch } on success
+      // or throws on error
+      if (result?.success) {
+        // Refresh sync status and dirty state after pull
+        const [syncResult, dirtyResult] = await Promise.all([
+          gitHandlers.getSyncStatus(novelPath),
+          gitHandlers.getStatus(novelPath),
+        ]);
+        if (syncResult) setSyncStatus(syncResult);
+        if (dirtyResult) {
+          setDirtyState({
+            isRepo: dirtyResult.hasChanges !== undefined,
+            dirtyCount: dirtyResult.changeCount || 0,
+            files: dirtyResult.changes || [],
+          });
+        }
+      } else if (result?.error) {
+        setPullError(result.error.message);
+      }
+    } catch (err) {
+      setPullError(err.message || 'Failed to pull from remote');
+    } finally {
+      setIsPulling(false);
+    }
+  }, [novelPath, isGitRepo, isPulling]);
 
 
   const handleDeletePage = useCallback(async (slug) => {
@@ -377,22 +515,41 @@ export default function Sidebar({ novelPath, openPageSlug }){
     setSelectedSlug(slug);
   };
 
+  if (!isFloating && wikiDetached) {
+    return null;
+  }
+
   return (
     <div className="sidebar-inner">
       <div className="sidebar-section">
         <div className="sidebar-section-header">
           <h3>Wiki</h3>
-          <button
-            type="button"
-            className="btn"
-            data-testid="wiki-create-button"
-            onClick={handleCreateToggle}
-            disabled={isCreating || loading}
-            aria-label="Create wiki page"
-            title="Create wiki page"
-          >
-            +
-          </button>
+          <div className="wiki-header-actions">
+            {!isFloating && !wikiDetached && (
+              <button
+                type="button"
+                className="btn ghost btn-sm"
+                data-testid="wiki-detach-button"
+                onClick={() => onToggleWikiDetached?.(true)}
+                disabled={loading}
+                aria-label="Detach wiki sidebar"
+                title="Detach wiki sidebar"
+              >
+                Detach
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn"
+              data-testid="wiki-create-button"
+              onClick={handleCreateToggle}
+              disabled={isCreating || loading}
+              aria-label="Create wiki page"
+              title="Create wiki page"
+            >
+              +
+            </button>
+          </div>
         </div>
         {showCreateForm && (
           <form className="wiki-create-form" data-testid="create-wiki-dialog" onSubmit={handleCreateSubmit}>
@@ -540,8 +697,46 @@ export default function Sidebar({ novelPath, openPageSlug }){
       </div>
       <div className="sidebar-section muted">
         <h3>Sync Status</h3>
-        <div>Last synced: 2h ago</div>
-        <div className="conflict-note">No conflicts</div>
+        {!isGitRepo ? (
+          <div className="sidebar-muted-copy">Not a git repository</div>
+        ) : (
+          <>
+            <div className="sync-status-row">
+              <span>Branch: {syncStatus.branch}</span>
+              {syncStatus.upstreamBranch && <span>→ {syncStatus.upstreamBranch}</span>}
+            </div>
+            {!syncStatus.hasRemote ? (
+              <div className="sidebar-muted-copy">No remote configured</div>
+            ) : (
+              <>
+                <div className="sync-status-row">
+                  <span>Last push: {syncStatus.lastPush ? new Date(syncStatus.lastPush).toLocaleString() : 'Never'}</span>
+                </div>
+                <div className="sync-status-row">
+                  <span>Ahead: {syncStatus.ahead}</span>
+                  <span>Behind: {syncStatus.behind}</span>
+                </div>
+                <div className="sync-actions">
+                  <button
+                    type="button"
+                    className="btn ghost btn-sm"
+                    onClick={handlePull}
+                    disabled={isPulling}
+                    data-testid="git-pull-button"
+                  >
+                    {isPulling ? 'Pulling...' : 'Pull'}
+                  </button>
+                  {pullError && <div className="error-message">{pullError}</div>}
+                </div>
+              </>
+            )}
+            {dirtyState.dirtyCount > 0 && (
+              <div className="sync-status-row dirty-indicator">
+                <span>Uncommitted: {dirtyState.dirtyCount}</span>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   )

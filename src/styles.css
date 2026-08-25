@@ -36,6 +36,10 @@ body{margin:0;font-family:'PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','N
 .editor{font-family:'Merriweather', Georgia, serif;font-size:18px;line-height:1.6;color:var(--text-primary);min-height:0;flex:1;overflow:auto;padding-bottom:16px;white-space:pre-wrap}
 .editor:focus{outline:none}
 .sidebar{padding-top:8px;flex:0 0 auto;min-width:280px;max-width:720px;height:calc(100vh - 56px - 48px)}
+.sidebar.collapsed{flex:0 0 48px;min-width:48px;max-width:48px;padding:0}
+.sidebar.collapsed .sidebar-inner{padding:0;box-shadow:none;background:transparent}
+.sidebar.collapsed .sidebar-section{display:none}
+.sidebar.collapsed .sidebar-resizer{display:none}
 .sidebar-resizer{width:8px;cursor:col-resize;position:relative;flex:0 0 8px;border-radius:8px;align-self:stretch;background:transparent}
 .sidebar-resizer::after{content:'';position:absolute;top:8px;bottom:8px;left:3px;width:2px;border-radius:2px;background:var(--divider)}
 .sidebar-resizer:hover::after,.sidebar-resizer.active::after{background:var(--accent)}
@@ -44,6 +48,8 @@ body{margin:0;font-family:'PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','N
 .sidebar-section h3{margin:0 0 8px 0;font-size:14px;color:var(--text-primary)}
 .sidebar-section-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
 .sidebar-section-header h3{margin:0}
+.sidebar-header-actions{display:flex;gap:6px}
+.wiki-header-actions{display:flex;gap:6px}
 .wiki-create-form{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
 .wiki-create-input{padding:8px 10px;border-radius:8px;border:1px solid var(--divider);font-size:13px;background:var(--manuscript-surface);color:var(--text-primary)}
 .wiki-create-actions{display:flex;justify-content:flex-end;gap:8px}
@@ -609,4 +615,73 @@ body{margin:0;font-family:'PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','N
     opacity: 1;
     transform: scale(1.2);
   }
+}
+
+/* Wiki Floating Panel */
+.wiki-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 380px;
+  max-height: calc(100vh - 80px);
+  background: var(--sidebar-surface);
+  border: 1px solid var(--divider);
+  border-radius: 10px;
+  box-shadow: 0 4px 24px rgba(32, 38, 40, 0.15);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translate(var(--wiki-panel-x), var(--wiki-panel-y));
+}
+
+.wiki-panel-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--sidebar-surface);
+  border-bottom: 1px solid var(--divider);
+  cursor: move;
+  user-select: none;
+  -webkit-app-region: drag;
+}
+
+.wiki-panel-titlebar h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.wiki-panel-titlebar .btn {
+  -webkit-app-region: no-drag;
+}
+
+.wiki-panel-content {
+  flex: 1;
+  overflow: auto;
+  padding: 16px 20px 20px;
+}
+
+.wiki-panel.collapsed-sidebar {
+  /* When sidebar is detached, show minimal toggle */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wiki-panel {
+    transition: none !important;
+  }
+}
+
+/* Drag overlay for floating panel */
+.wiki-floating-panel-drag-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 999;
+  background: transparent;
+  cursor: move;
 }

@@ -26,6 +26,10 @@ test.describe('Story 5.1: PDF Export', () => {
       },
     }));
 
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+
     testNovelName = `test-export-${Date.now()}`;
     testNovelPath = path.join(os.homedir(), '.zuojia', testNovelName);
 
