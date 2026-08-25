@@ -34,17 +34,32 @@ function createExportLog(payload) {
 function sanitizeChapterOrder(chapterOrder, indexChapters) {
   const validFilenames = new Set(indexChapters.map((c) => c.filename));
   const seen = new Set();
-  return chapterOrder.filter((entry) => {
-    if (!entry || typeof entry.filename !== 'string') return false;
+  const chapters = [];
+  const skipped = [];
+
+  for (const entry of chapterOrder) {
+    if (!entry || typeof entry.filename !== 'string') {
+      skipped.push(entry);
+      continue;
+    }
     const fn = entry.filename;
     if (path.isAbsolute(fn) || fn.includes('..') || fn.includes('/') || fn.includes('\\')) {
-      return false;
+      skipped.push(entry);
+      continue;
     }
-    if (!validFilenames.has(fn)) return false;
-    if (seen.has(fn)) return false;
+    if (!validFilenames.has(fn)) {
+      skipped.push(entry);
+      continue;
+    }
+    if (seen.has(fn)) {
+      skipped.push(entry);
+      continue;
+    }
     seen.add(fn);
-    return true;
-  });
+    chapters.push(entry);
+  }
+
+  return { chapters, skipped };
 }
 
 function normalizeMetadata(novelPath, metadata = {}) {
@@ -77,6 +92,8 @@ export async function exportManuscriptToPdf(novelPath, metadata = {}) {
     if (!novelPath || !fs.existsSync(novelPath)) {
       return createError('INVALID_NOVEL_PATH', 'Novel path does not exist');
     }
+    // Resolve once so all derived chapter/output/log paths are absolute
+    novelPath = path.resolve(novelPath);
 
     const depsResult = await validateExportDependencies();
     if (depsResult.status === 'error') {
@@ -100,10 +117,17 @@ export async function exportManuscriptToPdf(novelPath, metadata = {}) {
     // Use caller-specified chapter order (from UI selection/reorder) when provided;
     // fall back to the full index order.  Sanitize to reject path traversal attempts
     // and filenames not present in the index.
-    const exportChapters =
-      Array.isArray(metadata.chapterOrder) && metadata.chapterOrder.length > 0
-        ? sanitizeChapterOrder(metadata.chapterOrder, chapters)
-        : chapters;
+    let skippedChapters = [];
+    let exportChapters;
+    if (Array.isArray(metadata.chapterOrder) && metadata.chapterOrder.length > 0) {
+      const sanitized = sanitizeChapterOrder(metadata.chapterOrder, chapters);
+      exportChapters = sanitized.chapters;
+      skippedChapters = sanitized.skipped
+        .map((entry) => (entry && typeof entry.filename === 'string' ? entry.filename : String(entry)))
+        .filter(Boolean);
+    } else {
+      exportChapters = chapters;
+    }
 
     if (exportChapters.length === 0) {
       return createError(
@@ -172,6 +196,7 @@ export async function exportManuscriptToPdf(novelPath, metadata = {}) {
         durationMs: subprocessResult.durationMs,
         texEngine: depsResult.data.tex.engine,
         chapterCount: exportChapters.length,
+        skippedChapters,
       },
       timestamp: new Date().toISOString(),
     };

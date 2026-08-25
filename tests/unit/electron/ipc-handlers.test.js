@@ -1,6 +1,8 @@
 // @vitest-environment node
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import os from 'os';
+import path from 'path';
 
 // ── Mock electron ──
 const ipcHandleMap = new Map();
@@ -755,6 +757,20 @@ describe('ipc-handlers', () => {
       expect(result.status).toBe('ok');
     });
 
+    it('helper:neo4j:query rejects write operations', async () => {
+      const result = await callHandler('helper:neo4j:query', { query: "MATCH (n) SET n.x = 'locked'" });
+      expect(result.status).toBe('error');
+      expect(result.error.code).toBe('INVALID_INPUT');
+      expect(mockNeo4jRuntime.queryCypher).not.toHaveBeenCalled();
+    });
+
+    it('helper:neo4j:query allows keywords inside string literals', async () => {
+      mockNeo4jRuntime.queryCypher.mockResolvedValue({ status: 'ok', data: [] });
+      const result = await callHandler('helper:neo4j:query', { query: "MATCH (n) WHERE n.title = 'CREATE and DELETE' RETURN n" });
+      expect(result.status).toBe('ok');
+      expect(mockNeo4jRuntime.queryCypher).toHaveBeenCalled();
+    });
+
     it('helper:neo4j:query returns error on failure', async () => {
       mockNeo4jRuntime.queryCypher.mockRejectedValue(new Error('cypher fail'));
       const result = await callHandler('helper:neo4j:query', { query: 'BAD' });
@@ -825,10 +841,18 @@ describe('ipc-handlers', () => {
   });
 
   describe('app:markNovelOpened', () => {
+    const zuojiaNovel = () => path.join(os.homedir(), '.zuojia', 'novel');
+
+    it('rejects novelPath outside ~/.zuojia', async () => {
+      const result = await callRawHandler('app:markNovelOpened', {}, { novelPath: '/tmp/novel' });
+      expect(result.status).toBe('error');
+      expect(result.error.code).toBe('INVALID_INPUT');
+    });
+
     it('returns error when meta dir missing', async () => {
       const fs = await import('fs');
       fs.default.existsSync.mockReturnValue(false);
-      const result = await callRawHandler('app:markNovelOpened', {}, { novelPath: '/tmp/novel' });
+      const result = await callRawHandler('app:markNovelOpened', {}, { novelPath: zuojiaNovel() });
       expect(result.status).toBe('error');
       expect(result.error.code).toBe('META_DIR_MISSING');
     });
@@ -838,7 +862,7 @@ describe('ipc-handlers', () => {
       const fsp = await import('fs/promises');
       fs.default.existsSync.mockReturnValue(true);
       fsp.default.writeFile.mockResolvedValue();
-      const result = await callRawHandler('app:markNovelOpened', {}, { novelPath: '/tmp/novel' });
+      const result = await callRawHandler('app:markNovelOpened', {}, { novelPath: zuojiaNovel() });
       expect(result.status).toBe('ok');
       expect(result.data.lastAccessed).toBeTruthy();
     });
@@ -894,30 +918,38 @@ describe('ipc-handlers', () => {
     });
   });
 
-  // ── Error propagation for wrapHandler channels ──
+  // ── Error propagation for wrapHandler channels (envelope on throw) ──
   describe('error propagation', () => {
-    it('propagates errors from index handlers', async () => {
+    it('returns IPC_HANDLER_ERROR envelope from index handlers', async () => {
       mockIndex.getIndex.mockRejectedValue(new Error('disk full'));
-      await expect(callHandler('helper:index:get', { novelPath: '/tmp/novel' }))
-        .rejects.toThrow('disk full');
+      const result = await callHandler('helper:index:get', { novelPath: '/tmp/novel' });
+      expect(result.status).toBe('error');
+      expect(result.error.code).toBe('IPC_HANDLER_ERROR');
+      expect(result.error.message).toBe('disk full');
     });
 
-    it('propagates errors from chapter handlers', async () => {
+    it('returns IPC_HANDLER_ERROR envelope from chapter handlers', async () => {
       mockIndex.readChapter.mockRejectedValue(new Error('file not found'));
-      await expect(callHandler('helper:chapter:read', { novelPath: '/tmp/novel', filename: 'missing.md' }))
-        .rejects.toThrow('file not found');
+      const result = await callHandler('helper:chapter:read', { novelPath: '/tmp/novel', filename: 'missing.md' });
+      expect(result.status).toBe('error');
+      expect(result.error.code).toBe('IPC_HANDLER_ERROR');
+      expect(result.error.message).toBe('file not found');
     });
 
-    it('propagates errors from wiki handlers', async () => {
+    it('returns IPC_HANDLER_ERROR envelope from wiki handlers', async () => {
       mockWikiCrud.createWikiPage.mockRejectedValue(new Error('slug exists'));
-      await expect(callHandler('helper:wiki:create', { novelPath: '/tmp/novel', title: 'Dup', content: '', tags: [] }))
-        .rejects.toThrow('slug exists');
+      const result = await callHandler('helper:wiki:create', { novelPath: '/tmp/novel', title: 'Dup', content: '', tags: [] });
+      expect(result.status).toBe('error');
+      expect(result.error.code).toBe('IPC_HANDLER_ERROR');
+      expect(result.error.message).toBe('slug exists');
     });
 
-    it('propagates errors from git handlers', async () => {
+    it('returns IPC_HANDLER_ERROR envelope from git handlers', async () => {
       mockCommit.commitChapter.mockRejectedValue(new Error('git error'));
-      await expect(callHandler('helper:git:commit', { novelPath: '/tmp/novel', filename: 'f.md', content: 'x' }))
-        .rejects.toThrow('git error');
+      const result = await callHandler('helper:git:commit', { novelPath: '/tmp/novel', filename: 'f.md', content: 'x' });
+      expect(result.status).toBe('error');
+      expect(result.error.code).toBe('IPC_HANDLER_ERROR');
+      expect(result.error.message).toBe('git error');
     });
   });
 });

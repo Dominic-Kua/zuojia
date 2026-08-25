@@ -79,8 +79,9 @@ describe('ResponseNormalizer', () => {
 
       expect(result.status).toBe('ok');
       expect(result.data.results).toHaveLength(3);
-      expect(result.data.results[0]).toEqual({ slug: 'result1', title: 'result1', score: 1.0 });
-      expect(result.data.results[1].score).toBe(0.9);
+      // Fabricated scores removed — score only present when server provides one
+      expect(result.data.results[0]).toEqual({ slug: 'result1', title: 'result1' });
+      expect(result.data.results[1].score).toBeUndefined();
     });
 
     it('should parse pipe-separated results with scores', () => {

@@ -1,6 +1,7 @@
 import { app, ipcMain, dialog } from 'electron'
 import fs from 'fs'
 import { readdir, readFile, stat, writeFile } from 'fs/promises'
+import os from 'os'
 import path from 'path'
 import { createNovel, getIndex, validateNovel, rebuildIndex, readChapter, writeChapter } from '../helper/src/index/index.js'
 import { commitChapter, createManualCommit, getCommitHistory, listChangedFiles } from '../helper/src/git/commit.js';
@@ -97,11 +98,32 @@ function validateHandlerPayload(payload) {
 }
 
 function invalidInputEnvelope(message) {
+  return fail('INVALID_INPUT', message);
+}
+
+function ok(data) {
   return {
-    status: 'error',
-    error: { code: 'INVALID_INPUT', message },
+    status: 'ok',
+    data,
     timestamp: new Date().toISOString(),
   };
+}
+
+function fail(code, message, extra) {
+  return {
+    status: 'error',
+    error: { code, message, ...(extra || {}) },
+    timestamp: new Date().toISOString(),
+  };
+}
+
+function isReadOnlyCypher(statement) {
+  // Simple heuristic: strip string literals first so keywords inside quotes
+  // don't trigger false positives, then look for write/proc keywords.
+  const stripped = String(statement || '')
+    .replace(/'(?:[^'\\]|\\.)*'/g, "''")
+    .replace(/"(?:[^"\\]|\\.)*"/g, '""');
+  return !/\b(CREATE|MERGE|DELETE|DETACH|SET|DROP|LOAD|CALL|REMOVE)\b/i.test(stripped);
 }
 
 function wrapHandler(fn) {
@@ -110,7 +132,12 @@ function wrapHandler(fn) {
     if (problem) {
       return invalidInputEnvelope(problem);
     }
-    return await fn(payload);
+    try {
+      return await fn(payload);
+    } catch (err) {
+      console.error(`[IPC] handler error:`, err);
+      return fail('IPC_HANDLER_ERROR', err.message);
+    }
   };
 }
 
@@ -645,8 +672,13 @@ export function registerHandlers() {
 
       const req = http.request(options, (res) => {
         let data = '';
+        let totalBytes = 0;
         res.on('data', (chunk) => {
           data += chunk;
+          totalBytes += chunk.length;
+          if (totalBytes > 10 * 1024 * 1024) {
+            req.destroy(new Error('llama-server response exceeded 10MB limit'));
+          }
         });
         res.on('end', () => {
           try {
@@ -689,10 +721,6 @@ export function registerHandlers() {
         if (!config.modelName) {
           throw new Error('LLM model is not configured');
         }
-
-        const sysMsg = messages.find(m => m.role === 'system');
-        const hasWikiContext = sysMsg?.content?.includes('knowledge graph');
-        console.log(`[LLM-IPC] ${messages.length} messages, wiki context in system prompt: ${hasWikiContext}, system prompt preview: ${sysMsg?.content?.slice(0, 150)}...`);
 
         const response = await chatLlamaCpp(config, messages);
         return {
@@ -879,41 +907,33 @@ export function registerHandlers() {
     }
   });
 
-  ipcMain.handle('app:markNovelOpened', async (event, { novelPath }) => {
-    try {
-      const metaDir = path.join(novelPath, 'meta');
-      const metaPath = path.join(metaDir, 'last-accessed.json');
-
-      if (!fs.existsSync(metaDir)) {
-        return {
-          status: 'error',
-          error: {
-            code: 'META_DIR_MISSING',
-            message: 'Novel meta directory not found',
-          },
-          timestamp: new Date().toISOString(),
-        };
+  ipcMain.handle(
+    'app:markNovelOpened',
+    wrapHandler(async ({ novelPath }) => {
+      // Containment: only touch novels that live under ~/.zuojia
+      const novelsRoot = path.join(os.homedir(), '.zuojia');
+      const rel = path.relative(novelsRoot, novelPath);
+      if (!path.isAbsolute(novelPath) || !rel || rel.startsWith('..') || path.isAbsolute(rel)) {
+        return invalidInputEnvelope('novelPath must be an absolute path under ~/.zuojia');
       }
 
-      const payload = { lastAccessed: new Date().toISOString() };
-      await writeFile(metaPath, JSON.stringify(payload, null, 2));
+      try {
+        const metaDir = path.join(novelPath, 'meta');
+        const metaPath = path.join(metaDir, 'last-accessed.json');
 
-      return {
-        status: 'ok',
-        data: payload,
-        timestamp: new Date().toISOString(),
-      };
-    } catch (error) {
-      return {
-        status: 'error',
-        error: {
-          code: 'MARK_NOVEL_OPENED_FAILED',
-          message: error.message,
-        },
-        timestamp: new Date().toISOString(),
-      };
-    }
-  });
+        if (!fs.existsSync(metaDir)) {
+          return fail('META_DIR_MISSING', 'Novel meta directory not found');
+        }
+
+        const payload = { lastAccessed: new Date().toISOString() };
+        await writeFile(metaPath, JSON.stringify(payload, null, 2));
+
+        return ok(payload);
+      } catch (error) {
+        return fail('MARK_NOVEL_OPENED_FAILED', error.message);
+      }
+    })
+  );
 
   // Dialog handler
   ipcMain.handle('app:selectNovelDirectory', async (event) => {
@@ -1028,6 +1048,9 @@ export function registerHandlers() {
     'helper:neo4j:query',
     wrapHandler(async ({ query, params = {} }) => {
       try {
+        if (!isReadOnlyCypher(query)) {
+          return invalidInputEnvelope('Only read-only Cypher statements are allowed');
+        }
         const result = await neo4jRuntime.queryCypher(query, params);
         return {
           status: 'ok',
@@ -1131,5 +1154,4 @@ export function registerHandlers() {
   );
 
   // TODO: Register other handlers as they're implemented
-  // - helper:git:pull
 }

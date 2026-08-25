@@ -8,7 +8,7 @@ import path from 'path';
 import { createError } from '../util/error.js';
 
 /** Directories containing novel content that are included in every snapshot. */
-const CONTENT_DIRECTORIES = ['manuscript', 'wiki'];
+export const CONTENT_DIRECTORIES = ['manuscript', 'wiki', 'meta'];
 
 /**
  * Sanitize a label for use in directory names
@@ -72,6 +72,47 @@ async function copyDirectory(src, dest) {
     return fileCount;
   } catch (err) {
     throw new Error(`Failed to copy directory ${src}: ${err.message}`);
+  }
+}
+
+/**
+ * Replace a novel content directory with a snapshot copy, safely.
+ * The snapshot is copied to a temp directory next to the destination first;
+ * only after the copy succeeds is the original removed and the temp moved
+ * into place. The temp directory is cleaned up on failure.
+ * @param {string} srcDir - Snapshot directory to copy from
+ * @param {string} destDir - Novel directory to replace
+ */
+async function replaceDirectory(srcDir, destDir) {
+  const tempDir = `${destDir}.restore-tmp-${Date.now()}`;
+
+  try {
+    // Copy the snapshot into the temp dir and verify it succeeded
+    await copyDirectory(srcDir, tempDir);
+    await fs.access(tempDir);
+
+    // Swap: remove original, then move the verified copy into place
+    await fs.rm(destDir, { recursive: true, force: true });
+    try {
+      await fs.rename(tempDir, destDir);
+    } catch (renameErr) {
+      if (renameErr.code === 'EXDEV' || renameErr.code === 'EPERM' || renameErr.code === 'EACCES') {
+        // Fallback for filesystems where rename fails across boundaries:
+        // copy back into place before cleaning up the temp dir.
+        await copyDirectory(tempDir, destDir);
+        await fs.rm(tempDir, { recursive: true, force: true });
+      } else {
+        throw renameErr;
+      }
+    }
+  } catch (err) {
+    // Never leave temp dirs behind on failure
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors to avoid masking the original error
+    }
+    throw err;
   }
 }
 
@@ -154,11 +195,10 @@ export async function createSnapshot(novelPath, label = null) {
       }
     }
     
-    // Copy manuscript, wiki, and meta directories
+    // Copy content directories (manuscript, wiki, meta)
     let totalFiles = 0;
-    const directories = ['manuscript', 'wiki', 'meta'];
-    
-    for (const dir of directories) {
+
+    for (const dir of CONTENT_DIRECTORIES) {
       const srcDir = path.join(novelPath, dir);
       const destDir = path.join(backupPath, dir);
       
@@ -388,8 +428,11 @@ export async function restoreSnapshot(novelPath, timestamp) {
       );
     }
 
-    // Restore manuscript and wiki directories in full
+    // Restore content directories in full (manuscript, wiki, meta)
     for (const dir of CONTENT_DIRECTORIES) {
+      // Meta is restored separately below, preserving the backups subdirectory
+      if (dir === 'meta') continue;
+
       const novelDir = path.join(novelPath, dir);
       const snapshotDir = path.join(backupPath, dir);
 
@@ -399,9 +442,7 @@ export async function restoreSnapshot(novelPath, timestamp) {
         continue; // Snapshot doesn't have this dir; skip
       }
 
-      // Remove the current directory and replace with snapshot copy
-      await fs.rm(novelDir, { recursive: true, force: true });
-      await copyDirectory(snapshotDir, novelDir);
+      await replaceDirectory(snapshotDir, novelDir);
     }
 
     // Restore meta files, preserving the backups subdirectory
@@ -419,8 +460,7 @@ export async function restoreSnapshot(novelPath, timestamp) {
         const dest = path.join(novelMetaDir, entry.name);
 
         if (entry.isDirectory()) {
-          await fs.rm(dest, { recursive: true, force: true });
-          await copyDirectory(src, dest);
+          await replaceDirectory(src, dest);
         } else {
           await fs.copyFile(src, dest);
         }

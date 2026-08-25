@@ -133,16 +133,21 @@ export class ResponseNormalizer {
       .split('\n')
       .map(line => line.trim())
       .filter(line => line.length > 0)
-      .map((line, index) => {
+      .map((line) => {
         const parts = line.split('|').map(p => p.trim());
         if (parts.length >= 2) {
-          return {
+          const entry = {
             slug: parts[0],
             title: parts[1] || parts[0],
-            score: parseFloat(parts[2]) || 1.0 - index * 0.1,
           };
+          // Only include a score when the server actually provided one
+          const parsedScore = Number.parseFloat(parts[2]);
+          if (!Number.isNaN(parsedScore)) {
+            entry.score = parsedScore;
+          }
+          return entry;
         }
-        return { slug: line, title: line, score: 1.0 - index * 0.1 };
+        return { slug: line, title: line };
       });
 
     return {
@@ -252,7 +257,7 @@ export class ResponseNormalizer {
       .join('\n');
 
     // Detect Synapse error responses (returned as text, not isError)
-    if (textContent.includes('❌') || textContent.includes('Knowledge query failed') || textContent.includes('error')) {
+    if (textContent.includes('❌') || textContent.includes('Knowledge query failed')) {
       return {
         status: 'error',
         error: {
@@ -269,12 +274,19 @@ export class ResponseNormalizer {
         return {
           status: 'ok',
           data: {
-            results: parsed.results.map(r => ({
-              slug: r.slug || r.id || r.title,
-              title: r.title || r.slug || r.id,
-              score: r.score || r.relevance || 1.0,
-              snippet: r.snippet || r.excerpt || '',
-            })),
+            results: parsed.results.map(r => {
+              const entry = {
+                slug: r.slug || r.id || r.title,
+                title: r.title || r.slug || r.id,
+                snippet: r.snippet || r.excerpt || '',
+              };
+              // Only include a score when the server actually provided one
+              const providedScore = r.score ?? r.relevance;
+              if (providedScore !== undefined && Number.isFinite(Number(providedScore))) {
+                entry.score = Number(providedScore);
+              }
+              return entry;
+            }),
             count: parsed.results.length,
           },
         };
@@ -288,10 +300,9 @@ export class ResponseNormalizer {
       .map(line => line.trim())
       .filter(line => line.length > 0);
 
-    const results = lines.slice(0, 50).map((line, index) => ({
+    const results = lines.slice(0, 50).map((line) => ({
       slug: line,
       title: line,
-      score: 1.0 - index * 0.02,
     }));
 
     return {

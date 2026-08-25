@@ -9,7 +9,7 @@ function getDefaultMetadata() {
   };
 }
 
-export function ExportDialog({ novelPath }) {
+export function ExportDialog({ novelPath, onBeforeExport }) {
   const [showDialog, setShowDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -17,6 +17,9 @@ export function ExportDialog({ novelPath }) {
   const [selectedFilenames, setSelectedFilenames] = useState(new Set());
   const [metadata, setMetadata] = useState(getDefaultMetadata);
   const [error, setError] = useState(null);
+  // Separate error for "View Logs" failures so a logs problem can't clobber
+  // or masquerade as an export/chapter-loading failure.
+  const [logError, setLogError] = useState(null);
   const [dependencyError, setDependencyError] = useState(null);
   const [dependencyStatus, setDependencyStatus] = useState(null);
   const [toast, setToast] = useState(null);
@@ -49,12 +52,17 @@ export function ExportDialog({ novelPath }) {
     setShowDialog(true);
     setIsLoading(true);
     setError(null);
+    setLogError(null);
     setDependencyError(null);
     setDependencyStatus(null);
     setShowLogs(false);
     setLogs([]);
     setMetadata(getDefaultMetadata());
     try {
+      // Flush any pending editor autosave before reading chapters from disk.
+      if (onBeforeExport) {
+        await onBeforeExport();
+      }
       const index = await indexHandlers.getIndex(novelPath);
       const loaded = index.chapters || [];
       setChapters(loaded);
@@ -91,19 +99,20 @@ export function ExportDialog({ novelPath }) {
     }
     setShowDialog(false);
     setError(null);
+    setLogError(null);
     setShowLogs(false);
   };
 
   const handleViewLogs = async () => {
     setShowLogs(true);
     setIsLogsLoading(true);
-    setError(null);
+    setLogError(null);
     try {
       const logEntries = await exportHandlers.getLogs(novelPath);
       setLogs(logEntries);
     } catch (err) {
       setLogs([]);
-      setError({ message: err.message || 'Failed to load export logs', suggestion: null });
+      setLogError({ message: err.message || 'Failed to load export logs', suggestion: null });
     } finally {
       setIsLogsLoading(false);
     }
@@ -154,6 +163,10 @@ export function ExportDialog({ novelPath }) {
     setIsExporting(true);
     setError(null);
     try {
+      // Flush any pending editor autosave so the export includes the latest text.
+      if (onBeforeExport) {
+        await onBeforeExport();
+      }
       const chapterOrder = chapters
         .filter((c) => selectedFilenames.has(c.filename))
         .map(({ filename, title }) => ({ filename, title }));
@@ -297,10 +310,10 @@ export function ExportDialog({ novelPath }) {
               <div className="export-logs-panel" data-testid="export-logs-panel">
                 {isLogsLoading ? (
                   <div className="commit-loading" data-testid="export-logs-loading">Loading logs...</div>
-                ) : error ? (
+                ) : logError ? (
                   <div className="snapshot-error" data-testid="export-logs-error">
-                    <div>{error.message}</div>
-                    {error.suggestion && <div className="push-guidance export-guidance">{error.suggestion}</div>}
+                    <div>{logError.message}</div>
+                    {logError.suggestion && <div className="push-guidance export-guidance">{logError.suggestion}</div>}
                   </div>
                 ) : logs.length === 0 ? (
                   <div className="commit-empty-state">No export logs yet.</div>

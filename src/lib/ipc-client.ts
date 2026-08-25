@@ -32,7 +32,10 @@ export async function invokeHandler(handler, payload = {}) {
 
     return response.data;
   } catch (err) {
-    console.error(`IPC error in ${handler}:`, err);
+    // User-initiated dialog cancellations are normal flow, not errors.
+    if (err?.code !== 'DIALOG_CANCELED') {
+      console.error(`IPC error in ${handler}:`, err);
+    }
     throw err;
   }
 }

@@ -9,8 +9,31 @@ import { createError } from '../util/error.js'
  * @param {string} filename - Chapter filename (e.g., 'chapter-01.md')
  * @returns {Promise<{status, data, timestamp}>} Response envelope
  */
+/**
+ * Validate a chapter filename against the manuscript root, mirroring
+ * commit.js: reject absolute paths and anything that escapes the directory.
+ * @param {string} manuscriptRoot - Absolute path to the manuscript directory
+ * @param {string} filename - Chapter filename to validate
+ * @returns {boolean} true if the path stays inside the manuscript root
+ */
+function isPathInsideManuscript(manuscriptRoot, filename) {
+  if (typeof filename !== 'string' || filename.trim().length === 0) {
+    return false;
+  }
+  const resolved = path.resolve(manuscriptRoot, filename);
+  const relative = path.relative(manuscriptRoot, resolved);
+  return !(relative.startsWith('..') || path.isAbsolute(relative));
+}
+
 export async function readChapter(novelPath, filename) {
   try {
+    const manuscriptRoot = path.resolve(novelPath, 'manuscript');
+
+    // Validate filename - prevent path traversal and absolute paths
+    if (!isPathInsideManuscript(manuscriptRoot, filename)) {
+      return createError('INVALID_PATH', 'Path escapes manuscript directory');
+    }
+
     const chapterPath = path.join(novelPath, 'manuscript', filename);
 
     // Check if file exists
@@ -66,10 +89,9 @@ export async function writeChapter(novelPath, filename, content) {
     }
     
     // Also validate via resolved path as backup
-    const resolvedPath = path.resolve(manuscriptPath, filename);
     const resolvedManuscript = path.resolve(manuscriptPath);
-    
-    if (!resolvedPath.startsWith(resolvedManuscript + path.sep) && resolvedPath !== path.join(resolvedManuscript, filename)) {
+
+    if (!isPathInsideManuscript(resolvedManuscript, filename)) {
       return createError('INVALID_PATH', 'Path escapes manuscript directory');
     }
 

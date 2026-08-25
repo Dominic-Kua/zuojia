@@ -34,10 +34,6 @@ export function SettingsModal({ novelPath }) {
   const [llmStatus, setLlmStatus] = useState('stopped');
   const [activeTab, setActiveTab] = useState('git');
 
-  if (!novelPath) {
-    return null;
-  }
-
   useEffect(() => {
     const checkLlmStatus = async () => {
       try {
@@ -55,6 +51,10 @@ export function SettingsModal({ novelPath }) {
       return () => clearInterval(interval);
     }
   }, [showDialog, activeTab]);
+
+  if (!novelPath) {
+    return null;
+  }
 
   const handleOpen = async () => {
     setShowDialog(true);
@@ -95,6 +95,10 @@ export function SettingsModal({ novelPath }) {
     }));
   };
 
+  // Numeric LLM fields are kept as local strings so clearing the input works;
+  // they are parsed (and validated) on save.
+  const NUMERIC_LLM_FIELDS = ['port', 'temperature', 'maxTokens'];
+
   const handleSave = async () => {
     if (isSaving) {
       return;
@@ -102,16 +106,37 @@ export function SettingsModal({ novelPath }) {
 
     setIsSaving(true);
     setError(null);
+
+    const parsedLlmSettings = { ...llmSettings };
+    for (const field of NUMERIC_LLM_FIELDS) {
+      const parsed = Number(parsedLlmSettings[field]);
+      if (!Number.isFinite(parsed)) {
+        setError(`${field} must be a valid number`);
+        setIsSaving(false);
+        return;
+      }
+      parsedLlmSettings[field] = parsed;
+    }
+
     try {
-      if (activeTab === 'git') {
-        const saved = await gitHandlers.saveConfig(novelPath, settings);
-        setSettings({ ...DEFAULT_SETTINGS, ...saved });
-      } else if (activeTab === 'llm') {
-        await llmHandlers.saveConfig(llmSettings);
+      // Save BOTH configs unconditionally so switching tabs never leaves one
+      // side's edits silently unsaved.
+      const results = await Promise.allSettled([
+        gitHandlers.saveConfig(novelPath, settings),
+        llmHandlers.saveConfig(parsedLlmSettings),
+      ]);
+
+      const firstRejection = results.find((result) => result.status === 'rejected');
+      if (firstRejection) {
+        throw firstRejection.reason;
+      }
+
+      if (results[0].status === 'fulfilled' && results[0].value) {
+        setSettings({ ...DEFAULT_SETTINGS, ...results[0].value });
       }
       setShowDialog(false);
     } catch (err) {
-      setError(err.message || `Failed to save ${activeTab} settings`);
+      setError(err.message || 'Failed to save settings');
     } finally {
       setIsSaving(false);
     }
@@ -146,18 +171,17 @@ export function SettingsModal({ novelPath }) {
   const handleLlmChange = (field) => (event) => {
     setLlmSettings(prev => ({
       ...prev,
-      [field]: typeof event === 'function' ? event(prev[field]) : event.target.value
+      [field]: event.target.value
     }));
   };
 
   const handleLlmNumberChange = (field) => (event) => {
-    const value = parseFloat(event.target.value);
-    if (!isNaN(value)) {
-      setLlmSettings(prev => ({
-        ...prev,
-        [field]: value
-      }));
-    }
+    // Store the raw string so partial/cleared input stays editable; parsing
+    // and validation happen in handleSave.
+    setLlmSettings(prev => ({
+      ...prev,
+      [field]: event.target.value
+    }));
   };
 
   return (

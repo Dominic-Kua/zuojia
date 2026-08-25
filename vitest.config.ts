@@ -8,7 +8,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.test.{js,jsx,ts,tsx}', 'tests/**/*.spec.{js,jsx,ts,tsx}'],
-    exclude: ['tests/e2e/**', 'tests/e2e/**/*', 'node_modules/**'],
+    exclude: ['tests/e2e/**', 'node_modules/**'],
   },
 })
 

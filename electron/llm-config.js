@@ -75,6 +75,12 @@ export function validateLlmConfig(input = {}) {
     throw new Error('modelName must not be empty');
   }
 
+  // modelName is joined into a filesystem path by getModelPath — reject
+  // anything that could escape the models directory.
+  if (modelName.includes('/') || modelName.includes('\\') || modelName.includes('..')) {
+    throw new Error('modelName must not contain path separators or parent-directory references');
+  }
+
   const modelUrl = String(merged.modelUrl || DEFAULT_LLM_CONFIG.modelUrl).trim();
   const modelDir = String(merged.modelDir || DEFAULT_LLM_CONFIG.modelDir).trim();
   const ngl = Math.trunc(asNumber(merged.ngl ?? DEFAULT_LLM_CONFIG.ngl, 'ngl'));

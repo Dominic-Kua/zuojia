@@ -159,8 +159,10 @@ describe('useWikiPages', () => {
         await result.current.createPage('Charlie', '# Charlie');
       });
 
+      // Direct reload after the mutation + a second reload from the
+      // zuojia:wiki-pages-updated event this instance broadcasts.
       await waitFor(() => {
-        expect(wikiHandlers.list).toHaveBeenCalledTimes(2);
+        expect(wikiHandlers.list).toHaveBeenCalledTimes(3);
       });
     });
 
@@ -225,8 +227,10 @@ describe('useWikiPages', () => {
         await result.current.deletePage('alice');
       });
 
+      // Direct reload after the mutation + a second reload from the
+      // zuojia:wiki-pages-updated event this instance broadcasts.
       await waitFor(() => {
-        expect(wikiHandlers.list).toHaveBeenCalledTimes(2);
+        expect(wikiHandlers.list).toHaveBeenCalledTimes(3);
       });
     });
   });
@@ -270,8 +274,10 @@ describe('useWikiPages', () => {
         await result.current.renamePage('alice', 'Alice the Hero');
       });
 
+      // Direct reload after the mutation + a second reload from the
+      // zuojia:wiki-pages-updated event this instance broadcasts.
       await waitFor(() => {
-        expect(wikiHandlers.list).toHaveBeenCalledTimes(2);
+        expect(wikiHandlers.list).toHaveBeenCalledTimes(3);
       });
     });
   });

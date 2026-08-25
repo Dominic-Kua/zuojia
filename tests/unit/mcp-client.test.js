@@ -325,18 +325,12 @@ describe('McpClient', () => {
     
     // Start shutdown
     const shutdownPromise = client.shutdown();
-    
-    // Wait for shutdown request to be sent
-    await mockTransport._waitForRequest('shutdown', 2000);
-    mockTransport._respondToLastRequest({});
-    
-await shutdownPromise;
-    
-    // Check that shutdown was called (3rd call)
+    await shutdownPromise;
+
+    // MCP spec has no 'shutdown' RPC — shutdown must tear down transport
+    // without sending a non-existent request.
     const calls = mockTransport.sendRequest.mock.calls;
-    expect(calls.some(c => c[0] === 'shutdown')).toBe(true);
-    // Check the last call was shutdown
-    expect(calls[calls.length - 1][0]).toBe('shutdown');
+    expect(calls.some(c => c[0] === 'shutdown')).toBe(false);
     expect(mockTransport.sendNotification).toHaveBeenCalledWith('exit', {});
     expect(client.initialized).toBe(false);
   });

@@ -110,6 +110,7 @@ export function createLlmRuntimeManager({
   let startTime = null;
   let lastError = null;
   let runtimeModelPath = null;
+  let lastPort = null;
 
   const logs = [];
   const maxLogs = 100;
@@ -134,6 +135,7 @@ export function createLlmRuntimeManager({
     }
 
     // Check if already running on this port
+    lastPort = config.port || 8080;
     const existingHealth = await checkHealth(config.host, config.port);
     if (existingHealth.status === 'running') {
       pushLog({ timestamp: new Date().toISOString(), message: `llama-server already running on port ${config.port}` });
@@ -298,8 +300,9 @@ export function createLlmRuntimeManager({
       };
     }
 
-    // Check if llama-server is running externally on default port
-    const apiHealth = await checkHealth('127.0.0.1', 8080);
+    // Check if llama-server is running externally on the last-used port
+    // (fall back to the default 8080)
+    const apiHealth = await checkHealth('127.0.0.1', lastPort || 8080);
     if (apiHealth.status === 'running') {
       return { status: 'running', pid: null, uptimeMs: 0, lastError: null };
     }

@@ -249,6 +249,29 @@ describe('Wiki CRUD Operations', () => {
       expect(result.status).toBe('error');
       expect(result.error.code).toBe('WIKI_PAGE_EXISTS');
     });
+
+    it('rewrites inbound [[oldslug]] references in other pages', async () => {
+      await createWikiPage(testDir, 'Alice', '# Alice\n\nContent.');
+      await createWikiPage(testDir, 'Bob', '# Bob\n\nSee [[alice]] and [[alice|Alice herself]].');
+      // Case-insensitive match on the old slug; display text must be preserved
+      await fs.writeFile(path.join(testDir, 'wiki', 'carol.md'), '# Carol\n\nLink: [[ALICE]]', 'utf-8');
+
+      const result = await renameWikiPage(testDir, 'alice', 'Alice the Hero');
+
+      expect(result.status).toBe('ok');
+      expect(result.data.newSlug).toBe('alice-the-hero');
+      expect(result.data.renamedReferences).toBe(3);
+
+      const bob = await readWikiPage(testDir, 'bob');
+      expect(bob.data.content).toBe('# Bob\n\nSee [[alice-the-hero]] and [[alice-the-hero|Alice herself]].');
+
+      const carol = await fs.readFile(path.join(testDir, 'wiki', 'carol.md'), 'utf-8');
+      expect(carol).toBe('# Carol\n\nLink: [[alice-the-hero]]');
+
+      // The renamed page itself is not self-rewritten with stale links
+      const hero = await readWikiPage(testDir, 'alice-the-hero');
+      expect(hero.data.content).toBe('# Alice the Hero\n\nContent.');
+    });
   });
 });
 
@@ -383,14 +406,20 @@ describe('listWikiPages', () => {
     expect(slugs).toContain('characters/bob');
   });
 
-  it('normalizes subdirectory slugs to lowercase with hyphens', async () => {
+  it('uses raw filename as slug so subdirectory pages round-trip through CRUD', async () => {
     await fs.mkdir(path.join(testDir, 'wiki', 'Characters'), { recursive: true });
     await fs.writeFile(path.join(testDir, 'wiki', 'Characters', 'Arkid_deedie.md'), '# Arkid Deedie');
 
     const result = await listWikiPages(testDir);
 
     expect(result.data.pages).toHaveLength(1);
-    expect(result.data.pages[0].slug).toBe('characters/arkid-deedie');
+    // Slug is exactly the filename minus '.md' — what crud.js uses to open files
+    expect(result.data.pages[0].slug).toBe('Characters/Arkid_deedie');
+
+    // Round-trips through CRUD
+    const readResult = await readWikiPage(testDir, result.data.pages[0].slug);
+    expect(readResult.status).toBe('ok');
+    expect(readResult.data.content).toBe('# Arkid Deedie');
   });
 
   it('excludes hidden directories in subdirectory scan', async () => {

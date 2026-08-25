@@ -27,7 +27,13 @@ export function LlmChatWindow({ novelPath, servicesStatus, servicesLoading }) {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
+  // Poll service health only while the chat window is open — background
+  // polling wasted IPC round-trips every 5 seconds for a hidden dialog.
   useEffect(() => {
+    if (!showWindow) {
+      return undefined;
+    }
+
     const checkLlmStatus = async () => {
       try {
         const health = await llmHandlers.health();
@@ -57,7 +63,7 @@ export function LlmChatWindow({ novelPath, servicesStatus, servicesLoading }) {
       checkMcpStatus();
     }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [showWindow]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -70,14 +76,11 @@ export function LlmChatWindow({ novelPath, servicesStatus, servicesLoading }) {
   const queryWikiForContext = async (query) => {
     try {
       setIsQueryingWiki(true);
-      console.log(`[Wiki] queryWikiForContext called, isMcpRunning=${isMcpRunning}, novelPath=${novelPath}`);
 
       if (!isMcpRunning) {
-        console.log('[Wiki] MCP not running — attempting to start...');
         try {
           await mcpHandlers.startServer(novelPath);
           setIsMcpRunning(true);
-          console.log('[Wiki] MCP server started successfully');
         } catch (startErr) {
           console.error('[Wiki] Failed to start MCP server:', startErr);
           setIsQueryingWiki(false);
@@ -87,38 +90,30 @@ export function LlmChatWindow({ novelPath, servicesStatus, servicesLoading }) {
 
       // Try Neo4j search first
       try {
-        console.log(`[Wiki] Calling wiki_neo4j_search with query="${query}"`);
         const result = await mcpHandlers.callTool(
           'wiki_neo4j_search',
           { query, limit: 5 },
           { timeoutMs: NEO4J_SEARCH_TIMEOUT, retries: 1 }
         );
-        console.log('[Wiki] wiki_neo4j_search result:', JSON.stringify(result).slice(0, 300));
 
         if (result?.status === 'ok' && result?.data?.results?.length > 0) {
-          console.log(`[Wiki] Neo4j search returned ${result.data.results.length} results`);
           return result.data.results;
         }
-        console.log('[Wiki] Neo4j search returned no results, falling back...');
       } catch (neo4jErr) {
         console.warn('[Wiki] Neo4j search failed, trying fallback:', neo4jErr.message);
       }
 
       // Fallback to basic wiki search
-      console.log(`[Wiki] Calling wiki_search with query="${query}"`);
       const fallbackResult = await mcpHandlers.callTool(
         'wiki_search',
         { query, limit: 5 },
         { timeoutMs: WIKI_SEARCH_TIMEOUT, retries: 1 }
       );
-      console.log('[Wiki] wiki_search result:', JSON.stringify(fallbackResult).slice(0, 300));
 
       if (fallbackResult?.status === 'ok' && fallbackResult?.data?.results?.length > 0) {
-        console.log(`[Wiki] Fallback search returned ${fallbackResult.data.results.length} results`);
         return fallbackResult.data.results;
       }
 
-      console.log('[Wiki] No results from either search');
       return null;
     } catch (error) {
       console.error('[Wiki] Failed to query wiki:', error);
@@ -158,12 +153,8 @@ export function LlmChatWindow({ novelPath, servicesStatus, servicesLoading }) {
     try {
       // Always try to get wiki context if MCP is available
       let wikiContext = null;
-      console.log(`[Chat] isMcpRunning=${isMcpRunning}, isLlmRunning=${isLlmRunning}`);
       if (isMcpRunning) {
         wikiContext = await queryWikiForContext(userMessage);
-        console.log(`[Chat] wikiContext result:`, wikiContext ? `${wikiContext.length} items` : 'null');
-      } else {
-        console.log('[Chat] MCP not running — skipping wiki context');
       }
 
       const conversation = messages
@@ -182,7 +173,6 @@ export function LlmChatWindow({ novelPath, servicesStatus, servicesLoading }) {
       });
 
       conversation.push({ role: 'user', content: userMessage });
-      console.log(`[Chat] Sending ${conversation.length} messages to LLM, system prompt ${wikiContext ? 'INCLUDES' : 'excludes'} wiki context`);
 
       const response = await llmHandlers.chat(conversation);
 
@@ -195,8 +185,16 @@ export function LlmChatWindow({ novelPath, servicesStatus, servicesLoading }) {
             content: response || 'No response from LLM.',
             isLoading: false
           };
+          return newMessages;
         }
-        return newMessages;
+        // The loading placeholder is gone (e.g. messages were cleared) —
+        // append the reply as a normal assistant message so it isn't lost.
+        return [...prev, {
+          role: 'assistant',
+          content: response || 'No response from LLM.',
+          timestamp: new Date().toISOString(),
+          isLoading: false
+        }];
       });
     } catch (err) {
       console.error('Failed to send message:', err);
@@ -210,15 +208,22 @@ export function LlmChatWindow({ novelPath, servicesStatus, servicesLoading }) {
             isLoading: false,
             isError: true
           };
+          return newMessages;
         }
-        return newMessages;
+        return [...prev, {
+          role: 'assistant',
+          content: `Error: ${err.message || 'Failed to get response'}`,
+          timestamp: new Date().toISOString(),
+          isLoading: false,
+          isError: true
+        }];
       });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleKeyPress = (e) => {
+  const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
@@ -235,10 +240,12 @@ export function LlmChatWindow({ novelPath, servicesStatus, servicesLoading }) {
         setIsLlmRunning(true);
         setLlmStatus('running');
 
+        let mcpReady = isMcpRunning;
         if (!isMcpRunning) {
           try {
             await mcpHandlers.startServer(novelPath);
             setIsMcpRunning(true);
+            mcpReady = true;
           } catch (mcpErr) {
             console.warn('MCP server failed to start:', mcpErr);
           }
@@ -246,7 +253,7 @@ export function LlmChatWindow({ novelPath, servicesStatus, servicesLoading }) {
 
         setMessages(prev => [...prev, {
           role: 'system',
-          content: `LLM runtime started.${isMcpRunning ? ' Wiki query system ready.' : ''}`,
+          content: `LLM runtime started.${mcpReady ? ' Wiki query system ready.' : ''}`,
           timestamp: new Date().toISOString()
         }]);
       }
@@ -375,7 +382,7 @@ export function LlmChatWindow({ novelPath, servicesStatus, servicesLoading }) {
                   ) : (
                     messages.map((msg, idx) => (
                       <div
-                        key={idx}
+                        key={`${msg.timestamp}-${idx}`}
                         className={`llm-message ${msg.role}${msg.isLoading ? ' loading' : ''}${msg.isError ? ' error' : ''}`}
                         data-testid={`llm-message-${msg.role}`}
                       >
@@ -435,7 +442,7 @@ export function LlmChatWindow({ novelPath, servicesStatus, servicesLoading }) {
                       data-testid="llm-chat-input"
                       value={inputText}
                       onChange={(e) => setInputText(e.target.value)}
-                      onKeyPress={handleKeyPress}
+                      onKeyDown={handleKeyDown}
                       placeholder={isLlmRunning ? "Ask about your novel..." : "Start LLM first to chat..."}
                       disabled={!isLlmRunning || isLoading}
                       rows={3}

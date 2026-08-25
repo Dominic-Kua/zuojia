@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { wikiHandlers } from '../lib/ipc-client.ts';
+import { wikiHandlers } from '../lib/ipc-client';
 
 /**
  * Hook for managing wiki pages
@@ -43,6 +43,31 @@ export function useWikiPages(novelPath) {
     loadPages();
   }, [novelPath, loadPages]);
 
+  // Keep multiple hook instances convergent: when another instance creates,
+  // deletes, or renames a page it broadcasts this event and every instance
+  // (including this one) refreshes its own page list.
+  useEffect(() => {
+    if (!novelPath) {
+      return undefined;
+    }
+
+    const handlePagesUpdated = (event) => {
+      if (event.detail?.novelPath && event.detail.novelPath !== novelPath) {
+        return;
+      }
+      loadPages();
+    };
+
+    window.addEventListener('zuojia:wiki-pages-updated', handlePagesUpdated);
+    return () => window.removeEventListener('zuojia:wiki-pages-updated', handlePagesUpdated);
+  }, [novelPath, loadPages]);
+
+  const broadcastPagesUpdated = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('zuojia:wiki-pages-updated', {
+      detail: { novelPath },
+    }));
+  }, [novelPath]);
+
   // Create new wiki page
   const createPage = useCallback(
     async (title, content) => {
@@ -50,12 +75,13 @@ export function useWikiPages(novelPath) {
         const result = await wikiHandlers.create(novelPath, title, content);
         // Reload pages to get updated list
         await loadPages();
+        broadcastPagesUpdated();
         return { status: 'ok', data: result };
       } catch (err) {
         throw err;
       }
     },
-    [novelPath, loadPages]
+    [novelPath, loadPages, broadcastPagesUpdated]
   );
 
   // Delete wiki page
@@ -65,11 +91,12 @@ export function useWikiPages(novelPath) {
         await wikiHandlers.delete(novelPath, slug);
         // Reload pages to get updated list
         await loadPages();
+        broadcastPagesUpdated();
       } catch (err) {
         throw err;
       }
     },
-    [novelPath, loadPages]
+    [novelPath, loadPages, broadcastPagesUpdated]
   );
 
   // Rename wiki page
@@ -79,12 +106,13 @@ export function useWikiPages(novelPath) {
         const result = await wikiHandlers.rename(novelPath, slug, newTitle);
         // Reload pages to get updated list
         await loadPages();
+        broadcastPagesUpdated();
         return result;
       } catch (err) {
         throw err;
       }
     },
-    [novelPath, loadPages]
+    [novelPath, loadPages, broadcastPagesUpdated]
   );
 
   // Manually refresh pages list

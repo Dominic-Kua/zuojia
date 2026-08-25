@@ -24,20 +24,31 @@ if (!novelPath) {
   process.exit(1);
 }
 
-let driver = null;
+let driverPromise = null;
 
+/**
+ * Create the Neo4j driver at most once; concurrent callers share the same
+ * in-flight construction promise. A failed connection resets the singleton
+ * so a later call can retry.
+ */
 async function getDriver() {
-  if (!driver) {
-    driver = neo4j.driver(NEO4J_URI, neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD));
-    try {
-      await driver.verifyConnectivity();
-    } catch (error) {
-      console.error('Failed to connect to Neo4j:', error.message);
-      driver = null;
-      throw new Error(`Neo4j connection failed: ${error.message}`);
-    }
+  if (!driverPromise) {
+    driverPromise = (async () => {
+      const driver = neo4j.driver(NEO4J_URI, neo4j.auth.basic(NEO4J_USER, NEO4J_PASSWORD));
+      try {
+        await driver.verifyConnectivity();
+      } catch (error) {
+        console.error('Failed to connect to Neo4j:', error.message);
+        await driver.close().catch(() => {});
+        throw new Error(`Neo4j connection failed: ${error.message}`);
+      }
+      return driver;
+    })().catch((error) => {
+      driverPromise = null;
+      throw error;
+    });
   }
-  return driver;
+  return driverPromise;
 }
 
 function toText(result) {
@@ -124,21 +135,33 @@ async function neo4jNaturalLanguageSearch(query, limit = 10) {
   }
 }
 
+/**
+ * Coerce a value to a validated integer, clamped to [min, max].
+ * Non-integer / non-numeric inputs fall back to the default.
+ */
+function clampInt(value, fallback, min, max) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
+
 async function neo4jGetRelatedPages(slug, depth = 2, limit = 20) {
   const driver = await getDriver();
   const session = driver.session();
-  
+
   try {
+    // Cypher does not allow parameters inside variable-length path bounds
+    // ([*1..$depth]); clamp in JS and interpolate the validated integer.
+    const safeDepth = clampInt(depth, 2, 1, 5);
     const result = await session.run(
-      `MATCH path = (start:WikiPage {id: $slug})-[*1..$depth]-(related:WikiPage)
+      `MATCH path = (start:WikiPage {id: $slug})-[*1..${safeDepth}]-(related:WikiPage)
        WHERE start <> related
-       RETURN DISTINCT related.id AS slug, related.title AS title, 
+       RETURN DISTINCT related.id AS slug, related.title AS title,
               length(path) AS distance
        ORDER BY distance
        LIMIT $limit`,
       {
         slug,
-        depth: Math.min(depth, 5),
         limit: Math.min(limit, 100),
       }
     );
@@ -166,11 +189,14 @@ async function neo4jGetRelatedPages(slug, depth = 2, limit = 20) {
 async function neo4jFindPaths(startSlug, targetSlug, maxDepth = 3) {
   const driver = await getDriver();
   const session = driver.session();
-  
+
   try {
+    // Same as above: path bounds cannot be parameterized; interpolate a
+    // validated, clamped integer instead.
+    const safeMaxDepth = clampInt(maxDepth, 3, 1, 5);
     const result = await session.run(
       `MATCH path = shortestPath(
-        (start:WikiPage {id: $startSlug})-[*1..$maxDepth]-(target:WikiPage {id: $targetSlug})
+        (start:WikiPage {id: $startSlug})-[*1..${safeMaxDepth}]-(target:WikiPage {id: $targetSlug})
        )
        RETURN [node IN nodes(path) | node.id] AS path,
               [rel IN relationships(path) | {
@@ -181,7 +207,6 @@ async function neo4jFindPaths(startSlug, targetSlug, maxDepth = 3) {
       {
         startSlug,
         targetSlug,
-        maxDepth: Math.min(maxDepth, 10),
       }
     );
 
@@ -364,40 +389,57 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const name = request.params.name;
   const args = request.params.arguments || {};
 
+  // Runs a wiki tool and converts thrown errors into the same error
+  // envelope shape used by the Neo4j tools.
+  const runWikiTool = async (errorMessage, fn) => {
+    try {
+      return toText(await fn());
+    } catch (error) {
+      return toText({
+        status: 'error',
+        error: {
+          code: 'WIKI_TOOL_FAILED',
+          message: `${errorMessage}: ${error.message}`,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
+  };
+
   // Existing wiki tools
   if (name === 'wiki_list_pages') {
-    return toText(await listWikiPagesForMcp(novelPath, Number(args.limit || 200)));
+    return runWikiTool('Failed to list wiki pages', () =>
+      listWikiPagesForMcp(novelPath, Number(args.limit || 200)));
   }
 
   if (name === 'wiki_get_page') {
-    return toText(await getWikiPageForMcp(novelPath, String(args.slug || '')));
+    return runWikiTool('Failed to read wiki page', () =>
+      getWikiPageForMcp(novelPath, String(args.slug || '')));
   }
 
   if (name === 'wiki_search') {
-    return toText(
-      await searchWikiPagesForMcp(novelPath, String(args.query || ''), Number(args.limit || 10))
-    );
+    return runWikiTool('Failed to search wiki pages', () =>
+      searchWikiPagesForMcp(novelPath, String(args.query || ''), Number(args.limit || 10)));
   }
 
   if (name === 'wiki_get_backlinks') {
-    return toText(
-      await getWikiBacklinksForMcp(novelPath, String(args.slug || ''), Number(args.limit || 200))
-    );
+    return runWikiTool('Failed to get wiki backlinks', () =>
+      getWikiBacklinksForMcp(novelPath, String(args.slug || ''), Number(args.limit || 200)));
   }
 
   if (name === 'wiki_build_graph') {
-    return toText(await buildWikiKnowledgeGraphForMcp(novelPath, Number(args.maxEdges || 500)));
+    return runWikiTool('Failed to build wiki graph', () =>
+      buildWikiKnowledgeGraphForMcp(novelPath, Number(args.maxEdges || 500)));
   }
 
   if (name === 'wiki_traverse_graph') {
-    return toText(
-      await traverseWikiKnowledgeGraphForMcp(novelPath, {
+    return runWikiTool('Failed to traverse wiki graph', () =>
+      traverseWikiKnowledgeGraphForMcp(novelPath, {
         startSlug: String(args.startSlug || ''),
         targetSlug: String(args.targetSlug || ''),
         maxDepth: Number(args.maxDepth || 3),
         maxEdges: Number(args.maxEdges || 2000),
-      })
-    );
+      }));
   }
 
   // Neo4j enhanced tools

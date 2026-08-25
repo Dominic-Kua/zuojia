@@ -116,8 +116,7 @@ describe('ChapterList Component', () => {
     expect(indicator.textContent).toBe('*');
   });
 
-  it('should call onBeforeSwitch when switching with unsaved changes', async () => {
-    const onBeforeSwitch = vi.fn(() => Promise.resolve(true));
+  it('proceeds with chapter switch when unsaved changes exist (the parent owns save-before-switch)', async () => {
     const onChapterSelect = vi.fn();
     const user = userEvent.setup();
     
@@ -127,13 +126,12 @@ describe('ChapterList Component', () => {
         currentChapter="chapter-01.md"
         onChapterSelect={onChapterSelect}
         hasUnsavedChanges={true}
-        onBeforeSwitch={onBeforeSwitch}
       />
     );
     
     const dropdown = screen.getByRole('combobox');
     await user.selectOptions(dropdown, 'chapter-02.md');
     
-    expect(onBeforeSwitch).toHaveBeenCalled();
+    expect(onChapterSelect).toHaveBeenCalledWith('chapter-02.md');
   });
 });

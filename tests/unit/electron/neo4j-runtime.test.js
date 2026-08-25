@@ -15,6 +15,7 @@ const childProcess = {
 
 vi.mock('child_process', () => ({
   spawn: vi.fn(() => childProcess),
+  execFileSync: vi.fn(() => ''),
 }));
 
 // ── Mock fs/promises ──
@@ -125,7 +126,7 @@ describe('neo4j-runtime', () => {
     });
 
     it('uses custom database name', async () => {
-      const result = await manager.start({ novelPath: '/tmp/novel', dbName: 'custom' });
+      const result = await manager.start({ novelPath: '/tmp/novel', databaseName: 'custom' });
       expect(result.databaseName).toBe('custom');
     });
 
@@ -225,7 +226,7 @@ describe('neo4j-runtime', () => {
       expect(result).toBe(false);
     });
 
-    it('queries for Entity nodes when running', async () => {
+    it('queries for WikiPage nodes when running', async () => {
       await manager.start({ novelPath: '/tmp/novel' });
       mockSession.run.mockResolvedValue({
         records: [{ get: () => 5 }],
@@ -233,7 +234,7 @@ describe('neo4j-runtime', () => {
 
       const result = await manager.hasWikiData();
       expect(result).toBe(true);
-      expect(mockSession.run).toHaveBeenCalledWith('MATCH (e:Entity) RETURN count(e) AS count');
+      expect(mockSession.run).toHaveBeenCalledWith('MATCH (p:WikiPage) RETURN count(p) AS count');
     });
 
     it('returns false when count is zero', async () => {

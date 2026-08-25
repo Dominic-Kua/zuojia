@@ -1,7 +1,8 @@
 import path from 'path'
 import fs from 'fs'
-import { readdir, readFile, writeFile } from 'fs/promises'
+import { readdir, readFile, writeFile, rename, unlink } from 'fs/promises'
 import { createError } from '../util/error.js'
+import { calculateWordCount } from '../stats/word-count.js'
 
 /**
  * Extract title from markdown content
@@ -19,15 +20,6 @@ function extractTitle(filename, content) {
   
   // Fallback to filename without extension
   return path.parse(filename).name;
-}
-
-/**
- * Count words in content (simple approach: split by whitespace)
- * @param {string} content - File content
- * @returns {number} Word count
- */
-function countWords(content) {
-  return content.split(/\s+/).filter(word => word.length > 0).length;
 }
 
 /**
@@ -56,7 +48,7 @@ async function scanDirectory(dirPath, includeWordCount = false) {
       };
 
       if (includeWordCount) {
-        entry.wordCount = countWords(content);
+        entry.wordCount = calculateWordCount(content);
       }
 
       results.push(entry);
@@ -96,8 +88,15 @@ export async function rebuildIndex(novelPath) {
       lastRebuild: new Date().toISOString(),
     };
 
-    // Write updated index to disk
-    await writeFile(indexPath, JSON.stringify(index, null, 2));
+    // Write updated index to disk atomically (write to temp file, then rename)
+    const tempPath = `${indexPath}.tmp-${Date.now()}`;
+    await writeFile(tempPath, JSON.stringify(index, null, 2));
+    try {
+      await rename(tempPath, indexPath);
+    } catch (renameError) {
+      await unlink(tempPath).catch(() => {});
+      throw renameError;
+    }
 
     return {
       status: 'ok',

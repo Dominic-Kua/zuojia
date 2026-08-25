@@ -18,13 +18,10 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
   // Validate novel name (accept spaces, capitals, unicode, but not just whitespace)
   const isValidNovelName = (name) => {
     if (!name || name.trim() === '') {
-      console.log('Novel name validation: empty');
       return false;
     }
     // Just check that it's not empty after trimming
-    const isValid = name.trim().length > 0;
-    console.log('Novel name validation:', name, '→', isValid);
-    return isValid;
+    return name.trim().length > 0;
   };
 
   const loadNovels = async () => {
@@ -58,6 +55,8 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
         if (onNovelOpened) {
           onNovelOpened(novelPath);
         }
+      } else {
+        setOpenError('Not a valid novel directory');
       }
     } catch (err) {
       setOpenError(err.message || 'Failed to open novel');
@@ -72,15 +71,13 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
     setError(null);
 
     if (!isValidNovelName(novelName)) {
-      setError('Novel name must contain only lowercase letters, numbers, hyphens, and underscores');
+      setError('Use letters, numbers, hyphens or spaces');
       return;
     }
 
     setLoading(true);
     try {
-      console.log('Creating novel with name:', novelName);
       const result = await indexHandlers.createNovel(novelName);
-      console.log('Novel created successfully:', result);
       setShowCreateDialog(false);
       setNovelName('');
 
@@ -188,9 +185,7 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
                 placeholder="Novel name (e.g., The Winds of Chance)"
                 value={novelName}
                 onChange={(e) => {
-                  const newValue = e.target.value;
-                  console.log('Input changed:', newValue);
-                  setNovelName(newValue);
+                  setNovelName(e.target.value);
                   setError(null);
                 }}
                 disabled={loading}
@@ -198,7 +193,7 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
               />
               {novelName && !error && (
                 <p className="slug-preview" data-testid="slug-preview">
-                  Directory: {novelName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9_\-]/g, '')}
+                  Directory: {novelName.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\p{L}\p{N}_-]+/gu, '')}
                 </p>
               )}
               {error && <p className="error-message" data-testid="novel-name-error">{error}</p>}

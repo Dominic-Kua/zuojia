@@ -103,7 +103,8 @@ function getDirectoryWordCount(dirPath) {
   let totalCount = 0;
 
   try {
-    const files = fs.readdirSync(dirPath);
+    // Recursive to match manuscript-count's chapter discovery
+    const files = fs.readdirSync(dirPath, { recursive: true });
 
     for (const file of files) {
       if (file.endsWith('.md')) {

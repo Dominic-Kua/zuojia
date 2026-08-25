@@ -65,7 +65,11 @@ class IntegrationTest {
 
   async startSynapseBridge(novelPath) {
     return new Promise((resolve, reject) => {
-      const synapsePath = path.join(process.env.HOME || '/Users/dominickua', 'code/project-synapse-mcp');
+      if (!process.env.HOME) {
+        reject(new Error('HOME environment variable is required to locate the Project Synapse checkout'));
+        return;
+      }
+      const synapsePath = path.join(process.env.HOME, 'code/project-synapse-mcp');
       const bridgePath = path.join(__dirname, '../helper/src/mcp/project-synapse-bridge.js');
       
       if (!process.env.NEO4J_PASSWORD) {
@@ -88,17 +92,24 @@ class IntegrationTest {
       let output = '';
       let errorOutput = '';
       let resolved = false;
+      let startupTimer = null;
+
+      const settle = (fn, value) => {
+        if (resolved) {
+          return;
+        }
+        resolved = true;
+        clearTimeout(startupTimer);
+        fn(value);
+      };
 
       const checkReady = () => {
         if (errorOutput.includes('Starting Project Synapse from:') || 
             errorOutput.includes('Initializing Project Synapse server components') ||
             errorOutput.includes('Connected to Neo4j database') ||
             errorOutput.includes('Project Synapse started successfully')) {
-          if (!resolved) {
-            resolved = true;
-            this.log('Synapse server started successfully (via stderr)');
-            resolve();
-          }
+          settle(resolve);
+          this.log('Synapse server started successfully (via stderr)');
         }
       };
 
@@ -115,25 +126,16 @@ class IntegrationTest {
       });
 
       this.synapseProc.on('error', (err) => {
-        if (!resolved) {
-          resolved = true;
-          reject(new Error(`Failed to start bridge: ${err.message}`));
-        }
+        settle(reject, new Error(`Failed to start bridge: ${err.message}`));
       });
 
       this.synapseProc.on('exit', (code) => {
-        if (!resolved) {
-          resolved = true;
-          reject(new Error(`Bridge exited with code ${code}: ${errorOutput}`));
-        }
+        settle(reject, new Error(`Bridge exited with code ${code}: ${errorOutput}`));
       });
 
       // Timeout after 30 seconds
-      setTimeout(() => {
-        if (!resolved) {
-          resolved = true;
-          reject(new Error(`Synapse bridge startup timeout. Stdout: ${output}. Stderr: ${errorOutput}`));
-        }
+      startupTimer = setTimeout(() => {
+        settle(reject, new Error(`Synapse bridge startup timeout. Stdout: ${output}. Stderr: ${errorOutput}`));
       }, 30000);
     });
   }

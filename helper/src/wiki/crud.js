@@ -252,8 +252,9 @@ export async function createWikiPage(novelPath, title, content, tags = []) {
     const body = rawBody.trim() ? rawBody : `# ${title}\n\n`;
     const frontmatter = buildFrontmatter(title, tags);
 
-    // Write content to file
-    await fs.writeFile(filePath, `${frontmatter}${body}`, 'utf-8');
+    // Write content to file. The exclusive 'wx' flag closes the TOCTOU gap
+    // left by the existence check above and fails if a page appears meanwhile.
+    await fs.writeFile(filePath, `${frontmatter}${body}`, { encoding: 'utf-8', flag: 'wx' });
     await rebuildSpellcheckDict(novelPath);
 
     return {
@@ -345,7 +346,7 @@ export async function updateWikiPage(novelPath, slug, content, tags = []) {
     const nextContent = `${frontmatter}${body}`;
 
     // Atomic write: write to temp file, then rename
-    const tempPath = `${filePath}.tmp`;
+    const tempPath = `${filePath}.tmp-${Date.now()}`;
     await fs.writeFile(tempPath, nextContent, 'utf-8');
     try {
       await fs.rename(tempPath, filePath);
@@ -353,6 +354,8 @@ export async function updateWikiPage(novelPath, slug, content, tags = []) {
       await fs.unlink(tempPath).catch(() => {});
       throw renameError;
     }
+
+    await rebuildSpellcheckDict(novelPath);
 
     return {
       status: 'ok',
@@ -400,11 +403,79 @@ export async function deleteWikiPage(novelPath, slug) {
 }
 
 /**
+ * Recursively list markdown files under a directory (relative paths),
+ * skipping hidden files and hidden ancestor directories.
+ * @param {string} rootDir - Directory to scan
+ * @returns {Promise<string[]>} Relative paths joined with '/'
+ */
+async function listWikiMarkdownFiles(rootDir) {
+  const entries = await fs.readdir(rootDir, { recursive: true });
+  return entries.filter((entry) => {
+    if (!entry.endsWith('.md')) return false;
+    return entry.split('/').every((segment) => !segment.startsWith('.'));
+  });
+}
+
+/**
+ * Rewrite inbound wiki links pointing at oldSlug across all other wiki pages.
+ * Matches [[oldslug]] and [[oldslug|display text]] (case-insensitive on the
+ * slug) while leaving display text untouched.
+ * @param {string} novelPath - Path to novel directory
+ * @param {string} changedSlug - Slug of the page that was just rewritten (skip it)
+ * @param {string} oldSlug - Slug that links should be redirected from
+ * @param {string} newSlug - Slug that links should point to
+ * @returns {Promise<number>} Number of references updated
+ */
+async function rewriteInboundLinks(novelPath, changedSlug, oldSlug, newSlug) {
+  const wikiDir = path.join(novelPath, 'wiki');
+  let files;
+  try {
+    files = await listWikiMarkdownFiles(wikiDir);
+  } catch {
+    return 0; // Wiki directory missing or unreadable - nothing to update
+  }
+
+  const escapedOldSlug = oldSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // [[target|display]] / [[target]] - capture the display portion untouched
+  const linkRegex = new RegExp(`\\[\\[(${escapedOldSlug})(\\|[^\\]]*)?\\]\\]`, 'gi');
+  let renamedReferences = 0;
+
+  for (const relFile of files) {
+    if (relFile === `${changedSlug}.md`) continue;
+
+    const filePath = path.join(wikiDir, relFile);
+    let content;
+    try {
+      content = await fs.readFile(filePath, 'utf-8');
+    } catch {
+      continue; // Skip unreadable pages
+    }
+
+    let updates = 0;
+    const nextContent = content.replace(linkRegex, (_match, _target, display = '') => {
+      updates += 1;
+      return `[[${newSlug}${display}]]`;
+    });
+
+    if (updates > 0) {
+      try {
+        await fs.writeFile(filePath, nextContent, 'utf-8');
+        renamedReferences += updates;
+      } catch {
+        // Non-fatal: report only what actually persisted
+      }
+    }
+  }
+
+  return renamedReferences;
+}
+
+/**
  * Rename wiki page (atomic operation)
  * @param {string} novelPath - Path to novel directory
  * @param {string} oldSlug - Current slug
  * @param {string} newTitle - New title
- * @returns {Promise<Object>} - {status, data: {newSlug}, error}
+ * @returns {Promise<Object>} - {status, data: {newSlug, renamedReferences}, error}
  */
 export async function renameWikiPage(novelPath, oldSlug, newTitle) {
   try {
@@ -455,16 +526,28 @@ export async function renameWikiPage(novelPath, oldSlug, newTitle) {
       const existingBody = stripFrontmatter(existingContent);
       const updatedBody = existingBody.replace(/^# .+$/m, `# ${newTitle}`);
       const newFrontmatter = buildFrontmatter(newTitle, existingTags);
-      await fs.writeFile(newPath, `${newFrontmatter}${updatedBody}`, 'utf-8');
+
+      // Atomic write: write to temp file, then rename
+      const tempPath = `${newPath}.tmp-${Date.now()}`;
+      await fs.writeFile(tempPath, `${newFrontmatter}${updatedBody}`, 'utf-8');
+      try {
+        await fs.rename(tempPath, newPath);
+      } catch (renameError) {
+        await fs.unlink(tempPath).catch(() => {});
+        throw renameError;
+      }
     } catch {
       // Non-fatal: dictionary rebuild still uses the new file
     }
+
+    // Point inbound [[oldslug]] links at the new slug so references survive the move
+    const renamedReferences = await rewriteInboundLinks(novelPath, newSlug, oldSlug, newSlug);
 
     await rebuildSpellcheckDict(novelPath);
 
     return {
       status: 'ok',
-      data: { newSlug },
+      data: { newSlug, renamedReferences },
       timestamp: new Date().toISOString()
     };
   } catch (error) {

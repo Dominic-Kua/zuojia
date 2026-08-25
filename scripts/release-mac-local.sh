@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Load environment variables from .env file (must be placed in root directory)
-echo "Loading environment variables from .env..."
-set -a # Automatically export all subsequent assignments to environment variables
-source .env
-set +a # Turn off automatic export
+# Load environment variables from .env file if present (must be placed in root
+# directory). Sourced without `set -a` so secrets are not auto-exported to every
+# child process; only explicitly needed vars are exported below.
+if [ -f .env ]; then
+  echo "Loading environment variables from .env..."
+  # shellcheck disable=SC1091
+  source .env || true
+else
+  echo "No .env file found; continuing without it."
+fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
@@ -14,8 +19,7 @@ LOG_FILE="/tmp/zuojia_packaged_smoke.log"
 DMG_SMOKE_LOG="/tmp/zuojia_dmg_smoke.log"
 
 run_playwright_smoke() {
-  local executable_path="$1"
-  local output_path="$2"
+  local output_path="$1"
 
   ZUOJIA_RENDERER_MODE=production node --input-type=module - <<'NODE' >"$output_path" 2>&1
 import { _electron as electron } from 'playwright';
@@ -30,17 +34,26 @@ await app.close();
 NODE
 }
 
-echo "[1/4] Building renderer..."
+echo "[1/5] Building renderer..."
 # Export NEO4J_PASSWORD so it's available during the build process if needed by the source code
 export NEO4J_PASSWORD
 npm run build
 
 echo "[2/5] Packaging macOS DMG..."
+PACKAGE_START_TS="$(date +%s)"
 ZUOJIA_RENDERER_MODE=production npm run package:mac
 
 DMG_PATH="$(ls -1t dist/zuojia-v*.dmg 2>/dev/null | head -n 1 || true)"
 if [[ -z "$DMG_PATH" ]]; then
   echo "No zuojia-v*.dmg artifact found in dist/."
+  exit 1
+fi
+
+# Guard against picking up a stale DMG: the chosen artifact must be newer than
+# the moment packaging started.
+DMG_MTIME="$(stat -f %m "$DMG_PATH")"
+if (( DMG_MTIME < PACKAGE_START_TS )); then
+  echo "Newest DMG ($DMG_PATH) predates this packaging run — stale artifact. Aborting."
   exit 1
 fi
 
@@ -51,7 +64,7 @@ if [[ ! -x "$APP_BIN" ]]; then
 fi
 
 echo "[3/5] Smoke testing packaged app bundle UI..."
-ZUOJIA_SMOKE_EXECUTABLE="$APP_BIN" run_playwright_smoke "$APP_BIN" "$LOG_FILE"
+ZUOJIA_SMOKE_EXECUTABLE="$APP_BIN" run_playwright_smoke "$LOG_FILE"
 if ! grep -q "SMOKE_OK" "$LOG_FILE"; then
   echo "Packaged app bundle smoke test failed. See $LOG_FILE"
   tail -n 120 "$LOG_FILE"
@@ -85,7 +98,7 @@ if [[ ! -x "$MOUNTED_EXE" ]]; then
   exit 1
 fi
 
-ZUOJIA_SMOKE_EXECUTABLE="$MOUNTED_EXE" run_playwright_smoke "$MOUNTED_EXE" "$DMG_SMOKE_LOG"
+ZUOJIA_SMOKE_EXECUTABLE="$MOUNTED_EXE" run_playwright_smoke "$DMG_SMOKE_LOG"
 if ! grep -q "SMOKE_OK" "$DMG_SMOKE_LOG"; then
   echo "Mounted DMG artifact smoke test failed. See $DMG_SMOKE_LOG"
   tail -n 120 "$DMG_SMOKE_LOG"

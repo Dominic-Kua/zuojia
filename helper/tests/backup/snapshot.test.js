@@ -1,13 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'fs/promises';
+import os from 'os';
 import path from 'path';
-import { createSnapshot, listSnapshots, deleteSnapshot } from '../../src/backup/snapshot.js';
+import { createSnapshot, listSnapshots, deleteSnapshot, restoreSnapshot } from '../../src/backup/snapshot.js';
 
 describe('createSnapshot', () => {
   let testDir;
 
   beforeEach(async () => {
-    testDir = path.join(process.cwd(), 'test-novel-snapshot-' + Date.now());
+    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'zuojia-snapshot-test-'));
     await fs.mkdir(testDir, { recursive: true });
     
     // Create novel structure
@@ -217,5 +218,85 @@ describe('deleteSnapshot', () => {
     
     expect(result.status).toBe('error');
     expect(result.error.code).toBe('SNAPSHOT_NOT_FOUND');
+  });
+});
+
+describe('restoreSnapshot', () => {
+  let testDir;
+
+  beforeEach(async () => {
+    testDir = await fs.mkdtemp(path.join(os.tmpdir(), 'zuojia-restore-test-'));
+    await fs.mkdir(path.join(testDir, 'manuscript'), { recursive: true });
+    await fs.mkdir(path.join(testDir, 'wiki'), { recursive: true });
+    await fs.mkdir(path.join(testDir, 'meta'), { recursive: true });
+  });
+
+  afterEach(async () => {
+    try {
+      await fs.rm(testDir, { recursive: true, force: true });
+    } catch (err) {
+      // Ignore cleanup errors
+    }
+  });
+
+  it('restores manuscript, wiki, and meta content from a snapshot', async () => {
+    await fs.writeFile(path.join(testDir, 'manuscript', 'chapter-01.md'), '# Chapter 1 v1');
+    await fs.writeFile(path.join(testDir, 'wiki', 'alice.md'), '# Alice v1');
+    await fs.writeFile(path.join(testDir, 'meta', 'index.json'), '{}');
+
+    const createResult = await createSnapshot(testDir, 'pre-restore');
+    expect(createResult.status).toBe('ok');
+    const timestamp = createResult.data.timestamp;
+
+    // Mutate the novel after the snapshot
+    await fs.writeFile(path.join(testDir, 'manuscript', 'chapter-01.md'), '# Chapter 1 EDITED');
+    await fs.writeFile(path.join(testDir, 'manuscript', 'chapter-02.md'), '# Chapter 2 NEW');
+    await fs.rm(path.join(testDir, 'wiki', 'alice.md'));
+    await fs.writeFile(path.join(testDir, 'meta', 'index.json'), '{"edited":true}');
+
+    const result = await restoreSnapshot(testDir, timestamp);
+    expect(result.status).toBe('ok');
+    expect(result.data.restored).toBe(true);
+
+    // Manuscript restored to snapshot state (edits removed)
+    expect(await fs.readFile(path.join(testDir, 'manuscript', 'chapter-01.md'), 'utf-8')).toBe('# Chapter 1 v1');
+    const chapter2Gone = await fs.access(path.join(testDir, 'manuscript', 'chapter-02.md')).then(() => false).catch(() => true);
+    expect(chapter2Gone).toBe(true);
+
+    // Wiki restored
+    expect(await fs.readFile(path.join(testDir, 'wiki', 'alice.md'), 'utf-8')).toBe('# Alice v1');
+
+    // Meta files restored too
+    expect(await fs.readFile(path.join(testDir, 'meta', 'index.json'), 'utf-8')).toBe('{}');
+  });
+
+  it('preserves the meta/backups directory across restore', async () => {
+    const createResult = await createSnapshot(testDir, 'keep-me');
+    expect(createResult.status).toBe('ok');
+    const timestamp = createResult.data.timestamp;
+
+    const result = await restoreSnapshot(testDir, timestamp);
+    expect(result.status).toBe('ok');
+
+    // The backups directory still contains the snapshot we restored from
+    const listResult = await listSnapshots(testDir);
+    expect(listResult.status).toBe('ok');
+    expect(listResult.data.snapshots.length).toBeGreaterThan(0);
+
+    // Restore temp dirs were cleaned up
+    const metaEntries = await fs.readdir(path.join(testDir, 'meta'));
+    expect(metaEntries.filter((name) => name.includes('.restore-tmp-'))).toEqual([]);
+  });
+
+  it('returns error for unknown timestamp', async () => {
+    const result = await restoreSnapshot(testDir, 1);
+    expect(result.status).toBe('error');
+    expect(result.error.code).toBe('SNAPSHOT_NOT_FOUND');
+  });
+
+  it('returns error for invalid novel path', async () => {
+    const result = await restoreSnapshot('/nonexistent/path', 123);
+    expect(result.status).toBe('error');
+    expect(result.error.code).toBe('INVALID_NOVEL_PATH');
   });
 });

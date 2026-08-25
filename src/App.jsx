@@ -15,10 +15,11 @@ import { appHandlers } from './lib/ipc-client'
 
 export default function App(){
   const [novelPath, setNovelPath] = useState(null);
+  // Wiki page open requests use a nonce object ({slug, nonce}) instead of a
+  // timeout handshake — the Sidebar consumes it and calls
+  // onWikiPageConsumed to clear it, so re-opening the same page works.
   const [wikiPageToOpen, setWikiPageToOpen] = useState(null);
-  const sidebarRef = useRef(null);
   const mainGridRef = useRef(null);
-  const wikiPageTimeoutRef = useRef(null);
   // Holds the Manuscript editor's flush function so destructive operations
   // (snapshot restore, novel close) can await pending debounced saves.
   const editorFlushRef = useRef(null);
@@ -119,14 +120,6 @@ export default function App(){
   });
   const [isDraggingWikiPanel, setIsDraggingWikiPanel] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0, panelX: 0, panelY: 0 });
-
-  useEffect(() => {
-    return () => {
-      if (wikiPageTimeoutRef.current !== null) {
-        clearTimeout(wikiPageTimeoutRef.current);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -232,27 +225,13 @@ export default function App(){
     setRestoreKey((k) => k + 1);
   }, []);
 
-  const handleNovelCreated = async (path) => {
+  // Novel creation and opening follow the same lifecycle: load the novel,
+  // then start its services.
+  const handleNovelReady = async (path) => {
     setNovelPath(path);
     setServicesLoading(true);
     setServicesStatus(null);
-    
-    try {
-      const result = await appHandlers.startNovelServices(path);
-      setServicesStatus(result);
-    } catch (err) {
-      console.error('Failed to start novel services:', err);
-      setServicesStatus({ status: 'error', error: err.message });
-    } finally {
-      setServicesLoading(false);
-    }
-  };
 
-  const handleNovelOpened = async (path) => {
-    setNovelPath(path);
-    setServicesLoading(true);
-    setServicesStatus(null);
-    
     try {
       const result = await appHandlers.startNovelServices(path);
       setServicesStatus(result);
@@ -296,15 +275,11 @@ export default function App(){
 
   // Handle opening a wiki page from the manuscript
   const handleOpenWikiPage = useCallback((slug) => {
-    if (wikiPageTimeoutRef.current !== null) {
-      clearTimeout(wikiPageTimeoutRef.current);
-    }
-    setWikiPageToOpen(slug);
-    // Reset after a brief moment to allow Sidebar to detect the change
-    wikiPageTimeoutRef.current = setTimeout(() => {
-      setWikiPageToOpen(null);
-      wikiPageTimeoutRef.current = null;
-    }, 100);
+    setWikiPageToOpen({ slug, nonce: Date.now() });
+  }, []);
+
+  const handleWikiPageConsumed = useCallback(() => {
+    setWikiPageToOpen(null);
   }, []);
 
   // Wiki floating panel drag handlers
@@ -405,8 +380,8 @@ export default function App(){
         </header>
         <main className="main-grid" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <NovelSelector 
-            onNovelCreated={handleNovelCreated}
-            onNovelOpened={handleNovelOpened}
+            onNovelCreated={handleNovelReady}
+            onNovelOpened={handleNovelReady}
           />
         </main>
       </div>
@@ -458,7 +433,7 @@ export default function App(){
           >
             {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
           </button>
-          <ExportDialog novelPath={novelPath} />
+          <ExportDialog novelPath={novelPath} onBeforeExport={flushEditorBeforeDestructiveOp} />
           <SnapshotButton novelPath={novelPath} />
           <CommitButton novelPath={novelPath} />
           <PushButton novelPath={novelPath} />
@@ -495,11 +470,11 @@ export default function App(){
         <aside className={`sidebar${wikiDetached ? ' collapsed' : ''}`} data-testid="sidebar-section" style={{ width: `${sidebarWidth}px` }}>
           <Sidebar
             key={`${restoreKey}-${novelPath}`}
-            ref={sidebarRef}
             novelPath={novelPath}
             openPageSlug={wikiPageToOpen}
             wikiDetached={wikiDetached}
             onToggleWikiDetached={setWikiDetached}
+            onWikiPageConsumed={handleWikiPageConsumed}
           />
         </aside>
       </main>
@@ -548,6 +523,7 @@ export default function App(){
               openPageSlug={wikiPageToOpen}
               wikiDetached={wikiDetached}
               onToggleWikiDetached={setWikiDetached}
+              onWikiPageConsumed={handleWikiPageConsumed}
               isFloating={true}
             />
           </div>

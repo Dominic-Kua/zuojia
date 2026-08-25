@@ -1,4 +1,4 @@
-import { spawn } from 'child_process';
+import { spawn, execFileSync } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -8,8 +8,6 @@ import { findNeo4jHome } from './find-neo4j.js';
 import { findJavaHome } from './find-java.js';
 import {
   NEO4J_BOLT_URI,
-  NEO4J_USERNAME,
-  NEO4J_PASSWORD,
   NEO4J_DATA_DIR_NAME,
   NEO4J_CONFIG_NAME,
   NEO4J_CONFIG_INI_DIR,
@@ -37,6 +35,7 @@ export function createNeo4jRuntimeManager({
   let databaseName = 'wiki';
   let driver = null;
   let lastError = null;
+  let lastNeo4jHome = null;
   const callLogs = [];
 
   function pushLog(entry) {
@@ -76,12 +75,12 @@ dbms.security.auth_enabled=false
     await fs.writeFile(configPath, config, 'utf-8');
   }
 
-  async function start({ novelPath, dbName = 'wiki' }) {
+  async function start({ novelPath, databaseName: requestedDbName = 'wiki' }) {
     if (!novelPath || typeof novelPath !== 'string') {
       throw new Error('novelPath is required to start Neo4j runtime');
     }
 
-    databaseName = dbName;
+    databaseName = requestedDbName;
 
     // Check if Neo4j is already running for this novel
     if (isRunningProcess(processRef) && runtimeNovelPath === novelPath) {
@@ -142,6 +141,7 @@ dbms.security.auth_enabled=false
     if (!neo4jHome) {
       throw new Error('Neo4j not found. Install via: brew install neo4j');
     }
+    lastNeo4jHome = neo4jHome;
     // Resolve JAVA_HOME from openjdk@21 Homebrew install if not already set
     const javaHome = await findJavaHome();
     pushLog({
@@ -287,58 +287,88 @@ dbms.security.auth_enabled=false
   }
 
   async function stop() {
-    if (!isRunningProcess(processRef)) {
+    try {
+      if (!isRunningProcess(processRef)) {
+        return {
+          status: 'stopped',
+          alreadyStopped: true,
+        };
+      }
+
+      const child = processRef;
+      let resolveExit;
+      const waitForExit = new Promise((resolve) => {
+        resolveExit = resolve;
+        child.once('exit', resolve);
+        if (child.exitCode !== null) {
+          resolve();
+        }
+      });
+
+      try {
+        child.kill('SIGTERM');
+      } catch {
+        // Ignore kill errors and continue waiting for exit.
+      }
+
+      const timeout = setTimeoutFn(() => {
+        if (child.exitCode === null) {
+          try {
+            child.kill('SIGKILL');
+          } catch {
+            // Ignore kill errors.
+          }
+          setTimeoutFn(() => resolveExit(), GRACEFUL_EXIT_FALLBACK_MS);
+        }
+      }, SIGTERM_TO_SIGKILL_MS);
+
+      await waitForExit;
+      clearTimeoutFn(timeout);
+
+      if (processRef === child) {
+        processRef = null;
+        runtimeNovelPath = null;
+        startTime = null;
+      }
+
+      // Best-effort cleanup of the Neo4j JVM — `neo4j console` may have
+      // daemonized worker processes that outlive the wrapper.
+      if (lastNeo4jHome) {
+        try {
+          const javaHome = await findJavaHome();
+          execFileSync('neo4j', ['stop'], {
+            stdio: 'ignore',
+            env: {
+              ...process.env,
+              NEO4J_HOME: lastNeo4jHome,
+              ...(javaHome ? { JAVA_HOME: javaHome } : {}),
+            },
+          });
+        } catch (err) {
+          pushLog({
+            timestamp: new Date().toISOString(),
+            type: 'neo4j_stop_cleanup',
+            message: `Best-effort 'neo4j stop' failed: ${err.message}`,
+            level: 'info',
+          });
+        }
+      }
+
       return {
         status: 'stopped',
-        alreadyStopped: true,
+        alreadyStopped: false,
       };
-    }
-
-    const child = processRef;
-    let resolveExit;
-    const waitForExit = new Promise((resolve) => {
-      resolveExit = resolve;
-      child.once('exit', resolve);
-      if (child.exitCode !== null) {
-        resolve();
-      }
-    });
-
-    try {
-      child.kill('SIGTERM');
-    } catch {
-      // Ignore kill errors and continue waiting for exit.
-    }
-
-    const timeout = setTimeoutFn(() => {
-      if (child.exitCode === null) {
+    } finally {
+      // Always release the driver, no matter which path we took.
+      if (driver) {
         try {
-          child.kill('SIGKILL');
+          await driver.close();
         } catch {
-          // Ignore kill errors.
+          // Ignore close errors.
         }
-        setTimeoutFn(() => resolveExit(), GRACEFUL_EXIT_FALLBACK_MS);
+        driver = null;
       }
-    }, SIGTERM_TO_SIGKILL_MS);
-
-    await waitForExit;
-    clearTimeoutFn(timeout);
-
-    if (processRef === child) {
-      processRef = null;
-      runtimeNovelPath = null;
-      startTime = null;
     }
-
-    if (driver) {
-      await driver.close();
-      driver = null;
-    }
-
-    return {
-      status: 'stopped',
-      alreadyStopped: false,
-    };
   }
 
   async function health() {
@@ -356,7 +386,8 @@ dbms.security.auth_enabled=false
     let serverInfo = null;
     try {
       if (!driver) {
-        driver = neo4j.driver(NEO4J_BOLT_URI, neo4j.auth.basic(NEO4J_USERNAME, NEO4J_PASSWORD));
+        // No auth — config writes dbms.security.auth_enabled=false
+        driver = neo4j.driver(NEO4J_BOLT_URI);
       }
       serverInfo = await driver.getServerInfo();
     } catch (err) {
@@ -386,9 +417,10 @@ dbms.security.auth_enabled=false
     }
     const session = driver.session();
     try {
-      // Check for Entity nodes (created by Synapse's ingest_text) or WikiPage nodes (legacy)
+      // Check for WikiPage nodes — must stay consistent with the skip-check
+      // in importWikiData (which counts WikiPage nodes)
       const countResult = await session.run(
-        'MATCH (e:Entity) RETURN count(e) AS count'
+        'MATCH (p:WikiPage) RETURN count(p) AS count'
       );
       const count = countResult.records[0]?.get('count') || 0;
       return count > 0;
@@ -457,12 +489,14 @@ dbms.security.auth_enabled=false
         // Import nodes
         for (const node of nodes) {
           await importSession.run(
-            `CREATE (p:WikiPage {
-              id: $id,
-              title: $title,
-              tags: $tags,
-              createdAt: datetime()
-            })`,
+            `MERGE (p:WikiPage { id: $id })
+             ON CREATE SET
+               p.title = $title,
+               p.tags = $tags,
+               p.createdAt = datetime()
+             ON MATCH SET
+               p.title = $title,
+               p.tags = $tags`,
             {
               id: node.id,
               title: node.label || node.id,
@@ -471,17 +505,17 @@ dbms.security.auth_enabled=false
           );
         }
 
-        // Import edges
+        // Import edges — merged on endpoints + type so retries are idempotent
         for (const edge of edges) {
           await importSession.run(
             `MATCH (from:WikiPage {id: $from})
              MATCH (to:WikiPage {id: $to})
-             CREATE (from)-[:LINKS_TO {
-               relation: $relation,
-               sourcePage: $sourcePage,
-               textSpan: $textSpan,
-               createdAt: datetime()
-             }]->(to)`,
+             MERGE (from)-[r:LINKS_TO]->(to)
+             ON CREATE SET
+               r.relation = $relation,
+               r.sourcePage = $sourcePage,
+               r.textSpan = $textSpan,
+               r.createdAt = datetime()`,
             {
               from: edge.from,
               to: edge.to,

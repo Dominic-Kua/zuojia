@@ -6,7 +6,6 @@ export const ChapterList = ({
   currentChapter, 
   onChapterSelect, 
   hasUnsavedChanges,
-  onBeforeSwitch,
   onCreateChapter,
   searchable = true 
 }) => {
@@ -20,36 +19,17 @@ export const ChapterList = ({
       )
     : chapters;
 
-  const handleChapterChange = useCallback(async (event) => {
+  // The select is fully controlled via `value`, so a rejected switch needs no
+  // manual DOM reset — React re-renders it back to `currentChapter`.
+  const handleChapterChange = useCallback((event) => {
     const newChapter = event.target.value;
-    
+
     if (newChapter === currentChapter) {
       return;
     }
 
-    try {
-      let shouldProceed = true;
-
-      // If there are unsaved changes and a beforeSwitch handler, call it
-      if (hasUnsavedChanges && onBeforeSwitch) {
-        shouldProceed = await onBeforeSwitch();
-      }
-
-      if (!shouldProceed) {
-        // Reset the select to current chapter
-        event.target.value = currentChapter;
-        return;
-      }
-
-      onChapterSelect(newChapter);
-    } catch (error) {
-      // Log the error and reset the select to the current chapter
-      // to keep the UI in a consistent state.
-      // eslint-disable-next-line no-console
-      console.error('Error while handling chapter change:', error);
-      event.target.value = currentChapter;
-    }
-  }, [currentChapter, hasUnsavedChanges, onBeforeSwitch, onChapterSelect]);
+    onChapterSelect(newChapter);
+  }, [currentChapter, onChapterSelect]);
 
   const handleSearchChange = useCallback((event) => {
     setSearchTerm(event.target.value);

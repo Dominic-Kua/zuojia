@@ -381,19 +381,31 @@ describe('LlmChatWindow', () => {
     expect(input).toHaveAttribute('placeholder', 'Ask about your novel...');
   });
 
-  it('checks LLM status periodically', async () => {
+  it('checks LLM status periodically while the chat window is open', async () => {
     const { llmHandlers } = await import('../../../src/lib/ipc-client');
     llmHandlers.health.mockResolvedValue({ status: 'stopped', uptimeMs: 0 });
 
     vi.useFakeTimers();
     render(<LlmChatWindow novelPath={novelPath} />);
 
+    // Health polling is gated on the chat window being open.
+    expect(llmHandlers.health).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('llm-chat-button'));
+    await act(async () => {
+      vi.advanceTimersByTime(0);
+    });
+
     expect(llmHandlers.health).toHaveBeenCalledTimes(1);
 
-    vi.advanceTimersByTime(5000);
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
     expect(llmHandlers.health).toHaveBeenCalledTimes(2);
 
-    vi.advanceTimersByTime(5000);
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
     expect(llmHandlers.health).toHaveBeenCalledTimes(3);
   });
 

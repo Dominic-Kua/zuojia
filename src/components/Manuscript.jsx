@@ -5,7 +5,7 @@ import { useSpellcheck } from '../hooks/useSpellcheck'
 import { useWordCount } from '../hooks/useWordCount'
 import { useWikiLinks } from '../hooks/useWikiLinks'
 import { WikiLinkPopover } from './WikiLinkPopover'
-import { findSpellingIssues, replaceMisspelledWord } from '../lib/spellcheck.js'
+import { findSpellingIssues, replaceMisspelledWord, escapeRegExp as escapeForRegex } from '../lib/spellcheck.js'
 import { indexHandlers, wikiHandlers } from '../lib/ipc-client'
 
 const DEFAULT_CHAPTER_FILENAME = 'chapter-01.md'
@@ -148,12 +148,18 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
   // stale in-flight load from writing one chapter's text into another.
   const loadedChapterRef = useRef(null)
   const loadRequestSeqRef = useRef(0)
+  // Content as last written to (or read from) disk — used to skip
+  // byte-identical saves and to derive the unsaved-changes indicator.
+  const lastSavedContentRef = useRef('')
   const isComposingRef = useRef(false)
   const savesSuspendedRef = useRef(false)
   const spellcheckResizeStartYRef = useRef(0)
   const spellcheckResizeStartHeightRef = useRef(0)
 
   const [content, setContent] = useState('')
+  // Real unsaved-changes state, updated alongside content/load/save so
+  // ChapterList's indicator reflects reality.
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [isLoadingChapter, setIsLoadingChapter] = useState(false)
   const [popoverState, setPopoverState] = useState(null)
   const [spellcheckIssues, setSpellcheckIssues] = useState([])
@@ -185,13 +191,27 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
   } = useSpellcheck(novelPath)
 
   const wikiLinkHandlers = useWikiLinks(novelPath, content, wikiPages)
+  const { handleLinkClick } = wikiLinkHandlers
+
+  // Update editor content state, deriving unsaved-changes from the last
+  // content known to be on disk.
+  const updateContent = useCallback((nextContent) => {
+    setContent(nextContent)
+    setHasUnsavedChanges(nextContent !== lastSavedContentRef.current)
+  }, [])
+
+  // Record that the given content is now persisted to disk.
+  const markContentSaved = useCallback((savedContent) => {
+    lastSavedContentRef.current = savedContent
+    setHasUnsavedChanges(false)
+  }, [])
 
   // Highlight wiki links in content using DOM construction to avoid XSS
   const highlightWikiLinks = useCallback((text) => {
     const fragment = document.createDocumentFragment()
     if (!text) return fragment
 
-    const regex = /\[\[([^\]|]+)(\|([^\]]+))?\]\]/g
+    const regex = /\[\[([^\]|]+)(\|([^\]]*))?\]\]/g
     let lastIndex = 0
     let match
 
@@ -375,7 +395,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
     const cursorOffset = prefixRange.toString().length
 
     const rawText = editor.textContent || ''
-    const regex = /\[\[([^\]|]+)(\|([^\]]+))?\]\]/g
+    const regex = /\[\[([^\]|]+)(\|([^\]]*))?\]\]/g
     let match
 
     while ((match = regex.exec(rawText)) !== null) {
@@ -423,7 +443,14 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
       e.preventDefault()
       e.stopPropagation()
 
-      const result = await wikiLinkHandlers.handleLinkClick(target, display)
+      // Convert viewport coords to document coords so the popover stays put
+      // when the page scrolls.
+      const popoverPosition = {
+        x: rect.left + window.scrollX,
+        y: rect.bottom + window.scrollY + 5,
+      }
+
+      const result = await handleLinkClick(target, display)
       if (!result || result.action === 'none') {
         return
       }
@@ -436,13 +463,13 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
       } else if (result.action === 'disambiguate') {
         setPopoverState({
           type: 'disambiguation',
-          position: { x: rect.left, y: rect.bottom + 5 },
+          position: popoverPosition,
           data: { options: result.options }
         })
       } else if (result.action === 'create') {
         setPopoverState({
           type: 'create',
-          position: { x: rect.left, y: rect.bottom + 5 },
+          position: popoverPosition,
           data: { target: result.target }
         })
       }
@@ -450,7 +477,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
 
     editor.addEventListener('click', handleClick)
     return () => editor.removeEventListener('click', handleClick)
-  }, [findRawWikiLinkFromSelection, wikiLinkHandlers, onOpenWikiPage])
+  }, [findRawWikiLinkFromSelection, handleLinkClick, onOpenWikiPage])
 
   // Handle popover actions
   const handleSelectPage = useCallback((page) => {
@@ -479,16 +506,19 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
     }
 
     if (chapters.length === 0) {
-      createdDefaultRef.current = true
       const createDefault = async () => {
         try {
           setIsLoadingChapter(true)
           await saveChapter(DEFAULT_CHAPTER_FILENAME, DEFAULT_CHAPTER_CONTENT)
+          // Only latch the guard once the chapter actually exists on disk —
+          // otherwise a failed creation would never be retried.
+          createdDefaultRef.current = true
+          markContentSaved(DEFAULT_CHAPTER_CONTENT)
           await indexHandlers.rebuildIndex(novelPath)
           await refresh()
           setCurrentChapter(DEFAULT_CHAPTER_FILENAME)
           loadedChapterRef.current = DEFAULT_CHAPTER_FILENAME
-          setContent(DEFAULT_CHAPTER_CONTENT)
+          updateContent(DEFAULT_CHAPTER_CONTENT)
           applyEditorContent(DEFAULT_CHAPTER_CONTENT)
         } catch (err) {
           console.error('Failed to create default chapter:', err)
@@ -499,7 +529,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
 
       createDefault()
     }
-  }, [applyEditorContent, chapters.length, loading, novelPath, refresh, saveChapter, setCurrentChapter])
+  }, [applyEditorContent, chapters.length, loading, markContentSaved, novelPath, refresh, saveChapter, setCurrentChapter, updateContent])
 
   // Select the first chapter when chapters load
   useEffect(() => {
@@ -528,7 +558,8 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
         }
         const nextContent = chapterData?.content || ''
         loadedChapterRef.current = currentChapter
-        setContent(nextContent)
+        markContentSaved(nextContent)
+        updateContent(nextContent)
         applyEditorContent(nextContent)
       } catch (err) {
         console.error('Failed to load chapter content:', err)
@@ -547,7 +578,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
     }
 
     loadSelectedChapter()
-  }, [applyEditorContent, currentChapter, loadChapter, novelPath])
+  }, [applyEditorContent, currentChapter, loadChapter, markContentSaved, novelPath, updateContent])
 
   // Persist content changes to disk (debounced)
   useEffect(() => {
@@ -567,12 +598,23 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
       return
     }
 
+    // Skip byte-identical writes: content matches what is already on disk.
+    if (content === lastSavedContentRef.current) {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+      return
+    }
+
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current)
     }
 
     saveTimerRef.current = setTimeout(() => {
-      saveChapter(currentChapter, content).catch((err) => {
+      saveChapter(currentChapter, content).then(() => {
+        markContentSaved(content)
+      }).catch((err) => {
         console.error('Failed to save chapter:', err)
       })
     }, 400)
@@ -582,7 +624,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
         clearTimeout(saveTimerRef.current)
       }
     }
-  }, [content, currentChapter, novelPath, saveChapter])
+  }, [content, currentChapter, markContentSaved, novelPath, saveChapter])
 
   useEffect(() => {
     return () => {
@@ -612,6 +654,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
           return
         }
         await saveChapter(currentChapter, content)
+        markContentSaved(content)
       },
       suspendSaves: () => {
         if (saveTimerRef.current) {
@@ -626,7 +669,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
     }
     const unregister = registerEditorFlush(handlers)
     return unregister
-  }, [registerEditorFlush, currentChapter, novelPath, content, saveChapter])
+  }, [currentChapter, content, markContentSaved, novelPath, registerEditorFlush, saveChapter])
 
   useEffect(() => {
     if (!isResizingSpellcheck) {
@@ -679,13 +722,9 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
       return
     }
 
-    setContent(nextContent)
+    updateContent(nextContent)
     applyEditorContent(nextContent)
-  }, [applyEditorContent, content])
-
-  const escapeForRegex = useCallback((value) => {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  }, [])
+  }, [applyEditorContent, content, updateContent])
 
   const handleCreateWikiFromSpellcheckIssue = useCallback(async (word) => {
     if (!word) {
@@ -709,7 +748,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
     } catch (err) {
       console.error('Failed to create wiki page from spellcheck issue:', err)
     }
-  }, [content, escapeForRegex, onOpenWikiPage, refreshSpellcheckDictionary, wikiLinkHandlers])
+  }, [content, onOpenWikiPage, refreshSpellcheckDictionary, wikiLinkHandlers])
 
   const handleAddToDictionaryFromSpellcheckIssue = useCallback(async (word) => {
     if (!word || !novelPath || typeof wikiHandlers.addToDict !== 'function') {
@@ -726,7 +765,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
     } catch (err) {
       console.error('Failed to add word to spellcheck dictionary:', err)
     }
-  }, [content, escapeForRegex, novelPath, refreshSpellcheckDictionary])
+  }, [content, novelPath, refreshSpellcheckDictionary])
 
   const handleBeforeSwitch = useCallback(async () => {
     if (!currentChapter || !novelPath) {
@@ -735,12 +774,13 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
 
     try {
       await saveChapter(currentChapter, content)
+      markContentSaved(content)
       return true
     } catch (err) {
       console.error('Failed to save before switching chapters:', err)
       return false
     }
-  }, [content, currentChapter, novelPath, saveChapter])
+  }, [content, currentChapter, markContentSaved, novelPath, saveChapter])
 
   const handleChapterSelect = useCallback(async (filename) => {
     if (!filename || filename === currentChapter) {
@@ -784,18 +824,19 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
 
       setIsLoadingChapter(true)
       await saveChapter(filename, chapterTitle)
+      markContentSaved(chapterTitle)
       await indexHandlers.rebuildIndex(novelPath)
       await refresh()
       setCurrentChapter(filename)
       loadedChapterRef.current = filename
-      setContent(chapterTitle)
+      updateContent(chapterTitle)
       applyEditorContent(chapterTitle)
     } catch (err) {
       console.error('Failed to create chapter:', err)
     } finally {
       setIsLoadingChapter(false)
     }
-  }, [applyEditorContent, chapters, handleBeforeSwitch, novelPath, refresh, saveChapter, setCurrentChapter])
+  }, [applyEditorContent, chapters, handleBeforeSwitch, markContentSaved, novelPath, refresh, saveChapter, setCurrentChapter, updateContent])
 
   const handleInput = (e) => {
     // Extract content from contentEditable, preserving wiki link markers and
@@ -803,7 +844,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
     const editor = e.currentTarget
     const plainContent = serializeEditorDom(editor)
 
-    setContent(plainContent)
+    updateContent(plainContent)
 
     if (highlightTimerRef.current) {
       clearTimeout(highlightTimerRef.current)
@@ -860,9 +901,8 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
           chapters={chapters}
           currentChapter={currentChapter}
           onChapterSelect={handleChapterSelect}
-          onBeforeSwitch={handleBeforeSwitch}
           onCreateChapter={handleCreateChapter}
-          hasUnsavedChanges={false}
+          hasUnsavedChanges={hasUnsavedChanges}
         />
         <div className="wordcounts" data-testid="manuscript-wordcounts">
           <span>Manuscript: {manuscriptCount.toLocaleString()}</span>

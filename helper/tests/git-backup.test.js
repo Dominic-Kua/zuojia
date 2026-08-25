@@ -139,6 +139,9 @@ describe('backupAndPush', () => {
       if (cmd === 'git' && args[0] === 'status') {
         return ''; // No changed files
       }
+      if (cmd === 'git' && args[0] === 'remote') {
+        return 'origin\n';
+      }
       if (cmd === 'git' && args[0] === 'push') {
         return '';
       }
@@ -170,6 +173,9 @@ describe('backupAndPush', () => {
     execFileSync.mockImplementation((cmd, args) => {
       if (cmd === 'git' && args[0] === 'status') {
         return ' M chapter-01.md\n A chapter-02.md';
+      }
+      if (cmd === 'git' && args[0] === 'remote') {
+        return 'origin\n';
       }
       if (cmd === 'git' && args[0] === 'push') {
         return '';
@@ -257,6 +263,9 @@ describe('backupAndPush', () => {
       if (cmd === 'git' && args[0] === 'status') {
         return '';
       }
+      if (cmd === 'git' && args[0] === 'remote') {
+        return 'origin\n';
+      }
       if (cmd === 'git' && args[0] === 'push') {
         throw new Error('No remote configured');
       }
@@ -266,6 +275,36 @@ describe('backupAndPush', () => {
     
     expect(result.status).toBe('error');
     expect(result.error.code).toBe('GIT_PUSH_FAILED');
+  });
+
+  it('should return ok local-only result when no remote is configured', async () => {
+    const gitDir = path.join(TEST_DIR, '.git');
+    await mkdir(gitDir, { recursive: true });
+
+    execFileSync.mockImplementation((cmd, args) => {
+      if (cmd === 'git' && args[0] === 'status') {
+        return ' M chapter-01.md';
+      }
+      if (cmd === 'git' && args[0] === 'remote') {
+        return ''; // No remotes
+      }
+      if (cmd === 'git' && args[0] === 'push') {
+        throw new Error('push should not be attempted without a remote');
+      }
+    });
+
+    const result = await backupAndPush(TEST_DIR);
+
+    expect(result.status).toBe('ok');
+    expect(result.data.committed).toBe(true);
+    expect(result.data.pushed).toBe(false);
+    expect(result.data.localOnly).toBe(true);
+
+    // Push should never be attempted
+    const pushCalls = execFileSync.mock.calls.filter(
+      call => call[0] === 'git' && call[1][0] === 'push'
+    );
+    expect(pushCalls.length).toBe(0);
   });
 
   it('should include timestamp in result', async () => {
