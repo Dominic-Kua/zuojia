@@ -16,7 +16,7 @@ const escapeHtml = (value) => {
     .replace(/'/g, '&#39;')
 };
 
-export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggleWikiDetached, isFloating = false }){
+export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggleWikiDetached, isFloating = false, onWikiPageConsumed }){
   const { pages, loading, error, createPage, deletePage, renamePage, search } = useWikiPages(novelPath);
   const { commits, loading: isLoadingHistory, error: historyError } = useGitHistory(novelPath, 5);
   const [selectedSlug, setSelectedSlug] = useState(null);
@@ -124,6 +124,9 @@ export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggl
     return DOMPurify.sanitize(html, {
       ADD_ATTR: ['data-wiki-link'],
       ADD_TAGS: ['figure', 'figcaption'],
+      // Extend the default allow-list with file: URIs so wiki image embeds
+      // (file://… asset URLs) survive sanitization.
+      ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|file):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
     });
   }, [buildAssetUrl]);
 
@@ -160,12 +163,22 @@ export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggl
       }
     }
   }, [novelPath, selectedSlug, isDirty, wikiContent, wikiTags]);
-  // Open page when requested from wiki link clicks in manuscript
+  // Open page when requested from wiki link clicks in manuscript.
+  // `openPageSlug` may be a plain slug string (legacy) or a {slug, nonce}
+  // object; nonce objects are one-shot and cleared via onWikiPageConsumed so
+  // the same page can be re-opened later without a timeout handshake.
   useEffect(() => {
-    if (openPageSlug && openPageSlug !== selectedSlug) {
-      handleSelectPage(openPageSlug);
+    const slug = openPageSlug?.slug ?? openPageSlug;
+    if (!slug) {
+      return;
     }
-  }, [openPageSlug, selectedSlug, handleSelectPage]);
+    if (slug !== selectedSlug) {
+      handleSelectPage(slug);
+    }
+    if (openPageSlug && typeof openPageSlug === 'object') {
+      onWikiPageConsumed?.();
+    }
+  }, [openPageSlug, selectedSlug, handleSelectPage, onWikiPageConsumed]);
 
   // Git repo detection
   useEffect(() => {
@@ -341,8 +354,20 @@ export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggl
     pagesRef.current = pages;
   }, [pages]);
 
+  // Mirror of `selectedSlug` so a scheduled rename can bail out if the user
+  // switched pages between scheduling and the timer firing.
+  const selectedSlugRef = useRef(selectedSlug);
+  useEffect(() => {
+    selectedSlugRef.current = selectedSlug;
+  }, [selectedSlug]);
+
   useEffect(() => {
     const loadWikiContent = async () => {
+      // A page switch invalidates any pending rename debounce.
+      if (renameTimerRef.current) {
+        clearTimeout(renameTimerRef.current);
+        renameTimerRef.current = null;
+      }
       if (!selectedSlug || !novelPath) {
         setWikiContent('');
         setWikiTitle('');
@@ -446,14 +471,22 @@ export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggl
   const handleTitleChange = (e) => {
     const value = e.target.value;
     setTitleInput(value);
-    
-    // Only rename if title is different from current title and not empty
+
+    // Only rename if title is different from the current page's settled
+    // title and not empty.
     if (value.trim() && value.trim() !== wikiTitle && selectedSlug && novelPath) {
       if (renameTimerRef.current) {
         clearTimeout(renameTimerRef.current);
       }
 
+      const slugAtScheduleTime = selectedSlug;
+
       renameTimerRef.current = setTimeout(async () => {
+        // Bail if the user switched pages while the debounce was pending —
+        // renaming the wrong page would corrupt its title.
+        if (selectedSlugRef.current !== slugAtScheduleTime) {
+          return;
+        }
         try {
           setIsRenamingPage(true);
           const result = await renamePage(selectedSlug, value.trim());

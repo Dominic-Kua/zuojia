@@ -46,7 +46,7 @@ Vite output is logged to `/tmp/zuojia-vite.log` for debugging.
 
 ## dev-launcher.js (Alternative)
 
-Node.js-based launcher with more features (colored logging per process, optional Python backend).
+Node.js-based launcher with more features (colored logging per process).
 
 ### Usage
 
@@ -60,7 +60,6 @@ npm run dev:node
 
 - `npm run dev` - Start with bash script (default)
 - `npm run dev:node` - Start with Node.js launcher
-- `npm run dev:old` - Use the old concurrently-based launcher
 - `npm run dev:vite` - Start only Vite (for testing)
 - `npm start` - Start only Electron (expects Vite or built files)
 

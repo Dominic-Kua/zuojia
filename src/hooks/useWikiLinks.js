@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import { extractWikiLinks, normalizeSlug, resolveWikiLink } from '../lib/wiki-link.js';
-import { wikiHandlers } from '../lib/ipc-client.ts';
+import { extractWikiLinks, normalizeSlug, resolveWikiLink, scorePageMatch } from '../lib/wiki-link.js';
+import { wikiHandlers } from '../lib/ipc-client';
 
 /**
  * Hook for handling wiki link interactions in the manuscript editor
@@ -11,10 +11,6 @@ import { wikiHandlers } from '../lib/ipc-client.ts';
  */
 export function useWikiLinks(novelPath, content = '', wikiPages = []) {
   const [wikiLinks, setWikiLinks] = useState([]);
-  const [selectedLink, setSelectedLink] = useState(null);
-  const [showDisambiguation, setShowDisambiguation] = useState(false);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [linkPreview, setLinkPreview] = useState(null);
 
   // Extract wiki links from content
   useEffect(() => {
@@ -45,23 +41,30 @@ export function useWikiLinks(novelPath, content = '', wikiPages = []) {
 
       if (resolution.found) {
         // Open the exact match
-        setSelectedLink(resolution.matches[0]);
         return { action: 'open', page: resolution.matches[0] };
-      } else if (resolution.matches.length > 1) {
-        // Show disambiguation menu
-        setSelectedLink({ target: normalizedTarget, display });
-        setShowDisambiguation(true);
-        return { action: 'disambiguate', options: resolution.matches };
-      } else if (resolution.matches.length === 1) {
-        // Single partial match - open it
-        setSelectedLink(resolution.matches[0]);
-        return { action: 'open', page: resolution.matches[0] };
-      } else {
-        // No match - show create dialog
-        setSelectedLink({ target: normalizedTarget, display });
-        setShowCreateDialog(true);
-        return { action: 'create', target: target, display }; // Use original target, not normalized
       }
+
+      if (resolution.matches.length > 1) {
+        // Show disambiguation menu
+        return { action: 'disambiguate', options: resolution.matches };
+      }
+
+      if (resolution.matches.length === 1) {
+        // A lone partial match only auto-opens when it is a strong match:
+        // the query must be meaningful (>= 3 chars) and overlap at least half
+        // of the candidate page's slug words. Otherwise ask the user.
+        const candidate = resolution.matches[0];
+        const { score } = scorePageMatch(normalizedTarget, candidate);
+        const pageWordCount = candidate.slug.split('-').filter(Boolean).length;
+        const isStrongMatch = normalizedTarget.length >= 3 && score >= pageWordCount / 2;
+
+        return isStrongMatch
+          ? { action: 'open', page: candidate }
+          : { action: 'disambiguate', options: resolution.matches };
+      }
+
+      // No match - show create dialog (use original target, not normalized)
+      return { action: 'create', target: target, display };
     },
     [novelPath, wikiPages]
   );
@@ -72,14 +75,9 @@ export function useWikiLinks(novelPath, content = '', wikiPages = []) {
       const normalizedTarget = normalizeSlug(target);
       const resolution = resolveWikiLink(normalizedTarget, wikiPages);
       if (resolution.found) {
-        const page = resolution.matches[0];
-        // Return first 100 chars for preview
-        setLinkPreview({
-          target,
-          title: page.title,
-          preview: `${page.title} - ${page.filepath}`,
-        });
+        return resolution.matches[0].title;
       }
+      return null;
     },
     [wikiPages]
   );
@@ -97,9 +95,6 @@ export function useWikiLinks(novelPath, content = '', wikiPages = []) {
           []
         );
 
-        setShowCreateDialog(false);
-        setSelectedLink(null);
-
         return result;
       } catch (err) {
         console.error('Failed to create wiki page:', err);
@@ -109,30 +104,11 @@ export function useWikiLinks(novelPath, content = '', wikiPages = []) {
     [novelPath]
   );
 
-  // Handle selecting a disambiguation option
-  const handleSelectDisambiguation = useCallback((page) => {
-    setShowDisambiguation(false);
-    setSelectedLink(page);
-    return { action: 'open', page };
-  }, []);
-
-  // Clear preview on mouse leave
-  const handleLinkMouseLeave = useCallback(() => {
-    setLinkPreview(null);
-  }, []);
-
   return {
     wikiLinks,
-    selectedLink,
-    showDisambiguation,
-    showCreateDialog,
-    linkPreview,
     handleLinkClick,
     handleLinkHover,
-    handleLinkMouseLeave,
+    handleLinkMouseLeave: useCallback(() => {}, []),
     handleCreatePageFromLink,
-    handleSelectDisambiguation,
-    setShowDisambiguation,
-    setShowCreateDialog,
   };
 }

@@ -1,3 +1,5 @@
+// chapterPaths are built by pdf.js from an absolute novel path, so they can
+// never start with '-' or be misparsed as options; no '--' separator needed.
 export function buildPdfExportCommand({ chapterPaths, metadata, outputPath, pdfEngine, templatePath }) {
   const args = [...chapterPaths];
 

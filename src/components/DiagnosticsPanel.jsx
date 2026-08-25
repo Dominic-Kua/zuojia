@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { exportHandlers, backupHandlers, indexHandlers } from '../lib/ipc-client';
 
 function formatBytes(bytes) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const size = Number.isFinite(bytes) ? bytes : 0;
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function formatTimestamp(ts) {
@@ -25,6 +26,9 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored, onBefo
   const [restoreTarget, setRestoreTarget] = useState(null); // snapshot being restored
   const [restoreToast, setRestoreToast] = useState(null);
   const [rebuildToast, setRebuildToast] = useState(null);
+  // Guards loadData setState calls against stale in-flight loads (e.g. the
+  // dialog being closed and reopened quickly).
+  const loadDataRequestRef = useRef(0);
 
   useEffect(() => {
     if (!restoreToast) return undefined;
@@ -43,6 +47,7 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored, onBefo
   }
 
   const loadData = async () => {
+    const requestId = ++loadDataRequestRef.current;
     setIsLoading(true);
     setError(null);
     const [logsResult, snapshotsResult, indexResult, depsResult] = await Promise.allSettled([
@@ -51,6 +56,9 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored, onBefo
       indexHandlers.getIndex(novelPath),
       exportHandlers.validateDeps(),
     ]);
+    if (requestId !== loadDataRequestRef.current) {
+      return;
+    }
     setLogs(logsResult.status === 'fulfilled' ? (logsResult.value ?? []) : []);
     setSnapshots(snapshotsResult.status === 'fulfilled' ? (snapshotsResult.value?.snapshots ?? []) : []);
     setIndexInfo(indexResult.status === 'fulfilled' ? indexResult.value : null);

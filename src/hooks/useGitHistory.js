@@ -20,6 +20,7 @@ export function useGitHistory(novelPath, limit = 5) {
       setCommits(result.commits || []);
     } catch (err) {
       setError(err.message || 'Failed to load git history');
+      setCommits([]);
     } finally {
       setLoading(false);
     }

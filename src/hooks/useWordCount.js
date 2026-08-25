@@ -27,7 +27,6 @@ export function useWordCount(novelPath, currentChapter, content) {
   const manuscriptCountIntervalRef = useRef(null);
   const lastManuscriptFetchRef = useRef(0);
   const lastCountedContentRef = useRef(null);
-  const chapterCountRef = useRef(0);
 
   // Debounce delay for content changes (ms)
   const DEBOUNCE_DELAY = 300;
@@ -44,7 +43,6 @@ export function useWordCount(novelPath, currentChapter, content) {
       const result = await statsHandlers.wordCount(contentToCount);
       setChapterCount(result.wordCount);
       lastCountedContentRef.current = contentToCount;
-      chapterCountRef.current = result.wordCount;
     } catch (err) {
       console.error('Error loading chapter count:', err);
       setError(err);
@@ -65,9 +63,7 @@ export function useWordCount(novelPath, currentChapter, content) {
 
     try {
       const result = await statsHandlers.manuscriptCount(novelPath);
-      // Ensure manuscript count is at least as large as current chapter count
-      const count = Math.max(result.wordCount, chapterCountRef.current);
-      setManuscriptCount(count);
+      setManuscriptCount(result.wordCount);
       lastManuscriptFetchRef.current = now;
     } catch (err) {
       console.error('Error loading manuscript count:', err);
@@ -133,15 +129,13 @@ export function useWordCount(novelPath, currentChapter, content) {
   }, [currentChapter, novelPath, loadChapterCount, loadManuscriptCount, loadTodayCount]);
 
   /**
-   * Periodically refresh today's word count (based on git history)
+   * Periodically refresh today's word count (based on git history).
+   * The mount effect above already performs the initial fetch.
    */
   useEffect(() => {
     if (!novelPath) {
       return;
     }
-
-    // Refresh immediately on mount
-    loadTodayCount();
 
     // Set up periodic refresh
     todayCountIntervalRef.current = setInterval(() => {

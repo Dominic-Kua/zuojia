@@ -24,28 +24,6 @@ export function CommitButton({ novelPath }) {
 
   const selectedSet = useMemo(() => new Set(selectedFiles), [selectedFiles]);
 
-  if (!novelPath) {
-    return null;
-  }
-
-  const closeDialog = () => {
-    if (isCommitting) {
-      return;
-    }
-    setShowDialog(false);
-    setError(null);
-    setMessage('');
-    setFiles([]);
-    setSelectedFiles([]);
-    setIsLoading(false);
-  };
-
-  const openDialog = () => {
-    setShowDialog(true);
-    setError(null);
-    setMessage('');
-  };
-
   useEffect(() => {
     if (!showDialog) {
       return undefined;
@@ -83,6 +61,28 @@ export function CommitButton({ novelPath }) {
       cancelled = true;
     };
   }, [novelPath, showDialog]);
+
+  if (!novelPath) {
+    return null;
+  }
+
+  const closeDialog = () => {
+    if (isCommitting) {
+      return;
+    }
+    setShowDialog(false);
+    setError(null);
+    setMessage('');
+    setFiles([]);
+    setSelectedFiles([]);
+    setIsLoading(false);
+  };
+
+  const openDialog = () => {
+    setShowDialog(true);
+    setError(null);
+    setMessage('');
+  };
 
   const toggleFile = (file) => {
     setSelectedFiles((current) => (

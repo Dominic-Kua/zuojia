@@ -102,22 +102,16 @@ export async function listWikiPages(novelPath) {
     // Filter for markdown files (not hidden, no hidden ancestor directories)
     const mdFiles = files.filter(file => {
       if (!file.endsWith('.md')) return false;
-      const segments = file.split(path.sep);
+      const segments = file.split('/');
       return segments.every(seg => !seg.startsWith('.'));
     });
 
     // Process each file
     const pages = await Promise.all(
       mdFiles.map(async (file) => {
-        // Build slug from relative path: normalize each segment, join with '/'
-        const relPath = file.replace(/\.md$/, '');
-        const segments = relPath.split(path.sep);
-        const slug = segments.map(seg =>
-          seg.toLowerCase().trim()
-            .replace(/[^\p{L}\p{N}\s_-]/gu, '')
-            .replace(/[-\s_]+/g, '-')
-            .replace(/^-+|-+$/g, '')
-        ).filter(Boolean).join('/');
+        // Slug is the raw filename minus '.md' so it round-trips through CRUD,
+        // which opens files by exactly that path; subdirectory relpaths keep '/'.
+        const slug = file.replace(/\.md$/, '');
         const filePath = path.join(wikiDir, file);
 
         // Read content

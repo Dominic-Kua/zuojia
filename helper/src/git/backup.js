@@ -41,6 +41,33 @@ function buildCommitMessage(files) {
   };
 }
 
+/**
+ * Stage content for backup: manuscript/, wiki/, and meta/, excluding
+ * meta/backups, meta/exports, and meta/logs.
+ */
+function stageContent(novelPath) {
+  execFileSync('git', ['add', '--', 'manuscript', 'wiki'], { cwd: novelPath, stdio: 'ignore' });
+  execFileSync('git', ['add', '--', 'meta'], { cwd: novelPath, stdio: 'ignore' });
+  // Unstage generated metadata directories that should never be backed up
+  execFileSync('git', ['reset', '-q', '--', 'meta/backups', 'meta/exports', 'meta/logs'], {
+    cwd: novelPath,
+    stdio: 'ignore',
+  });
+}
+
+/**
+ * Check whether any git remote is configured
+ * @returns {boolean} true if at least one remote exists
+ */
+function hasRemote(novelPath) {
+  try {
+    const output = execFileSync('git', ['remote'], { cwd: novelPath, encoding: 'utf-8' });
+    return String(output || '').trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function backupAndPush(novelPath) {
   try {
     if (!novelPath || !fs.existsSync(novelPath)) {
@@ -66,7 +93,7 @@ export async function backupAndPush(novelPath) {
 
     if (files.length > 0) {
       try {
-        execFileSync('git', ['add', '-A'], { cwd: novelPath, stdio: 'ignore' });
+        stageContent(novelPath);
       } catch (err) {
         return createError('GIT_ADD_FAILED', 'Failed to stage changes',
           'Check git configuration and file permissions', { error: err.message });
@@ -76,14 +103,36 @@ export async function backupAndPush(novelPath) {
       commitMessage = commitMeta.message;
 
       try {
-        execFileSync('git', ['commit', '-m', commitMessage], { cwd: novelPath, stdio: 'ignore' });
+        execFileSync('git', ['commit', '-m', commitMessage], {
+          cwd: novelPath,
+          stdio: 'pipe',
+          encoding: 'utf-8',
+        });
         committed = true;
       } catch (err) {
-        if (!err.message.includes('nothing to commit')) {
+        // Git commit can fail if there are no changes - that's okay
+        const output = `${String(err.stdout || '')}\n${String(err.stderr || '')}\n${err.message || ''}`;
+        if (!output.includes('nothing to commit')) {
           return createError('GIT_COMMIT_FAILED', 'Failed to commit changes',
             'Check git configuration and repository state', { error: err.message });
         }
       }
+    }
+
+    // Without a configured remote there is nothing to push to - report a
+    // successful local-only backup instead of attempting a failing push.
+    if (!hasRemote(novelPath)) {
+      return {
+        status: 'ok',
+        data: {
+          committed,
+          pushed: false,
+          localOnly: true,
+          files,
+          message: commitMessage,
+        },
+        timestamp: new Date().toISOString(),
+      };
     }
 
     try {

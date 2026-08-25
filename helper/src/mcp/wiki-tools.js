@@ -59,7 +59,7 @@ async function listMarkdownFiles(rootDir) {
     const entries = await fs.readdir(rootDir, { recursive: true });
     return entries
       .filter((entry) => entry.endsWith('.md'))
-      .filter((entry) => entry.split(path.sep).every((segment) => !segment.startsWith('.')))
+      .filter((entry) => entry.split('/').every((segment) => !segment.startsWith('.')))
       .map((entry) => path.join(rootDir, entry));
   } catch (error) {
     if (error.code === 'ENOENT') {
@@ -339,11 +339,13 @@ export async function traverseWikiKnowledgeGraphForMcp(
   }
 
   const queue = [[normalizedStart]];
+  let queueHead = 0; // Index pointer avoids O(n) shift() on large queues
   const visited = new Set([normalizedStart]);
   let foundPath = [];
 
-  while (queue.length > 0) {
-    const currentPath = queue.shift();
+  while (queueHead < queue.length) {
+    const currentPath = queue[queueHead];
+    queueHead += 1;
     const current = currentPath[currentPath.length - 1];
 
     if (current === normalizedTarget) {

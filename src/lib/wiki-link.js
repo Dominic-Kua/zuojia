@@ -3,8 +3,6 @@
  * Syntax: [[page-name]] or [[page-name|display text]]
  */
 
-const WIKI_LINK_REGEX = /\[\[([^\]|]*?)(?:\|([^\]]*?))?\]\]/g;
-
 /**
  * Parse a single wiki link
  * @param {string} text - Raw wiki link text (e.g., "[[alice]]" or "[[alice|Alice]]")
@@ -43,8 +41,9 @@ export function extractWikiLinks(content) {
   const links = [];
   let match;
 
-  // Reset regex state
-  WIKI_LINK_REGEX.lastIndex = 0;
+  // Instantiated per call so shared lastIndex state can never leak between
+  // concurrent/interleaved invocations.
+  const WIKI_LINK_REGEX = /\[\[([^\]|]*?)(?:\|([^\]]*?))?\]\]/g;
 
   while ((match = WIKI_LINK_REGEX.exec(content)) !== null) {
     const target = normalizeSlug(match[1]);
@@ -123,31 +122,44 @@ export function resolveWikiLink(target, wikiPages) {
 }
 
 /**
+ * Score how strongly a page matches a link target.
+ * Counts overlapping slug words plus a bonus when the title contains the target.
+ * @param {string} target - Slug to match
+ * @param {Object} page - Wiki page ({slug, title})
+ * @returns {{matchedWords: number, pageWordCount: number, titleMatch: boolean, score: number}}
+ */
+export function scorePageMatch(target, page) {
+  const targetWords = target.split('-').filter(Boolean);
+  const pageWords = page.slug.split('-');
+
+  // Count matching words
+  const matchedWords = targetWords.filter(word =>
+    pageWords.some(pword => pword.includes(word) || word === pword)
+  ).length;
+
+  // Also check title similarity
+  const titleMatch = page.title.toLowerCase().includes(target.toLowerCase());
+
+  return {
+    matchedWords,
+    pageWordCount: pageWords.length,
+    titleMatch,
+    score: matchedWords + (titleMatch ? 10 : 0),
+  };
+}
+
+/**
  * Find pages that might match a partial or ambiguous slug
  * @param {string} target - Partial slug or title fragment
  * @param {Array} wikiPages - List of wiki pages
  * @returns {Array} Matching pages (sorted by relevance)
  */
 export function findAmbiguousMatches(target, wikiPages) {
-  const targetWords = target.split('-').filter(Boolean);
-
   return wikiPages
-    .map(page => {
-      const pageWords = page.slug.split('-');
-      
-      // Count matching words
-      const matches = targetWords.filter(word =>
-        pageWords.some(pword => pword.includes(word) || word === pword)
-      ).length;
-
-      // Also check title similarity
-      const titleMatch = page.title.toLowerCase().includes(target.toLowerCase());
-
-      return {
-        page,
-        score: matches + (titleMatch ? 10 : 0),
-      };
-    })
+    .map(page => ({
+      page,
+      ...scorePageMatch(target, page),
+    }))
     .filter(item => item.score > 0)
     .sort((a, b) => b.score - a.score)
     .map(item => item.page);

@@ -7,8 +7,7 @@
  * 1. Starts the Vite dev server (frontend)
  * 2. Waits for Vite to be ready
  * 3. Starts Electron (with integrated Node.js helper)
- * 4. Optionally starts Python API backend (currently unused)
- * 5. Handles clean shutdown of all processes when Electron closes
+ * 4. Handles clean shutdown of all processes when Electron closes
  */
 
 import { spawn } from 'child_process';
@@ -16,12 +15,9 @@ import { createServer } from 'net';
 import process from 'process';
 
 const VITE_PORT = 5173;
-const PYTHON_API_PORT = 5178;
-const START_PYTHON_API = false; // Set to true if you want to start the Python backend
 
 let viteProcess = null;
 let electronProcess = null;
-let pythonProcess = null;
 let isShuttingDown = false;
 
 // ANSI color codes
@@ -128,43 +124,6 @@ async function startVite() {
   log('VITE', '✓ Vite is ready!', colors.green);
 }
 
-async function startPythonAPI() {
-  if (!START_PYTHON_API) {
-    return;
-  }
-  
-  log('PYTHON', 'Starting Python API backend...', colors.magenta);
-  
-  pythonProcess = spawn('python3', ['helper/api.py', PYTHON_API_PORT.toString()], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  
-  pythonProcess.stdout.on('data', (data) => {
-    const output = data.toString().trim();
-    if (output) {
-      log('PYTHON', output, colors.magenta);
-    }
-  });
-  
-  pythonProcess.stderr.on('data', (data) => {
-    const output = data.toString().trim();
-    if (output) {
-      log('PYTHON', output, colors.yellow);
-    }
-  });
-  
-  pythonProcess.on('exit', (code) => {
-    if (!isShuttingDown) {
-      log('PYTHON', `Python API exited with code ${code}`, colors.red);
-    }
-  });
-  
-  // Wait for Python API to be ready
-  log('PYTHON', `Waiting for Python API on port ${PYTHON_API_PORT}...`, colors.magenta);
-  await waitForPort(PYTHON_API_PORT);
-  log('PYTHON', '✓ Python API is ready!', colors.green);
-}
-
 async function startElectron() {
   log('ELECTRON', 'Starting Electron...', colors.blue);
   
@@ -232,13 +191,8 @@ async function shutdown(exitCode = 0) {
   isShuttingDown = true;
   log('LAUNCHER', 'Shutting down all processes...', colors.yellow);
   
-  // Stop in reverse order: Electron, Python, Vite
+  // Stop in reverse order: Electron, Vite
   await killProcess(electronProcess, 'ELECTRON');
-  
-  if (START_PYTHON_API) {
-    await killProcess(pythonProcess, 'PYTHON');
-  }
-  
   await killProcess(viteProcess, 'VITE');
   
   log('LAUNCHER', 'All processes stopped. Exiting.', colors.green);
@@ -274,11 +228,6 @@ async function main() {
   
   try {
     await startVite();
-    
-    if (START_PYTHON_API) {
-      await startPythonAPI();
-    }
-    
     await startElectron();
     
     log('LAUNCHER', '✓ All services started successfully!', colors.green);

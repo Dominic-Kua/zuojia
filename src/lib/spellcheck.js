@@ -29,7 +29,7 @@ function normalizeWikiMarkup(text) {
 
 function extractWords(text) {
   const source = normalizeWikiMarkup(text || '');
-  const matches = source.match(/[A-Za-z][A-Za-z'-]*/g);
+  const matches = source.match(/[\p{L}][\p{L}'’-]*/gu);
   return matches || [];
 }
 
@@ -49,8 +49,20 @@ function stripPossessive(word) {
   return null;
 }
 
-function escapeRegExp(value) {
+export function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Preserve the matched word's casing style in the replacement:
+// ALL-CAPS → all caps, Capitalized → capitalized, else as typed.
+function applyCasing(matchedWord, replacementWord) {
+  if (matchedWord.length > 1 && matchedWord === matchedWord.toUpperCase()) {
+    return replacementWord.toUpperCase();
+  }
+  if (matchedWord[0] === matchedWord[0].toUpperCase()) {
+    return replacementWord.charAt(0).toUpperCase() + replacementWord.slice(1);
+  }
+  return replacementWord;
 }
 
 export function replaceMisspelledWord(text, originalWord, replacementWord) {
@@ -58,8 +70,8 @@ export function replaceMisspelledWord(text, originalWord, replacementWord) {
     return text || '';
   }
 
-  const pattern = new RegExp(`\\b${escapeRegExp(originalWord)}\\b`, 'g');
-  return text.replace(pattern, replacementWord);
+  const pattern = new RegExp(`\\b${escapeRegExp(originalWord)}\\b`, 'gi');
+  return text.replace(pattern, (match) => applyCasing(match, replacementWord));
 }
 
 export async function findSpellingIssues(text, customWords = [], options = {}) {

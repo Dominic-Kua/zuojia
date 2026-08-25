@@ -137,8 +137,25 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
   const jitter = delay * 0.1 * (Math.random() * 2 - 1);
   return Math.floor(delay + jitter);
 }
-  
-  export function createMcpRuntimeManager({
+
+// Inside Electron there is no guarantee a bare `node` binary exists on PATH;
+// fork our own binary with ELECTRON_RUN_AS_NODE instead.
+function resolveServerSpawnCommand() {
+  if (process.versions.electron) {
+    return {
+      command: process.execPath,
+      args: (serverPath) => [serverPath],
+      env: { ELECTRON_RUN_AS_NODE: '1' },
+    };
+  }
+  return {
+    command: 'node',
+    args: (serverPath) => [serverPath],
+    env: {},
+  };
+}
+
+export function createMcpRuntimeManager({
   spawnFn = spawn,
   nowFn = () => Date.now(),
   setTimeoutFn = setTimeout,
@@ -319,10 +336,12 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
       ? packagedServerPath
       : path.join(__dirname, '../helper/src/mcp/project-synapse-bridge.js');
     const neo4j_pass = process.env.NEO4J_PASSWORD;
-    const child = spawnFn('node', [serverPath], {
+    const spawnSpec = resolveServerSpawnCommand();
+    const child = spawnFn(spawnSpec.command, spawnSpec.args(serverPath), {
       stdio: 'pipe',
       env: {
         ...process.env,
+        ...spawnSpec.env,
         PATH: [...PATH_ENRICHMENT, process.env.PATH || ''].join(':'),
         ZUOJIA_NOVEL_PATH: novelPath,
         NEO4J_URI: NEO4J_BOLT_URI,
@@ -487,26 +506,38 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
         let result;
 
         // Check if we should use Synapse
-        console.log(`[MCP] callTool "${toolName}" attempt=${attempt}, canUseSynapse=${canUseSynapse}, isUsingSynapse=${isUsingSynapse}, hasClient=${!!mcpClient}, hasMapping=${toolMapper ? toolMapper.hasMapping(toolName) : false}`);
-        
+        pushLog({
+          timestamp: new Date().toISOString(),
+          type: 'mcp_debug',
+          message: `callTool "${toolName}" attempt=${attempt} viaSynapse=${canUseSynapse}`,
+        });
+
         if (canUseSynapse) {
           // Use Project Synapse via MCP client
           const synapseTool = toolMapper.mapTool(toolName);
           const synapseArgs = argumentTransformer.transform(toolName, args);
-          console.log(`[MCP] → Synapse tool="${synapseTool}", args=${JSON.stringify(synapseArgs).slice(0, 200)}`);
-          
+          pushLog({
+            timestamp: new Date().toISOString(),
+            type: 'mcp_debug',
+            message: `→ Synapse tool="${synapseTool}"`,
+          });
+
           const synapseResult = await Promise.race([
             mcpClient.callTool(synapseTool, synapseArgs, timeoutMs),
             timeoutPromise,
           ]);
-          
+
           result = responseNormalizer.normalize(toolName, synapseResult);
-          console.log(`[MCP] ← Synapse response: status=${result?.status}, data keys=${result?.data ? Object.keys(result.data) : 'none'}`);
-          
+          pushLog({
+            timestamp: new Date().toISOString(),
+            type: 'mcp_debug',
+            message: `← Synapse response status=${result?.status}`,
+          });
+
           // If Synapse returns error, try fallback to local tools
           if (result?.status === 'error') {
             const error = toToolError(result, toolName);
-            
+
             // If error is retryable and we have retries left, try fallback
             if (isRetryableError(error) && attempt < maxAttempts) {
               pushLog({
@@ -519,7 +550,7 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
                 code: error.code,
                 action: 'falling_back_to_local',
               });
-              
+
               // Try local tool executor as fallback
               result = await Promise.race([
                 toolExecutor(runtimeNovelPath, toolName, args),
@@ -529,17 +560,25 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
           }
         } else {
           // Fallback to local wiki tools
-          console.log(`[MCP] → Local tool "${toolName}" (Synapse unavailable)`);
           result = await Promise.race([
             toolExecutor(runtimeNovelPath, toolName, args),
             timeoutPromise,
           ]);
-          console.log(`[MCP] ← Local result: status=${result?.status}, data=${JSON.stringify(result?.data ?? null).slice(0, 200)}`);
+          pushLog({
+            timestamp: new Date().toISOString(),
+            type: 'mcp_debug',
+            message: `← Local result for "${toolName}" status=${result?.status}`,
+          });
         }
 
         if (result?.status === 'error') {
           const err = toToolError(result, toolName);
-          console.error(`[MCP] Tool "${toolName}" returned error: ${err.message} (code=${err.code})`);
+          pushLog({
+            timestamp: new Date().toISOString(),
+            type: 'mcp_debug',
+            level: 'error',
+            message: `Tool "${toolName}" returned error: ${err.message} (code=${err.code})`,
+          });
           throw err;
         }
 

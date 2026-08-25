@@ -6,6 +6,7 @@ import { loadLlmConfig } from './llm-config.js';
 export function createOrchestrator(neo4jRuntime, mcpRuntime, llmRuntime, app) {
   let currentNovelPath = null;
   let startupInProgress = false;
+  let shutdownRequested = false;
 
   function log(msg) {
     console.log(`[Orchestrator] ${msg}`);
@@ -17,13 +18,26 @@ export function createOrchestrator(neo4jRuntime, mcpRuntime, llmRuntime, app) {
 
   function killOrphanedNeo4j() {
     try {
-      // Find PIDs listening on port 7687 (Neo4j bolt)
-      const output = execSync('lsof -ti :7687 -ti :7474 2>/dev/null || true', { encoding: 'utf-8' });
-      const pids = [...new Set(output.trim().split('\n').filter(Boolean))];
-      if (pids.length === 0) return;
-      log(`Killing orphaned Neo4j processes on ports 7687/7474: ${pids.join(', ')}`);
-      for (const pid of pids) {
-        try { process.kill(Number(pid), 'SIGKILL'); } catch {}
+      // Find processes listening on port 7687 (bolt) / 7474 (http) and only
+      // kill the ones whose command looks like Neo4j/Java — never SIGKILL a
+      // foreign process that happens to occupy the port.
+      const output = execSync('lsof -i :7687 -i :7474 2>/dev/null || true', { encoding: 'utf-8' });
+      const lines = output.trim().split('\n').filter(Boolean);
+      if (lines.length <= 1) return; // header only (or empty)
+
+      const seenPids = new Set();
+      for (const line of lines.slice(1)) {
+        const [command, pidStr] = line.trim().split(/\s+/);
+        const pid = Number(pidStr);
+        if (!command || !Number.isInteger(pid) || pid <= 0 || seenPids.has(pid)) continue;
+        seenPids.add(pid);
+
+        if (!/neo4j|java/i.test(command)) {
+          log(`Foreign process on Neo4j ports: pid=${pid} command=${command} — skipping kill`);
+          continue;
+        }
+        log(`Killing orphaned Neo4j process: pid=${pid} command=${command}`);
+        try { process.kill(pid, 'SIGKILL'); } catch {}
       }
     } catch {}
   }
@@ -75,8 +89,11 @@ export function createOrchestrator(neo4jRuntime, mcpRuntime, llmRuntime, app) {
       }
     }
 
-    return { status: 'ok', filesIngested, errors, totalFiles: mdFiles.length };
-  }
+    if (errors > 0 && filesIngested === 0) {
+      return { status: 'error', error: 'wiki ingest failed for all files', filesIngested, errors, totalFiles: mdFiles.length };
+    }
+
+    return { status: 'ok', filesIngested, errors, totalFiles: mdFiles.length };  }
 
   async function startAll({ novelPath }) {
     if (!novelPath || typeof novelPath !== 'string') {
@@ -105,6 +122,7 @@ export function createOrchestrator(neo4jRuntime, mcpRuntime, llmRuntime, app) {
     }
 
     startupInProgress = true;
+    shutdownRequested = false;
     log(`Starting services for ${novelPath}`);
     const result = {
       status: 'ok',
@@ -152,16 +170,24 @@ export function createOrchestrator(neo4jRuntime, mcpRuntime, llmRuntime, app) {
 
       // Step 3: Start Neo4j with per-novel data directory
       try {
-        log('Step 3: Starting Neo4j...');
-        result.neo4j = await neo4jRuntime.start({ novelPath });
-        log(`Neo4j started: pid=${result.neo4j.pid}`);
+        if (shutdownRequested) {
+          result.neo4j = { status: 'skipped', reason: 'shutdown requested' };
+        } else {
+          log('Step 3: Starting Neo4j...');
+          result.neo4j = await neo4jRuntime.start({ novelPath });
+          log(`Neo4j started: pid=${result.neo4j.pid}`);
+        }
       } catch (err) {
         logError('Neo4j start failed', err);
         result.neo4j = { status: 'error', error: err.message };
       }
 
       // Step 4: Start MCP server pointed at Neo4j
-      if (result.neo4j.status === 'running') {
+      if (result.neo4j.status !== 'running') {
+        log('Step 4: Skipping MCP — Neo4j not running');
+      } else if (shutdownRequested) {
+        result.mcp = { status: 'skipped', reason: 'shutdown requested' };
+      } else {
         try {
           log('Step 4: Starting MCP server...');
           result.mcp = await mcpRuntime.start({ novelPath });
@@ -170,8 +196,6 @@ export function createOrchestrator(neo4jRuntime, mcpRuntime, llmRuntime, app) {
           logError('MCP start failed', err);
           result.mcp = { status: 'error', error: err.message };
         }
-      } else {
-        log('Step 4: Skipping MCP — Neo4j not running');
       }
 
       // Step 5: Check wiki data and ingest if needed
@@ -218,22 +242,32 @@ export function createOrchestrator(neo4jRuntime, mcpRuntime, llmRuntime, app) {
 
       // Step 6: Start LLM (llama-server)
       try {
-        log('Step 6: Starting LLM...');
-        const llmHealth = await llmRuntime.health();
-        if (llmHealth.status === 'running') {
-          log('LLM already running');
-          result.llm = { status: 'already_running', ...llmHealth };
+        if (shutdownRequested) {
+          result.llm = { status: 'skipped', reason: 'shutdown requested' };
         } else {
-          const config = await loadLlmConfig(app);
-          result.llm = await llmRuntime.start(config);
-          log(`LLM started: model=${config.modelName}`);
+          log('Step 6: Starting LLM...');
+          const llmHealth = await llmRuntime.health();
+          if (llmHealth.status === 'running') {
+            log('LLM already running');
+            result.llm = { status: 'already_running', ...llmHealth };
+          } else {
+            const config = await loadLlmConfig(app);
+            result.llm = await llmRuntime.start(config);
+            log(`LLM started: model=${config.modelName}`);
+          }
         }
       } catch (err) {
         logError('LLM failed', err);
         result.llm = { status: 'error', error: err.message };
       }
 
-      currentNovelPath = novelPath;
+      const hasCriticalError = [result.neo4j, result.mcp, result.llm]
+        .some((step) => step.status === 'error');
+      if (hasCriticalError) {
+        log('One or more critical steps errored — not latching currentNovelPath');
+      } else {
+        currentNovelPath = novelPath;
+      }
       log('All services started');
       return result;
     } finally {
@@ -242,6 +276,7 @@ export function createOrchestrator(neo4jRuntime, mcpRuntime, llmRuntime, app) {
   }
 
   async function stopAll() {
+    shutdownRequested = true;
     log('Stopping all services...');
     const results = { llm: null, mcp: null, neo4j: null };
 

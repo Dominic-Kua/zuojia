@@ -140,8 +140,7 @@ export async function rebuildSpellcheckDict(novelPath) {
       const allFiles = await fs.readdir(wikiDir, { recursive: true });
       wikiFiles = allFiles.filter(file => {
         if (!file.endsWith('.md')) return false;
-        const segments = file.split(path.sep);
-        return segments.every(seg => !seg.startsWith('.'));
+        return file.split('/').every(seg => !seg.startsWith('.'));
       });
     } catch (err) {
       if (err.code !== 'ENOENT') {

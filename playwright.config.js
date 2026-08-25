@@ -20,16 +20,17 @@ export default defineConfig({
   /* Fail the build on CI if you accidentally left test.only in the source code */
   forbidOnly: !!process.env.CI,
   
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
+  /* Retry once locally too — service-backed specs (Neo4j/LLM) are
+     timing-sensitive when run back-to-back */
+  retries: process.env.CI ? 2 : 1,
   
   /* Single worker for Electron tests */
   workers: 1,
   
   /* Reporter to use */
   reporter: [
-    ['html', { outputFolder: '_bmad-output/test-artifacts/e2e-report' }],
-    ['json', { outputFile: '_bmad-output/test-artifacts/e2e-results.json' }],
+    ['html', { outputFolder: 'playwright-report/e2e-report' }],
+    ['json', { outputFile: 'playwright-report/e2e-results.json' }],
     ['list']
   ],
   
@@ -54,5 +55,5 @@ export default defineConfig({
   ],
 
   /* Output folders */
-  outputDir: '_bmad-output/test-artifacts/e2e-results',
+  outputDir: 'test-results/e2e',
 });

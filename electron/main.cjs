@@ -47,6 +47,9 @@ function createWindow() {
     }
   });
 
+  win.on('will-navigate', (e) => e.preventDefault());
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
   const rendererMode = getRendererMode();
   if (rendererMode === 'development') {
     win.loadURL('http://localhost:5173');
@@ -67,7 +70,7 @@ async function main() {
     app.on('activate', function () {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();
     });
-  });
+  }).catch(console.error);
 
   app.on('window-all-closed', function () {
     if (process.platform !== 'darwin') app.quit();

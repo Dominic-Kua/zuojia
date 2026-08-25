@@ -1,9 +1,13 @@
 import { spawn } from 'child_process';
 
+const DEFAULT_TIMEOUT_MS = 120000;
+const MAX_CAPTURED_OUTPUT_BYTES = 10 * 1024 * 1024;
+
 export async function runSubprocess(command, args = [], options = {}) {
   const startedAt = Date.now();
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-  return await new Promise((resolve, reject) => {
+  return await new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: options.env || process.env,
@@ -12,16 +16,36 @@ export async function runSubprocess(command, args = [], options = {}) {
 
     let stdout = '';
     let stderr = '';
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
+    let timedOut = false;
 
-    child.stdout.on('data', (chunk) => {
-      stdout += chunk.toString();
-    });
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill('SIGTERM');
+    }, timeoutMs);
 
-    child.stderr.on('data', (chunk) => {
-      stderr += chunk.toString();
-    });
+    const appendCapped = (target, chunk) => {
+      // Cap captured output so chatty subprocesses cannot exhaust memory
+      if (target === 'stdout') {
+        stdoutBytes += chunk.length;
+        if (stdoutBytes <= MAX_CAPTURED_OUTPUT_BYTES) {
+          stdout += chunk.toString();
+        }
+      } else {
+        stderrBytes += chunk.length;
+        if (stderrBytes <= MAX_CAPTURED_OUTPUT_BYTES) {
+          stderr += chunk.toString();
+        }
+      }
+    };
+
+    child.stdout.on('data', (chunk) => appendCapped('stdout', chunk));
+
+    child.stderr.on('data', (chunk) => appendCapped('stderr', chunk));
 
     child.on('error', (error) => {
+      clearTimeout(timer);
       resolve({
         stdout,
         stderr: error.message,
@@ -30,11 +54,15 @@ export async function runSubprocess(command, args = [], options = {}) {
       });
     });
 
-    child.on('close', (exitCode) => {
+    child.on('close', (exitCode, signal) => {
+      clearTimeout(timer);
+      if (timedOut) {
+        stderr += `\nSubprocess timed out after ${timeoutMs}ms and was killed (${signal || 'SIGTERM'})`;
+      }
       resolve({
         stdout,
         stderr,
-        exitCode,
+        exitCode: timedOut ? 1 : exitCode,
         durationMs: Date.now() - startedAt,
       });
     });

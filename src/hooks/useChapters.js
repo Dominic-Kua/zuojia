@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { indexHandlers, chapterHandlers } from '../lib/ipc-client';
 
 export const useChapters = (novelPath) => {
@@ -6,6 +6,9 @@ export const useChapters = (novelPath) => {
   const [currentChapter, setCurrentChapter] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Guards against stale getIndex responses: a newer load (novel switch)
+  // discards results from any older in-flight request.
+  const loadSeqRef = useRef(0);
 
   const loadChapters = useCallback(async () => {
     if (!novelPath) {
@@ -13,17 +16,27 @@ export const useChapters = (novelPath) => {
       return;
     }
 
+    const requestId = ++loadSeqRef.current;
+
     try {
       setLoading(true);
       setError(null);
       const index = await indexHandlers.getIndex(novelPath);
+      if (requestId !== loadSeqRef.current) {
+        return;
+      }
       setChapters(index.chapters || []);
     } catch (err) {
+      if (requestId !== loadSeqRef.current) {
+        return;
+      }
       console.error('Failed to load chapters:', err);
       setError(err.message || 'Failed to load chapters');
       setChapters([]);
     } finally {
-      setLoading(false);
+      if (requestId === loadSeqRef.current) {
+        setLoading(false);
+      }
     }
   }, [novelPath]);
 

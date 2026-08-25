@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { wikiHandlers } from '../lib/ipc-client.ts';
+import { wikiHandlers } from '../lib/ipc-client';
 
 /**
  * Strip possessive suffix from a word (e.g. "Dominic's" → "Dominic")

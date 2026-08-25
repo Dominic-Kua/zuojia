@@ -20,6 +20,7 @@ export class McpClient extends EventEmitter {
   #serverInfo = null;
   #serverCapabilities = null;
   #destroyed = false;
+  #initializePromise = null;
 
   constructor({ transport, clientInfo = { name: 'zuojia-mcp-client', version: appVersion }, capabilities = {} }) {
     super();
@@ -118,7 +119,16 @@ export class McpClient extends EventEmitter {
     if (this.#initialized) {
       return;
     }
+    // Share a single in-flight initialization between concurrent callers
+    if (!this.#initializePromise) {
+      this.#initializePromise = this.#performInitialize(timeoutMs).finally(() => {
+        this.#initializePromise = null;
+      });
+    }
+    return this.#initializePromise;
+  }
 
+  async #performInitialize(timeoutMs) {
     // Send initialize request
     const initResult = await this.#sendRequestWithTimeout('initialize', {
       protocolVersion: '2024-11-05',
@@ -187,12 +197,12 @@ export class McpClient extends EventEmitter {
     return result;
   }
 
-  async shutdown(timeoutMs = 5000) {
+  async shutdown() {
     if (!this.#initialized) {
       return;
     }
 
-    await this.#sendRequestWithTimeout('shutdown', {}, timeoutMs);
+    // MCP has no shutdown request; notify the server and tear down the transport.
     this.#transport.sendNotification('exit', {});
     this.#initialized = false;
     this.#tools.clear();

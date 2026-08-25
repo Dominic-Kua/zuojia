@@ -1,5 +1,15 @@
 # Full Code Review Findings — 2026-08-24
 
+> **RESOLUTION STATUS (2026-08-25):** All Criticals, all Highs, all actionable Mediums/Lows/Nitpicks are FIXED.
+> Stale items dropped during verification: M1 (already async), M19, M25, M40, M42 (fixed earlier), M57/M58 (fixed), CommitButton-reopen nitpick, LLM-defaults nitpick, mojibake.
+> Intentionally NOT done (documented rationale):
+> - M13 full ipc-handlers.js file split — `ok()/fail()` helpers added instead; full split deferred
+> - M47 hand-rolled YAML replaced with a library — lossy-but-working, needs dependency decision
+> - M60 tsconfig coverage of electron/ + helper/ — requires JS typechecking setup; deferred
+> - M61 partial: remaining waitForTimeout sleeps in service-backed specs need expect.poll rewrites per spec
+> - LaTeX PingFang SC hardcoded — accepted as macOS-only product invariant for now
+> - Known environmental test failures: bridge-esm integration test (needs external Synapse), wiki-online e2e is retry-tolerant flaky under load
+
 Scope: full repository review on branch `code-review/cleanup` (main @ a8cb8d38).
 Areas: Electron main process (`electron/`), React renderer (`src/`), Node helper package (`helper/`), scripts/configs/tests/repo hygiene.
 
