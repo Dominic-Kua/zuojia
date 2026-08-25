@@ -127,19 +127,38 @@ export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggl
     });
   }, [buildAssetUrl]);
 
+  // Tracks in-flight flush saves by slug so a page reload can wait for its
+  // own pending write instead of reading pre-flush content from disk.
+  const pendingFlushesRef = useRef(new Map());
+
   const handleSelectPage = useCallback((slug) => {
-    // Flush any pending autosave before switching pages
+    // Navigate optimistically so rapid clicks can't interleave; the flush
+    // below saves the page we're LEAVING using values captured now.
+    const fromSlug = selectedSlug;
+    const fromContent = wikiContent;
+    const fromTags = wikiTags;
+    const wasDirty = isDirty;
+
+    setSelectedSlug(slug);
+    setIsPreviewMode(true);
+
+    // Flush the previous page before its content leaves state. The loader
+    // waits on pendingFlushesRef for the target slug, so returning to this
+    // page never reads stale pre-flush content.
     if (autosaveTimerRef.current) {
       clearTimeout(autosaveTimerRef.current);
-      // Save immediately with current state
-      if (novelPath && selectedSlug && isDirty) {
-        wikiHandlers.update(novelPath, selectedSlug, wikiContent, wikiTags).catch((err) => {
-          console.error('Failed to autosave before page switch:', err);
+      autosaveTimerRef.current = null;
+      if (novelPath && fromSlug && wasDirty) {
+        const flushPromise = wikiHandlers.update(novelPath, fromSlug, fromContent, fromTags)
+          .catch((err) => console.error('Failed to autosave before page switch:', err));
+        pendingFlushesRef.current.set(fromSlug, flushPromise);
+        flushPromise.finally(() => {
+          if (pendingFlushesRef.current.get(fromSlug) === flushPromise) {
+            pendingFlushesRef.current.delete(fromSlug);
+          }
         });
       }
     }
-    setSelectedSlug(slug);
-    setIsPreviewMode(true);
   }, [novelPath, selectedSlug, isDirty, wikiContent, wikiTags]);
   // Open page when requested from wiki link clicks in manuscript
   useEffect(() => {
@@ -313,6 +332,15 @@ export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggl
     }
   }, [createPage, newTitle, notifySpellcheckDictionaryChanged]);
 
+  // Mirror of `pages` for title lookup inside the content loader — keeps
+  // `pages` out of the load effect's deps so a background page-list refresh
+  // (create/delete/rename elsewhere) can't reload the editor and wipe
+  // in-progress edits.
+  const pagesRef = useRef(pages);
+  useEffect(() => {
+    pagesRef.current = pages;
+  }, [pages]);
+
   useEffect(() => {
     const loadWikiContent = async () => {
       if (!selectedSlug || !novelPath) {
@@ -327,14 +355,20 @@ export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggl
       try {
         setIsLoadingWiki(true);
         setWikiLoadError(null);
+        // If this exact page has a flush save in flight, wait for it so we
+        // read the post-flush content, not stale disk state.
+        const pendingFlush = pendingFlushesRef.current.get(selectedSlug);
+        if (pendingFlush) {
+          await pendingFlush;
+        }
         const result = await wikiHandlers.read(novelPath, selectedSlug);
         const content = result?.content || '';
         const tags = result?.tags || [];
-        
+
         // Find page title from pages list
-        const pageInfo = pages.find((p) => p.slug === selectedSlug);
+        const pageInfo = pagesRef.current.find((p) => p.slug === selectedSlug);
         const title = pageInfo?.title || selectedSlug;
-        
+
         setWikiContent(content);
         setWikiTags(tags);
         setTagInput(tags.join(', '));
@@ -350,7 +384,7 @@ export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggl
     };
 
     loadWikiContent();
-  }, [novelPath, selectedSlug, pages]);
+  }, [novelPath, selectedSlug]);
 
   useEffect(() => {
     if (!selectedSlug || !novelPath) {

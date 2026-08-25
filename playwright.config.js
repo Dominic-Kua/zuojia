@@ -1,11 +1,15 @@
 import { defineConfig } from '@playwright/test';
 
 /**
- * Playwright configuration for ä½å®¶ E2E tests
+ * Playwright configuration for 作家 E2E tests
  * Testing Electron application with Playwright
  */
 export default defineConfig({
   testDir: './tests/e2e',
+
+  /* Rebuild dist/ if source is newer — e2e runs against the built renderer */
+  globalSetup: './tests/e2e/e2e-global-setup.js',
+
   
   /* Maximum time one test can run for */
   timeout: 30 * 1000,

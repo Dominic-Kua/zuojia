@@ -144,14 +144,19 @@ dbms.security.auth_enabled=false
     }
     // Resolve JAVA_HOME from openjdk@21 Homebrew install if not already set
     const javaHome = await findJavaHome();
+    pushLog({
+      timestamp: new Date().toISOString(),
+      type: 'neo4j_paths',
+      message: `NEO4J_HOME=${neo4jHome} JAVA_HOME=${javaHome || '(system default)'}`,
+    });
+
     const child = spawnFn('neo4j', ['console'], {
       stdio: 'pipe',
       env: {
         ...process.env,
         PATH: [...PATH_ENRICHMENT, process.env.PATH || ''].join(':'),
-        JAVA_HOME: javaHome,
+        ...(javaHome ? { JAVA_HOME: javaHome } : {}),
         NEO4J_CONF: path.dirname(configPath),
-        NEO4J_HOME: neo4jHome,
       },
     });
 
@@ -229,6 +234,18 @@ dbms.security.auth_enabled=false
 
         if (nowFn() - startWait > maxWaitTime) {
           clearInterval(checkInterval);
+          // Kill the spawned process so a slow startup doesn't leave an
+          // untracked Neo4j running behind our back.
+          if (isRunningProcess(processRef)) {
+            processRef.kill('SIGKILL');
+            processRef = null;
+            runtimeNovelPath = null;
+            startTime = null;
+          }
+          if (driver) {
+            driver.close().catch(() => {});
+            driver = null;
+          }
           reject(new Error('Neo4j startup timed out'));
           return;
         }

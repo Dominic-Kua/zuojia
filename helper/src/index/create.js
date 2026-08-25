@@ -23,18 +23,19 @@ export async function createNovel(novelName, novelRootPath = path.join(process.e
 
     // Convert novel name to safe directory slug
     // Remove leading/trailing whitespace, convert to lowercase, replace spaces with hyphens,
-    // and remove any characters that aren't alphanumeric, hyphens, or underscores
+    // and remove any characters that aren't letters (unicode-aware, so CJK titles work),
+    // numbers, hyphens, or underscores
     const slug = novelName
       .trim()
       .toLowerCase()
-      .replace(/\s+/g, '-')           // spaces to hyphens
-      .replace(/[^a-z0-9_\-]/g, '');  // remove invalid chars
+      .replace(/\s+/g, '-')                    // spaces to hyphens
+      .replace(/[^\p{L}\p{N}_-]+/gu, '');      // remove invalid chars
 
     // After sanitization, check if we have a valid slug
     if (!slug || slug.length === 0) {
       return createError(
         'INVALID_NOVEL_NAME',
-        'Novel name must contain at least one alphanumeric character'
+        'Novel name must contain at least one letter or number'
       );
     }
 

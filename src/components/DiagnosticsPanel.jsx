@@ -11,7 +11,7 @@ function formatTimestamp(ts) {
   return new Date(ts).toLocaleString();
 }
 
-export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored }) {
+export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored, onBeforeRestore }) {
   const [showDialog, setShowDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isRebuilding, setIsRebuilding] = useState(false);
@@ -124,23 +124,34 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored }) {
     setIsRestoring(true);
     setError(null);
     try {
-      if (createSafetyBackup) {
-        await backupHandlers.createSnapshot(novelPath, 'pre-restore safety backup');
+      // Flush the editor's pending debounced save and SUSPEND further saves,
+      // so neither the safety snapshot nor the restored files can be clobbered
+      // by an in-flight autosave. Resume runs even on failure.
+      let resumeSaves = null;
+      if (onBeforeRestore) {
+        resumeSaves = await onBeforeRestore();
       }
-      await backupHandlers.restore(novelPath, snap.timestamp);
-      const updated = await backupHandlers.listSnapshots(novelPath);
-      setSnapshots(updated?.snapshots ?? []);
-      if (onIndexRebuilt) {
-        onIndexRebuilt();
+      try {
+        if (createSafetyBackup) {
+          await backupHandlers.createSnapshot(novelPath, 'pre-restore safety backup');
+        }
+        await backupHandlers.restore(novelPath, snap.timestamp);
+        const updated = await backupHandlers.listSnapshots(novelPath);
+        setSnapshots(updated?.snapshots ?? []);
+        if (onIndexRebuilt) {
+          onIndexRebuilt();
+        }
+        window.dispatchEvent(new CustomEvent('zuojia:wiki-dictionary-updated', {
+          detail: { novelPath },
+        }));
+        if (onRestored) {
+          onRestored();
+        }
+        const label = snap.label || formatTimestamp(snap.timestamp);
+        setRestoreToast(`Restored from ${label}`);
+      } finally {
+        resumeSaves?.();
       }
-      window.dispatchEvent(new CustomEvent('zuojia:wiki-dictionary-updated', {
-        detail: { novelPath },
-      }));
-      if (onRestored) {
-        onRestored();
-      }
-      const label = snap.label || formatTimestamp(snap.timestamp);
-      setRestoreToast(`Restored from ${label}`);
     } catch (err) {
       setError(err.message || 'Restore failed');
     } finally {

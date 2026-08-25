@@ -475,6 +475,9 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       const startedAt = nowFn();
       let timeoutId;
+      // Declared outside the try so the catch block can reference it when
+      // deciding whether a connection error warrants a reconnect attempt.
+      const canUseSynapse = isUsingSynapse && Boolean(mcpClient) && Boolean(toolMapper) && toolMapper.hasMapping(toolName);
 
       try {
         const timeoutPromise = new Promise((_, reject) => {
@@ -484,7 +487,6 @@ function getRetryDelay(attempt, baseDelay = 1000, maxDelay = 10000) {
         let result;
 
         // Check if we should use Synapse
-        const canUseSynapse = isUsingSynapse && Boolean(mcpClient) && Boolean(toolMapper) && toolMapper.hasMapping(toolName);
         console.log(`[MCP] callTool "${toolName}" attempt=${attempt}, canUseSynapse=${canUseSynapse}, isUsingSynapse=${isUsingSynapse}, hasClient=${!!mcpClient}, hasMapping=${toolMapper ? toolMapper.hasMapping(toolName) : false}`);
         
         if (canUseSynapse) {

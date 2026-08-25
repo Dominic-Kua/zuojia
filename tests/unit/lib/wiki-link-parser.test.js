@@ -202,7 +202,16 @@ describe('resolveSlug', () => {
   });
 
   it('handles unicode characters', () => {
-    expect(resolveSlug('Café René')).toBe('caf-ren');
+    // Accented letters are preserved (unicode-aware slugifier, matches
+    // helper backend and normalizeSlug in wiki-link.js)
+    expect(resolveSlug('Café René')).toBe('café-rené');
+  });
+
+  it('preserves CJK characters in slugs', () => {
+    expect(resolveSlug('林黛玉')).toBe('林黛玉');
+    expect(resolveSlug('人物/贾宝玉')).toBe('人物/贾宝玉');
+    // Punctuation that isn't a letter/number is dropped, not slug-breaking
+    expect(resolveSlug('大观园（贾府）')).toBe('大观园贾府');
   });
 
   it('preserves path separators in subdirectory slugs', () => {

@@ -3,6 +3,8 @@
  * Parses [[page-name]] and [[page-name|display text]] syntax
  */
 
+import { normalizeSlug } from './wiki-link.js';
+
 /**
  * A single wiki link match found in text.
  * @typedef {Object} WikiLinkMatch
@@ -91,21 +93,13 @@ export function parseWikiLinks(text) {
 
 /**
  * Normalize a single path segment to a URL-safe slug.
+ * Delegates to the unicode-aware slugifier in wiki-link.js so CJK titles
+ * produce matching slugs everywhere (parser, sidebar, helper backend).
  * @param {string} segment - The segment to convert.
  * @returns {string} URL-safe slug derived from the segment.
  */
 function resolveSlugSegment(segment) {
-  return segment
-    .toLowerCase()
-    .trim()
-    // Replace spaces and underscores with hyphens
-    .replace(/[\s_]+/g, '-')
-    // Remove all non-alphanumeric characters except hyphens
-    .replace(/[^a-z0-9-]/g, '')
-    // Remove multiple consecutive hyphens
-    .replace(/-+/g, '-')
-    // Remove leading/trailing hyphens
-    .replace(/^-+|-+$/g, '');
+  return normalizeSlug(segment);
 }
 
 /**
@@ -118,11 +112,7 @@ export function resolveSlug(pageName) {
     return '';
   }
 
-  return pageName
-    .split('/')
-    .map(resolveSlugSegment)
-    .filter(Boolean)
-    .join('/');
+  return resolveSlugSegment(pageName);
 }
 
 /**

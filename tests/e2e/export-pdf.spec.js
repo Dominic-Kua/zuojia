@@ -85,7 +85,7 @@ test.describe('Story 5.1: PDF Export', () => {
       }
     });
 
-    await expect(page.getByTestId('export-error')).toContainText('TeX');
-    await expect(page.getByTestId('export-error')).toContainText('mactex-no-gui');
+    await expect(page.getByTestId('export-error')).toContainText('xelatex');
+    await expect(page.getByTestId('export-error')).toContainText('basictex');
   });
 });

@@ -14,5 +14,8 @@ release/
 .env.*.local
 *.log
 *.bak
+__pycache__/
+*.pyc
+.venv/
 .agents/
 

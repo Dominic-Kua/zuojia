@@ -54,16 +54,14 @@ describe('LLM Chat Flow', () => {
     
     // Mock initial state: LLM is stopped
     llmHandlers.health.mockResolvedValue({ status: 'stopped', uptimeMs: 0 });
+    // getConfig returns the unwrapped config (ipc-client strips the envelope)
     llmHandlers.getConfig.mockResolvedValue({
-      status: 'ok',
-      data: {
-        executablePath: '/opt/homebrew/bin/ollama',
-        modelName: 'gemma4:e2b',
-        host: '127.0.0.1',
-        port: 11434,
-        temperature: 0.7,
-        maxTokens: 4096,
-      },
+      executablePath: '/opt/homebrew/bin/ollama',
+      modelName: 'gemma4:e2b',
+      host: '127.0.0.1',
+      port: 11434,
+      temperature: 0.7,
+      maxTokens: 4096,
     });
 
     // Render SettingsModal
@@ -188,16 +186,14 @@ describe('LLM Chat Flow', () => {
     
     // Mock LLM as stopped
     llmHandlers.health.mockResolvedValue({ status: 'stopped', uptimeMs: 0 });
+    // getConfig returns the unwrapped config (ipc-client strips the envelope)
     llmHandlers.getConfig.mockResolvedValue({
-      status: 'ok',
-      data: {
-        executablePath: '/opt/homebrew/bin/ollama',
-        modelName: 'gemma4:e2b',
-        host: '127.0.0.1',
-        port: 11434,
-        temperature: 0.7,
-        maxTokens: 4096,
-      },
+      executablePath: '/opt/homebrew/bin/ollama',
+      modelName: 'gemma4:e2b',
+      host: '127.0.0.1',
+      port: 11434,
+      temperature: 0.7,
+      maxTokens: 4096,
     });
 
     render(<LlmChatWindow novelPath={novelPath} />);

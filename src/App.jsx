@@ -19,6 +19,46 @@ export default function App(){
   const sidebarRef = useRef(null);
   const mainGridRef = useRef(null);
   const wikiPageTimeoutRef = useRef(null);
+  // Holds the Manuscript editor's flush function so destructive operations
+  // (snapshot restore, novel close) can await pending debounced saves.
+  const editorFlushRef = useRef(null);
+
+  const handleRegisterEditorFlush = useCallback((flushFn) => {
+    editorFlushRef.current = flushFn;
+    return () => {
+      if (editorFlushRef.current === flushFn) {
+        editorFlushRef.current = null;
+      }
+    };
+  }, []);
+
+  const flushEditorBeforeDestructiveOp = useCallback(async () => {
+    if (editorFlushRef.current) {
+      try {
+        await editorFlushRef.current.flush();
+      } catch (err) {
+        console.error('Failed to flush pending editor save:', err);
+      }
+    }
+  }, []);
+
+  // For restores: flush pending saves, then SUSPEND new ones until the
+  // restore finishes (the returned resume function must be called in a
+  // finally block). Prevents an autosave holding pre-restore text from
+  // firing after restore rewrote the files.
+  const prepareEditorForRestore = useCallback(async () => {
+    const handlers = editorFlushRef.current;
+    if (!handlers) {
+      return null;
+    }
+    handlers.suspendSaves?.();
+    try {
+      await handlers.flush();
+    } catch (err) {
+      console.error('Failed to flush pending editor save:', err);
+    }
+    return () => handlers.resumeSaves?.();
+  }, []);
   const [theme, setTheme] = useState(() => {
     try {
       const stored = window.localStorage.getItem('zuojia-theme');
@@ -225,6 +265,9 @@ export default function App(){
   };
 
   const handleCloseNovel = async () => {
+    // Flush pending debounced chapter save before tearing down services —
+    // otherwise the last few hundred ms of typing is lost on close.
+    await flushEditorBeforeDestructiveOp();
     try {
       await appHandlers.stopNovelServices();
     } catch (err) {
@@ -420,19 +463,25 @@ export default function App(){
           <CommitButton novelPath={novelPath} />
           <PushButton novelPath={novelPath} />
           <LlmChatWindow novelPath={novelPath} servicesStatus={servicesStatus} servicesLoading={servicesLoading} />
-          <DiagnosticsPanel novelPath={novelPath} onIndexRebuilt={refreshWikiPages} onRestored={handleRestored} />
+          <DiagnosticsPanel
+            novelPath={novelPath}
+            onIndexRebuilt={refreshWikiPages}
+            onRestored={handleRestored}
+            onBeforeRestore={prepareEditorForRestore}
+          />
           <SettingsModal novelPath={novelPath} />
           <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>
         </div>
       </header>
       <main className="main-grid" ref={mainGridRef}>
         <section className="manuscript" data-testid="manuscript-section">
-          <Manuscript 
+          <Manuscript
             key={restoreKey}
-            novelPath={novelPath} 
-            wikiPages={wikiPages} 
+            novelPath={novelPath}
+            wikiPages={wikiPages}
             onOpenWikiPage={handleOpenWikiPage}
             editorFontSize={editorFontSize}
+            registerEditorFlush={handleRegisterEditorFlush}
           />
         </section>
         <div
