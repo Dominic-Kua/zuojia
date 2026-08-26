@@ -10,6 +10,9 @@ export default defineConfig({
   /* Rebuild dist/ if source is newer — e2e runs against the built renderer */
   globalSetup: './tests/e2e/e2e-global-setup.js',
 
+  /* Sweep orphaned test novels (e2e-*, test-*) from ~/.zuojia/ after each run */
+  globalTeardown: './tests/e2e/e2e-global-teardown.js',
+
   
   /* Maximum time one test can run for */
   timeout: 30 * 1000,
