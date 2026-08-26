@@ -254,6 +254,7 @@ export default function App(){
     } finally {
       setNovelPath(null);
       setServicesStatus(null);
+      setWikiDetached(false);
     }
   };
 
@@ -445,6 +446,9 @@ export default function App(){
             onBeforeRestore={prepareEditorForRestore}
           />
           <SettingsModal novelPath={novelPath} />
+          {wikiDetached && (
+            <button className="btn ghost" data-testid="topbar-dock-wiki-button" onClick={() => setWikiDetached(false)}>Dock Wiki</button>
+          )}
           <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>
         </div>
       </header>
@@ -459,14 +463,16 @@ export default function App(){
             registerEditorFlush={handleRegisterEditorFlush}
           />
         </section>
-        <div
-          className={`sidebar-resizer${isResizingSidebar ? ' active' : ''}`}
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize wiki sidebar"
-          data-testid="sidebar-resizer"
-          onMouseDown={() => setIsResizingSidebar(true)}
-        />
+        {!wikiDetached && (
+          <div
+            className={`sidebar-resizer${isResizingSidebar ? ' active' : ''}`}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize wiki sidebar"
+            data-testid="sidebar-resizer"
+            onMouseDown={() => setIsResizingSidebar(true)}
+          />
+        )}
         <aside className={`sidebar${wikiDetached ? ' collapsed' : ''}`} data-testid="sidebar-section" style={{ width: `${sidebarWidth}px` }}>
           <Sidebar
             key={`${restoreKey}-${novelPath}`}
