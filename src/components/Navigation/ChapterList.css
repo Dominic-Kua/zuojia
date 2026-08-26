@@ -28,10 +28,10 @@
 }
 
 .chapter-add-btn {
-  border: 1px solid var(--border-color, #ccc);
-  background: white;
-  color: var(--text-color, #333);
-  border-radius: 6px;
+  border: 1px solid var(--divider-strong);
+  background: transparent;
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
   padding: 0.15rem 0.5rem;
   font-size: 0.9rem;
   cursor: pointer;
@@ -44,7 +44,7 @@
 }
 
 .unsaved-indicator {
-  color: var(--danger-color, #e74c3c);
+  color: var(--danger);
   font-size: 1.25rem;
   line-height: 1;
   font-weight: bold;
@@ -52,39 +52,39 @@
 
 .chapter-search {
   width: 100%;
-  padding: 0.5rem;
-  border: 1px solid var(--border-color, #ccc);
-  border-radius: 4px;
-  font-size: 0.875rem;
-  background: var(--input-bg, white);
-  color: var(--text-color, #333);
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--divider-strong);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  background: var(--manuscript-surface);
+  color: var(--text-primary);
 }
 
 .chapter-search:focus {
   outline: none;
-  border-color: var(--primary-color, #007aff);
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .chapter-dropdown {
   width: 100%;
-  padding: 0.5rem;
-  border: 1px solid var(--border-color, #ccc);
-  border-radius: 4px;
-  font-size: 0.875rem;
-  background: var(--input-bg, white);
-  color: var(--text-color, #333);
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--divider-strong);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  background: var(--manuscript-surface);
+  color: var(--text-primary);
   cursor: pointer;
 }
 
 .chapter-dropdown:hover:not(:disabled) {
-  border-color: var(--primary-color, #007aff);
+  border-color: var(--accent);
 }
 
 .chapter-dropdown:focus {
   outline: none;
-  border-color: var(--primary-color, #007aff);
-  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .chapter-dropdown:disabled {
@@ -96,20 +96,3 @@
   padding: 0.5rem;
 }
 
-/* Dark theme support */
-@media (prefers-color-scheme: dark) {
-  .chapter-list-header label {
-    color: var(--text-color, #e0e0e0);
-  }
-
-  .chapter-search,
-  .chapter-dropdown {
-    background: var(--input-bg, #2a2a2a);
-    color: var(--text-color, #e0e0e0);
-    border-color: var(--border-color, #444);
-  }
-
-  .chapter-search::placeholder {
-    color: var(--text-muted, #888);
-  }
-}
