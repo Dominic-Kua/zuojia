@@ -39,7 +39,7 @@
   width: 100%;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--color-border, #e0e0e0);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 0.9rem;
   background: var(--color-bg-primary, #fff);
   color: var(--color-text-primary, #333);
@@ -75,8 +75,8 @@
 }
 
 .wiki-page-item.selected {
-  background-color: var(--color-accent-light, #f0f7ff);
-  border-left: 3px solid var(--color-accent, #0066cc);
+  background-color: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .wiki-page-button {
@@ -125,13 +125,7 @@
   color: var(--color-text-secondary, #888);
 }
 
-.wiki-page-wordcount::before {
-  content: '📝 ';
-}
 
-.wiki-page-modified::before {
-  content: '⏱ ';
-}
 
 .wiki-delete-icon {
   position: absolute;
@@ -143,7 +137,7 @@
   background: var(--color-danger-light, #ffe6e6);
   color: var(--color-danger, #d32f2f);
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   font-size: 1rem;
   line-height: 1;
   transition: all 0.15s ease;
@@ -180,7 +174,7 @@
   gap: 0.75rem;
   padding: 0.75rem;
   background: var(--color-danger-light, #ffe6e6);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   z-index: 10;
 }
 
@@ -202,7 +196,7 @@
   flex: 1;
   padding: 0.35rem 0.5rem;
   border: none;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   font-size: 0.8rem;
   cursor: pointer;
   font-weight: 500;
