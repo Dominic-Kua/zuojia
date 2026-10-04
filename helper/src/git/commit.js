@@ -4,6 +4,7 @@ import { writeFile } from 'fs/promises';
 import { execFileSync } from 'child_process';
 import { createSnapshot } from '../backup/snapshot.js';
 import { createError } from '../util/error.js';
+import { ensureNovelGitignore } from './gitignore.js';
 
 function ensureGitRepo(novelPath) {
   const gitDir = path.join(novelPath, '.git');
@@ -15,6 +16,7 @@ function ensureGitRepo(novelPath) {
     execFileSync('git', ['init'], { cwd: novelPath, stdio: 'ignore' });
     execFileSync('git', ['config', 'user.name', 'zuojia'], { cwd: novelPath, stdio: 'ignore' });
     execFileSync('git', ['config', 'user.email', 'zuojia@localhost'], { cwd: novelPath, stdio: 'ignore' });
+    ensureNovelGitignore(novelPath);
     return null;
   } catch (err) {
     return createError(
@@ -47,11 +49,16 @@ function parseChangedFiles(output) {
     .split('\n')
     .map((line) => line.trimEnd())
     .filter(Boolean)
-    .map((line) => line.slice(3).trim())
-    .filter((file) => file.startsWith('manuscript/') && file.endsWith('.md'));
+    .map((line) => {
+      // Rename entries look like `R  old -> new`; the new path is what matters.
+      const arrow = line.indexOf(' -> ');
+      const entry = arrow >= 0 ? line.slice(arrow + 4) : line.slice(3);
+      return entry.trim().replace(/^"|"$/g, '');
+    })
+    .filter(Boolean);
 }
 
-function getChangedManuscriptFiles(novelPath) {
+function getChangedFiles(novelPath) {
   const output = execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], {
     cwd: novelPath,
     encoding: 'utf-8',
@@ -65,29 +72,37 @@ function validateSelectedFiles(novelPath, files) {
     return createError(
       'NO_FILES_SELECTED',
       'No files selected for commit',
-      'Select at least one changed chapter before committing'
+      'Select at least one changed file before committing'
     );
   }
 
   const novelRoot = path.resolve(novelPath);
-  const manuscriptRoot = path.resolve(novelPath, 'manuscript');
 
   for (const file of files) {
     if (typeof file !== 'string' || file.trim().length === 0) {
       return createError(
         'INVALID_SELECTED_FILE',
         'Invalid file selection',
-        'Only changed manuscript chapters can be committed'
+        'Only files inside the novel directory can be committed'
+      );
+    }
+
+    // Reject parent escapes even when they normalize back inside the novel.
+    if (file.split(/[\\/]/).includes('..')) {
+      return createError(
+        'INVALID_PATH_TRAVERSAL',
+        'Path traversal detected',
+        'Selected files must stay inside the novel directory'
       );
     }
 
     const resolved = path.resolve(novelRoot, file);
-    const relative = path.relative(manuscriptRoot, resolved);
+    const relative = path.relative(novelRoot, resolved);
     if (relative.startsWith('..') || path.isAbsolute(relative)) {
       return createError(
         'INVALID_PATH_TRAVERSAL',
         'Path traversal detected',
-        'Selected files must stay inside the novel manuscript directory'
+        'Selected files must stay inside the novel directory'
       );
     }
   }
@@ -110,7 +125,7 @@ export async function listChangedFiles(novelPath) {
     return {
       status: 'ok',
       data: {
-        files: getChangedManuscriptFiles(novelPath),
+        files: getChangedFiles(novelPath),
       },
       timestamp: new Date().toISOString(),
     };
@@ -141,7 +156,7 @@ export async function createManualCommit(novelPath, files, message) {
       return selectedFileError;
     }
 
-    const changedFiles = getChangedManuscriptFiles(novelPath);
+    const changedFiles = getChangedFiles(novelPath);
     const hasInvalidSelection = files.some((file) => !changedFiles.includes(file));
     if (hasInvalidSelection) {
       return createError(
@@ -306,6 +321,7 @@ export async function commitChapter(novelPath, filename, content) {
         execFileSync('git', ['init'], { cwd: novelPath, stdio: 'ignore' });
         execFileSync('git', ['config', 'user.name', 'zuojia'], { cwd: novelPath, stdio: 'ignore' });
         execFileSync('git', ['config', 'user.email', 'zuojia@localhost'], { cwd: novelPath, stdio: 'ignore' });
+        ensureNovelGitignore(novelPath);
       } catch (initErr) {
         return createError('GIT_INIT_FAILED', 'Failed to initialize git repository',
           'Check file permissions and disk space', { error: initErr.message });

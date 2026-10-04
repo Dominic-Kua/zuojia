@@ -29,8 +29,8 @@ describe('manual git commit helpers', () => {
     await fs.rm(testDir, { recursive: true, force: true });
   });
 
-  it('lists changed manuscript files from git status', async () => {
-    execFileSync.mockReturnValue(' M manuscript/chapter-01.md\n?? manuscript/chapter-02.md\n M wiki/page.md\n');
+  it('lists all changed files from git status, not just manuscript', async () => {
+    execFileSync.mockReturnValue(' M manuscript/chapter-01.md\n?? manuscript/chapter-02.md\n M wiki/page.md\n M meta/index.json\n');
 
     const result = await listChangedFiles(testDir);
 
@@ -38,6 +38,8 @@ describe('manual git commit helpers', () => {
     expect(result.data.files).toEqual([
       'manuscript/chapter-01.md',
       'manuscript/chapter-02.md',
+      'wiki/page.md',
+      'meta/index.json',
     ]);
   });
 
@@ -77,6 +79,30 @@ describe('manual git commit helpers', () => {
     expect(result.data.snapshot.timestamp).toBe(111);
   });
 
+  it('creates a manual commit with a wiki file', async () => {
+    createSnapshot.mockResolvedValue({
+      status: 'ok',
+      data: { timestamp: 112, label: 'pre-commit: Save wiki', path: '/snap' },
+    });
+
+    execFileSync.mockImplementation((cmd, args) => {
+      if (cmd !== 'git') {
+        throw new Error('unexpected command');
+      }
+      if (args[0] === 'status') return ' M wiki/page.md\n';
+      if (args[0] === 'add') return '';
+      if (args[0] === 'commit') return '';
+      if (args[0] === 'rev-parse') return 'def5678abc1234\n';
+      if (args[0] === 'config') return 'zuojia\n';
+      throw new Error('unexpected git args: ' + args.join(' '));
+    });
+
+    const result = await createManualCommit(testDir, ['wiki/page.md'], 'Save wiki');
+
+    expect(execFileSync).toHaveBeenCalledWith('git', ['add', '--', 'wiki/page.md'], expect.any(Object));
+    expect(result.status).toBe('ok');
+  });
+
   it('rejects empty file selection', async () => {
     const result = await createManualCommit(testDir, [], 'Save work');
 
@@ -85,6 +111,8 @@ describe('manual git commit helpers', () => {
   });
 
   it('rejects empty commit message', async () => {
+    execFileSync.mockReturnValue(' M manuscript/chapter-01.md\n');
+
     const result = await createManualCommit(testDir, ['manuscript/chapter-01.md'], '   ');
 
     expect(result.status).toBe('error');
@@ -100,11 +128,13 @@ describe('manual git commit helpers', () => {
     expect(result.error.code).toBe('INVALID_SELECTED_FILE');
   });
 
-  it('rejects path traversal via sibling directory prefix trick', async () => {
+  it('rejects in-novel files that are not currently changed', async () => {
+    execFileSync.mockReturnValue(' M manuscript/chapter-01.md\n');
+
     const result = await createManualCommit(testDir, ['manuscript-evil/secret.md'], 'Save work');
 
     expect(result.status).toBe('error');
-    expect(result.error.code).toBe('INVALID_PATH_TRAVERSAL');
+    expect(result.error.code).toBe('INVALID_SELECTED_FILE');
   });
 
   it('rejects path traversal via parent directory escape', async () => {

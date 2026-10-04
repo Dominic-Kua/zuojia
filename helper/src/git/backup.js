@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { createError } from '../util/error.js';
+import { ensureNovelGitignore } from './gitignore.js';
 
 function ensureGitRepo(novelPath) {
   const gitDir = path.join(novelPath, '.git');
@@ -13,6 +14,7 @@ function ensureGitRepo(novelPath) {
     execFileSync('git', ['init'], { cwd: novelPath, stdio: 'ignore' });
     execFileSync('git', ['config', 'user.name', 'zuojia'], { cwd: novelPath, stdio: 'ignore' });
     execFileSync('git', ['config', 'user.email', 'zuojia@localhost'], { cwd: novelPath, stdio: 'ignore' });
+    ensureNovelGitignore(novelPath);
     return null;
   } catch (err) {
     return createError('GIT_INIT_FAILED', 'Failed to initialize git repository',

@@ -59,17 +59,48 @@ function getGitArgs(remoteUrl, args = []) {
   return ['-c', `remote.origin.url=${remoteUrl}`, ...args];
 }
 
+// Generated/ignorable paths that must not block a push. New repos exclude
+// these via .gitignore; this filter covers existing repos created before
+// the gitignore existed (same set as backup staging exclusions).
+const PUSH_IGNORED_DIR_PREFIXES = ['meta/backups/', 'meta/exports/', 'meta/logs/'];
+const PUSH_IGNORED_BASENAMES = ['.DS_Store'];
+
+function isPushIgnorablePath(file) {
+  const normalized = file.replace(/\\/g, '/');
+  if (PUSH_IGNORED_BASENAMES.includes(path.basename(normalized))) {
+    return true;
+  }
+  return PUSH_IGNORED_DIR_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+}
+
+function getBlockingChanges(output) {
+  if (!output || output.trim().length === 0) {
+    return [];
+  }
+
+  return output
+    .split('\n')
+    .filter((line) => line.trim().length > 0)
+    .map((line) => {
+      // Rename entries look like `R  old -> new`; the new path is what matters.
+      const arrow = line.indexOf(' -> ');
+      const entry = arrow >= 0 ? line.slice(arrow + 4) : line.slice(3);
+      return entry.trim().replace(/^"|"$/g, '');
+    })
+    .filter((file) => file.length > 0 && !isPushIgnorablePath(file));
+}
+
 function ensureCleanWorkingTree(novelPath) {
   try {
     const output = execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], {
       cwd: novelPath,
       encoding: 'utf-8',
     });
-    if (output.trim().length > 0) {
+    if (getBlockingChanges(output).length > 0) {
       return createError(
         'WORKING_TREE_DIRTY',
         'There are uncommitted changes in the working tree',
-        'Create a commit before pushing so the remote backup is explicit and reproducible'
+        'Commit your changes (Commit button) before pushing so the remote backup is explicit and reproducible'
       );
     }
     return null;
@@ -145,7 +176,10 @@ export async function pushToRemote(novelPath) {
 
     const useSsh = isSshRemote(remoteUrl);
 
-    if (useSsh) {
+    // sshKeyPath is null when the key field is blank (auto): ssh uses the
+    // agent, ssh config, and default key files (id_ed25519, id_rsa, ...).
+    // Only an explicitly configured key is pinned and pre-checked here.
+    if (useSsh && sshKeyPath) {
       const keyPathError = validateSshKeyPath(sshKeyPath);
       if (keyPathError) {
         return keyPathError;
