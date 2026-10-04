@@ -12,7 +12,7 @@ import {
 const DEFAULT_SETTINGS = {
   remoteUrl: '',
   branch: 'main',
-  sshKeyPath: '~/.ssh/id_rsa',
+  sshKeyPath: '',
 };
 
 const DEFAULT_LLM_SETTINGS = {
@@ -251,7 +251,7 @@ export function SettingsModal({ novelPath }) {
                   </label>
 
                   <label className="settings-field" htmlFor="git-ssh-key-input">
-                    <span>SSH key path</span>
+                    <span>SSH key path (blank = auto)</span>
                     <input
                       id="git-ssh-key-input"
                       data-testid="git-ssh-key-input"
@@ -259,6 +259,7 @@ export function SettingsModal({ novelPath }) {
                       type="text"
                       value={settings.sshKeyPath}
                       onChange={handleChange('sshKeyPath')}
+                      placeholder="auto: ssh-agent / ~/.ssh/id_ed25519 / ~/.ssh/id_rsa"
                     />
                   </label>
                 </>

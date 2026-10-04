@@ -51,7 +51,8 @@ test.describe('Story 4.5: Git Configuration', () => {
 
     await page.getByTestId('git-remote-url-input').fill(remotePath);
     await page.getByTestId('git-branch-input').fill('main');
-    await page.getByTestId('git-ssh-key-input').fill('~/.ssh/id_rsa');
+    // Blank key = auto mode (ssh-agent / default keys); no fixed key file needed.
+    await page.getByTestId('git-ssh-key-input').fill('');
     await page.getByTestId('settings-save').click();
 
     await expect(page.getByTestId('settings-dialog')).not.toBeVisible({ timeout: 5000 });
@@ -60,7 +61,7 @@ test.describe('Story 4.5: Git Configuration', () => {
     const configContent = await fs.readFile(configPath, 'utf-8');
     expect(configContent).toContain(`remoteUrl: ${remotePath}`);
     expect(configContent).toContain('branch: main');
-    expect(configContent).toContain('sshKeyPath: ~/.ssh/id_rsa');
+    expect(configContent).toContain('sshKeyPath:');
 
     const configResult = await page.evaluate(
       async ({ novelPath }) => window.electronAPI.invoke('helper:git:getConfig', { novelPath }),

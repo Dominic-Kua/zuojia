@@ -215,6 +215,37 @@ export function ensureSshKeyExists(sshKeyPath) {
   return null;
 }
 
+/**
+ * Resolve the effective SSH key for an SSH remote (path validation only;
+ * existence is checked by the caller so push can report agent problems first).
+ *
+ * - Blank (auto): returns { keyPath: null } so git/ssh uses the agent,
+ *   ssh config, and default key files (id_ed25519, id_rsa, ...). No
+ *   filesystem probing, no forced `-i` flag.
+ * - Explicit path: validated and returned expanded.
+ * - Legacy default (`~/.ssh/id_rsa`) that is missing on disk: treated as
+ *   auto instead of failing, healing configs written when id_rsa was the
+ *   hardcoded default.
+ */
+export function resolveSshKeyPath(rawSshKeyPath) {
+  const trimmed = String(rawSshKeyPath || '').trim();
+  if (!trimmed) {
+    return { keyPath: null };
+  }
+
+  const expanded = expandHome(trimmed);
+  if (trimmed === DEFAULT_GIT_SETTINGS.sshKeyPath && !fs.existsSync(expanded)) {
+    return { keyPath: null };
+  }
+
+  const keyPathError = validateSshKeyPath(trimmed);
+  if (keyPathError) {
+    return { error: keyPathError };
+  }
+
+  return { keyPath: expanded };
+}
+
 export function getExecOptions(novelPath, sshKeyPath = null) {
   const env = { ...process.env };
   if (sshKeyPath) {
@@ -252,16 +283,12 @@ async function validateRemoteReachable(novelPath, remoteUrl, sshKeyPath) {
   let effectiveSshKeyPath = null;
 
   if (useSsh) {
-    const keyPathError = validateSshKeyPath(sshKeyPath);
-    if (keyPathError) {
-      return keyPathError;
+    const resolved = resolveSshKeyPath(sshKeyPath);
+    if (resolved.error) {
+      return resolved.error;
     }
 
-    effectiveSshKeyPath = expandHome(sshKeyPath);
-    const sshKeyError = ensureSshKeyExists(effectiveSshKeyPath);
-    if (sshKeyError) {
-      return sshKeyError;
-    }
+    effectiveSshKeyPath = resolved.keyPath;
   }
 
   const controller = new AbortController();
@@ -308,6 +335,8 @@ export async function getGitSettings(novelPath) {
   if (!existing) {
     // No config file yet: inherit from the linked git repo when possible so
     // the Settings form pre-fills the actual remote/branch instead of blanks.
+    // sshKeyPath stays blank (= auto: ssh-agent / default keys) so ed25519,
+    // rsa, and agent-only setups all work without extra configuration.
     const remoteUrl = getNativeGitRemoteUrl(novelPath);
     const branch = getNativeCurrentBranch(novelPath) || DEFAULT_GIT_SETTINGS.branch;
     return {
@@ -315,7 +344,7 @@ export async function getGitSettings(novelPath) {
       data: {
         remoteUrl,
         branch,
-        sshKeyPath: DEFAULT_GIT_SETTINGS.sshKeyPath,
+        sshKeyPath: '',
       },
       timestamp: new Date().toISOString(),
     };
@@ -333,6 +362,15 @@ export async function getGitSettings(novelPath) {
   const rawBranch = String(fileSettings.branch || '').trim();
   if (!rawBranch) {
     normalized.branch = getNativeCurrentBranch(novelPath) || normalized.branch;
+  }
+  // Blank means "auto" (agent / default keys); a legacy id_rsa default that
+  // no longer exists on disk is likewise treated as auto.
+  const rawSshKey = String(fileSettings.sshKeyPath || '').trim();
+  if (!rawSshKey) {
+    normalized.sshKeyPath = '';
+  } else {
+    const resolved = resolveSshKeyPath(rawSshKey);
+    normalized.sshKeyPath = resolved.error ? rawSshKey : (resolved.keyPath ? rawSshKey : '');
   }
 
   return {
@@ -382,11 +420,18 @@ export function loadGitConfig(novelPath) {
     return noRemoteConfiguredError();
   }
 
+  // Blank means "auto" (ssh-agent / default keys such as id_ed25519 or
+  // id_rsa); only an explicitly configured key is pinned via `-i`.
+  const resolvedSshKey = resolveSshKeyPath(fileSettings.sshKeyPath);
+  if (resolvedSshKey.error) {
+    return resolvedSshKey.error;
+  }
+
   return {
     status: 'ok',
     data: {
       ...config,
-      sshKeyPath: expandHome(config.sshKeyPath),
+      sshKeyPath: resolvedSshKey.keyPath,
     },
   };
 }
@@ -406,7 +451,21 @@ export async function saveGitSettings(novelPath, settings) {
     );
   }
 
-  const remoteValidation = await validateRemoteReachable(novelPath, normalized.remoteUrl, normalized.sshKeyPath);
+  // Resolve against the raw key field so blank stays "auto" instead of being
+  // forced to the legacy id_rsa default.
+  const resolvedSshKey = resolveSshKeyPath(settings.sshKeyPath);
+  if (resolvedSshKey.error) {
+    return resolvedSshKey.error;
+  }
+  if (resolvedSshKey.keyPath) {
+    const sshKeyError = ensureSshKeyExists(resolvedSshKey.keyPath);
+    if (sshKeyError) {
+      return sshKeyError;
+    }
+  }
+  normalized.sshKeyPath = resolvedSshKey.keyPath ? String(settings.sshKeyPath).trim() : '';
+
+  const remoteValidation = await validateRemoteReachable(novelPath, normalized.remoteUrl, resolvedSshKey.keyPath);
   if (remoteValidation.status === 'error') {
     return remoteValidation;
   }
