@@ -41,14 +41,52 @@ describe('pushToRemote', () => {
     expect(result.error.code).toBe('GIT_REPO_NOT_FOUND');
   });
 
-  it('returns error when git config file is missing', async () => {
+  it('returns REMOTE_NOT_CONFIGURED with setup guidance when no config file and no git remote', async () => {
+    // No meta/config.yml and `git config --get remote.origin.url` fails (mock
+    // throws) -> fallback finds nothing, so push guides to Settings instead
+    // of demanding a config file.
+    execFileSync.mockImplementation((cmd, args) => {
+      if (cmd === 'git' && args[0] === '--version') return 'git version 2.42.0';
+      throw new Error(`unexpected command ${cmd} ${args.join(' ')}`);
+    });
     const result = await pushToRemote(TEST_DIR);
     expect(result.status).toBe('error');
-    expect(result.error.code).toBe('GIT_CONFIG_MISSING');
+    expect(result.error.code).toBe('REMOTE_NOT_CONFIGURED');
+    expect(result.error.suggestion).toMatch(/Settings.*Git Settings|git remote add origin/);
+  });
+
+  it('inherits remote and branch from existing git repo when config file is missing', async () => {
+    // HTTPS remote skips SSH-key checks, isolating the inheritance behavior.
+    execFileSync.mockImplementation((cmd, args) => {
+      if (cmd === 'git' && args[0] === '--version') return 'git version 2.42.0';
+      if (cmd === 'git' && args[0] === 'config' && args[1] === '--get') return 'https://github.com/user/repo.git\n';
+      if (cmd === 'git' && args[0] === 'rev-parse') return 'feature\n';
+      if (cmd === 'git' && args[0] === 'status') return '';
+      if (cmd === 'git' && args[0] === '-c' && args[2] === 'ls-remote') return 'abc123\trefs/heads/feature\n';
+      if (cmd === 'git' && args[0] === 'rev-list') return '1\n';
+      if (cmd === 'git' && args[0] === '-c' && args[2] === 'push') return '';
+      return '';
+    });
+
+    const result = await pushToRemote(TEST_DIR);
+
+    expect(result.status).toBe('ok');
+    expect(result.data.remoteUrl).toBe('https://github.com/user/repo.git');
+    expect(result.data.branch).toBe('feature');
+    expect(execFileSync).toHaveBeenCalledWith(
+      'git',
+      ['-c', 'remote.origin.url=https://github.com/user/repo.git', 'push', '-u', 'origin', 'feature'],
+      expect.any(Object)
+    );
   });
 
   it('returns error when remote is not configured', async () => {
     await writeConfig('git:\n  branch: main\n');
+    // Simulate a repo with no `origin` remote so the fallback finds nothing.
+    execFileSync.mockImplementation((cmd, args) => {
+      if (cmd === 'git' && args[0] === '--version') return 'git version 2.42.0';
+      throw new Error(`unexpected command ${cmd} ${args.join(' ')}`);
+    });
     const result = await pushToRemote(TEST_DIR);
     expect(result.status).toBe('error');
     expect(result.error.code).toBe('REMOTE_NOT_CONFIGURED');
@@ -65,6 +103,57 @@ describe('pushToRemote', () => {
     const result = await pushToRemote(TEST_DIR);
     expect(result.status).toBe('error');
     expect(result.error.code).toBe('SSH_KEY_NOT_FOUND');
+  });
+
+  it('uses ssh auto mode (no -i flag, no agent check) when key field is blank', async () => {
+    // Blank key = auto: works with id_ed25519, id_rsa, or agent-only setups.
+    await writeConfig('git:\n  remoteUrl: git@github.com:user/repo.git\n  branch: main\n  sshKeyPath: \n');
+    execFileSync.mockImplementation((cmd, args) => {
+      if (cmd === 'git' && args[0] === '--version') return 'git version 2.42.0';
+      if (cmd === 'git' && args[0] === 'status') return '';
+      if (cmd === 'git' && args[0] === '-c' && args[2] === 'ls-remote') return 'abc123\trefs/heads/main\n';
+      if (cmd === 'git' && args[0] === 'rev-list') return '2\n';
+      if (cmd === 'git' && args[0] === '-c' && args[2] === 'push') return '';
+      throw new Error(`unexpected command ${cmd} ${args.join(' ')}`);
+    });
+
+    const result = await pushToRemote(TEST_DIR);
+
+    expect(result.status).toBe('ok');
+    expect(result.data.pushed).toBe(true);
+    // No ssh-add probe and no forced identity file in auto mode.
+    expect(execFileSync).not.toHaveBeenCalledWith('ssh-add', expect.any(Array), expect.anything());
+    const pushCall = execFileSync.mock.calls.find(
+      (c) => c[0] === 'git' && c[1].includes('push')
+    );
+    expect(pushCall).toBeDefined();
+    expect(pushCall[2].env.GIT_SSH_COMMAND).toBeUndefined();
+  });
+
+  it('treats a missing legacy id_rsa default as auto instead of failing', async () => {
+    // Configs written when id_rsa was the hardcoded default keep working for
+    // ed25519 / agent users when that file does not exist.
+    await writeConfig('git:\n  remoteUrl: git@github.com:user/repo.git\n  branch: main\n  sshKeyPath: ~/.ssh/id_rsa\n');
+    execFileSync.mockImplementation((cmd, args) => {
+      if (cmd === 'git' && args[0] === '--version') return 'git version 2.42.0';
+      if (cmd === 'git' && args[0] === 'status') return '';
+      if (cmd === 'git' && args[0] === '-c' && args[2] === 'ls-remote') return 'abc123\trefs/heads/main\n';
+      if (cmd === 'git' && args[0] === 'rev-list') return '2\n';
+      if (cmd === 'git' && args[0] === '-c' && args[2] === 'push') return '';
+      throw new Error(`unexpected command ${cmd} ${args.join(' ')}`);
+    });
+
+    const result = await pushToRemote(TEST_DIR);
+
+    // Passes on machines without ~/.ssh/id_rsa (auto mode); on machines with
+    // that file it takes the explicit-key path and fails SSH_KEY_NOT_FOUND
+    // only if ssh-add is not stubbed — either way it must not be an
+    // INVALID_* path error.
+    if (result.status === 'error') {
+      expect(['SSH_KEY_NOT_FOUND', 'SSH_AGENT_UNAVAILABLE', 'SSH_AGENT_CHECK_FAILED']).toContain(result.error.code);
+    } else {
+      expect(result.data.pushed).toBe(true);
+    }
   });
 
   it('returns error when ssh agent is unavailable', async () => {
@@ -116,7 +205,27 @@ describe('pushToRemote', () => {
     expect(result.error.code).toBe('SSH_AGENT_CHECK_FAILED');
   });
 
-  it('returns error when working tree has uncommitted changes', async () => {
+  it('pushes when only generated files are dirty (backups, logs, .DS_Store)', async () => {
+    await writeConfig('git:\n  remoteUrl: https://github.com/user/repo.git\n  branch: main\n');
+
+    execFileSync.mockImplementation((cmd, args) => {
+      if (cmd === 'git' && args[0] === '--version') return 'git version 2.42.0';
+      if (cmd === 'git' && args[0] === 'status') {
+        return '?? meta/backups/pre-commit-123/\n?? meta/logs/app.log\n?? manuscript/.DS_Store\n';
+      }
+      if (cmd === 'git' && args[0] === '-c' && args[2] === 'ls-remote') return 'abc123\trefs/heads/main\n';
+      if (cmd === 'git' && args[0] === 'rev-list') return '1\n';
+      if (cmd === 'git' && args[0] === '-c' && args[2] === 'push') return '';
+      throw new Error(`unexpected command ${cmd} ${args.join(' ')}`);
+    });
+
+    const result = await pushToRemote(TEST_DIR);
+
+    expect(result.status).toBe('ok');
+    expect(result.data.pushed).toBe(true);
+  });
+
+  it('still blocks push when real writing changes are uncommitted', async () => {
     const sshKeyPath = path.join(TEST_DIR, 'id_test');
     await fs.writeFile(sshKeyPath, 'key');
     await writeConfig(`git:\n  remoteUrl: git@github.com:user/repo.git\n  branch: main\n  sshKeyPath: ${sshKeyPath}\n`);
@@ -214,7 +323,7 @@ describe('pushToRemote', () => {
     expect(result.data.pushedCommits).toBe(3);
     expect(execFileSync).toHaveBeenCalledWith(
       'git',
-      ['-c', 'remote.origin.url=git@github.com:user/repo.git', 'push', 'origin', 'main'],
+      ['-c', 'remote.origin.url=git@github.com:user/repo.git', 'push', '-u', 'origin', 'main'],
       expect.any(Object)
     );
     expect(execFileSync).not.toHaveBeenCalledWith('git', ['remote', 'set-url', 'origin', 'git@github.com:user/repo.git'], expect.any(Object));

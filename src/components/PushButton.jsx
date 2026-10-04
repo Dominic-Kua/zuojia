@@ -32,7 +32,11 @@ export function PushButton({ novelPath }) {
     } catch (err) {
       setError({
         message: err.message || 'Push failed',
-        suggestion: err.suggestion || 'Check your git remote configuration and SSH agent.',
+        suggestion:
+          err.suggestion ||
+          (err.code === 'REMOTE_NOT_CONFIGURED'
+            ? 'No git remote found. Open Settings → Git Settings and enter a Remote URL, or run: git remote add origin <url>.'
+            : 'Check your git remote configuration and SSH agent. An existing checkout with an upstream is used automatically.'),
       });
     } finally {
       setIsPushing(false);

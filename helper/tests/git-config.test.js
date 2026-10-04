@@ -28,7 +28,7 @@ describe('git config helpers', () => {
     expect(result.data).toEqual({
       remoteUrl: '',
       branch: 'main',
-      sshKeyPath: '~/.ssh/id_rsa',
+      sshKeyPath: '',
     });
   });
 
@@ -53,12 +53,13 @@ describe('git config helpers', () => {
 
     expect(result.status).toBe('ok');
     expect(result.data.branch).toBe('main');
-    expect(result.data.sshKeyPath).toBe('~/.ssh/id_rsa');
+    // Blank key stays "auto" (ssh-agent / default keys) instead of forcing id_rsa.
+    expect(result.data.sshKeyPath).toBe('');
 
     const saved = await fs.readFile(path.join(TEST_DIR, 'meta', 'config.yml'), 'utf-8');
     expect(saved).toContain('remoteUrl: https://github.com/user/repo.git');
     expect(saved).toContain('branch: main');
-    expect(saved).toContain('sshKeyPath: ~/.ssh/id_rsa');
+    expect(saved).toContain('sshKeyPath:');
   });
 
   it('does not persist config when remote validation fails', async () => {

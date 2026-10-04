@@ -127,11 +127,11 @@ export function CommitButton({ novelPath }) {
             data-testid="commit-dialog"
           >
             <h3 id="commit-dialog-title">Create Commit</h3>
-            <p>Select the changed chapters to include and write a meaningful commit message.</p>
-            {isLoading && <div className="commit-loading">Loading changed chapters...</div>}
+            <p>Select the changed files to include and write a meaningful commit message.</p>
+            {isLoading && <div className="commit-loading">Loading changed files...</div>}
             {!isLoading && error && <div className="snapshot-error" data-testid="commit-error">{error}</div>}
             {!isLoading && !error && !hasFiles && (
-              <div className="commit-empty-state" data-testid="commit-empty-state">No changed chapters to commit.</div>
+              <div className="commit-empty-state" data-testid="commit-empty-state">No changed files to commit.</div>
             )}
             {!isLoading && hasFiles && (
               <div className="commit-file-list" data-testid="commit-file-list">
