@@ -170,7 +170,9 @@ export async function pushToRemote(novelPath) {
     const effectiveSshKeyPath = useSsh ? sshKeyPath : null;
     const pushedCommits = getPushCountForRemote(novelPath, remoteUrl, branch, effectiveSshKeyPath);
     const options = getExecOptions(novelPath, effectiveSshKeyPath);
-    execFileSync('git', getGitArgs(remoteUrl, ['push', 'origin', branch]), options);
+    // `-u` sets the upstream on first push so later plain `git push`/`pull`
+    // keep working; when an upstream is already set this is a no-op.
+    execFileSync('git', getGitArgs(remoteUrl, ['push', '-u', 'origin', branch]), options);
 
     return {
       status: 'ok',
