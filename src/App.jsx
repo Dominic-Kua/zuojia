@@ -68,17 +68,34 @@ export default function App(){
       return 'light';
     }
   });
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
+  // ── Tiling layout ──
+  // wikiPct = % of the main-grid width given to the wiki pane (0–100).
+  // 0 = manuscript only, 100 = wiki only, anything in between = split.
+  // Persisted so the desk remembers its arrangement across sessions.
+  const DEFAULT_WIKI_PCT = 30;
+  const [wikiPct, setWikiPct] = useState(() => {
     try {
-      const stored = Number(window.localStorage.getItem('zuojia-sidebar-width'));
-      if (Number.isFinite(stored) && stored >= 280 && stored <= 720) {
+      const stored = Number(window.localStorage.getItem('zuojia-layout-wiki-pct'));
+      if (Number.isFinite(stored) && stored >= 0 && stored <= 100) {
         return stored;
+      }
+      // One-time migration from the legacy pixel width (≈1200px desk).
+      const legacy = Number(window.localStorage.getItem('zuojia-sidebar-width'));
+      if (Number.isFinite(legacy) && legacy >= 280 && legacy <= 720) {
+        return Math.max(0, Math.min(100, (legacy / 1200) * 100));
       }
     } catch {
       // Ignore storage failures and use default.
     }
-    return 360;
+    return DEFAULT_WIKI_PCT;
   });
+  // Remembers the last non-maximized split so collapse/expand can restore it.
+  const lastSplitRef = useRef(null);
+  useEffect(() => {
+    if (wikiPct > 0 && wikiPct < 100) {
+      lastSplitRef.current = wikiPct;
+    }
+  }, [wikiPct]);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const [servicesStatus, setServicesStatus] = useState(null);
   const [servicesLoading, setServicesLoading] = useState(false);
@@ -121,6 +138,29 @@ export default function App(){
   const [isDraggingWikiPanel, setIsDraggingWikiPanel] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0, panelX: 0, panelY: 0 });
 
+  // Floating panel size — resizable via the SE corner handle, persisted.
+  const DEFAULT_WIKI_PANEL_SIZE = { width: 380, height: 600 };
+  const MIN_WIKI_PANEL_SIZE = { width: 280, height: 200 };
+  const [wikiPanelSize, setWikiPanelSize] = useState(() => {
+    try {
+      const stored = window.localStorage.getItem('zuojia-wiki-panel-size');
+      if (stored) {
+        const size = JSON.parse(stored);
+        if (typeof size.width === 'number' && typeof size.height === 'number') {
+          return {
+            width: Math.max(MIN_WIKI_PANEL_SIZE.width, Math.min(1600, size.width)),
+            height: Math.max(MIN_WIKI_PANEL_SIZE.height, Math.min(1200, size.height)),
+          };
+        }
+      }
+    } catch {
+      // Ignore
+    }
+    return DEFAULT_WIKI_PANEL_SIZE;
+  });
+  const [isResizingWikiPanel, setIsResizingWikiPanel] = useState(false);
+  const resizeStartRef = useRef({ x: 0, y: 0, width: 0, height: 0 });
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     try {
@@ -132,11 +172,11 @@ export default function App(){
 
   useEffect(() => {
     try {
-      window.localStorage.setItem('zuojia-sidebar-width', String(sidebarWidth));
+      window.localStorage.setItem('zuojia-layout-wiki-pct', String(wikiPct));
     } catch {
       // Ignore storage failures.
     }
-  }, [sidebarWidth]);
+  }, [wikiPct]);
 
   useEffect(() => {
     try {
@@ -157,9 +197,16 @@ export default function App(){
       }
 
       const rect = mainGridRef.current.getBoundingClientRect();
-      const calculated = rect.right - event.clientX;
-      const clamped = Math.max(280, Math.min(720, calculated));
-      setSidebarWidth(clamped);
+      if (rect.width <= 0) {
+        return;
+      }
+      // Tiling: wiki share of the desk as a percentage — any amount of
+      // space from 0 (manuscript only) to 100 (wiki only).
+      // Snap within 2% of an edge so maximizing feels deliberate but easy.
+      const raw = ((rect.right - event.clientX) / rect.width) * 100;
+      const snapped = raw < 2 ? 0 : raw > 98 ? 100 : raw;
+      const clamped = Math.max(0, Math.min(100, snapped));
+      setWikiPct(clamped);
     };
 
     const onMouseUp = () => {
@@ -184,16 +231,17 @@ export default function App(){
     const onMouseMove = (event) => {
       const dx = event.clientX - dragStartRef.current.x;
       const dy = event.clientY - dragStartRef.current.y;
-      
-      // Constrain to viewport bounds (with panel dimensions accounted for)
-      const panelWidth = 360; // matches sidebar width
-      const panelHeight = 600; // approximate panel height
-      const maxX = window.innerWidth - panelWidth - 20;
-      const maxY = window.innerHeight - panelHeight - 20;
-      
+
+      // Constrain to viewport bounds using the panel's live size so a
+      // resized panel can't be dragged off-screen.
+      const panelWidth = wikiPanelSize.width;
+      const panelHeight = wikiPanelSize.height;
+      const maxX = Math.max(20, window.innerWidth - panelWidth - 20);
+      const maxY = Math.max(20, window.innerHeight - panelHeight - 20);
+
       const newX = Math.max(20, Math.min(maxX, dragStartRef.current.panelX + dx));
       const newY = Math.max(20, Math.min(maxY, dragStartRef.current.panelY + dy));
-      
+
       setWikiPanelPosition({ x: newX, y: newY });
     };
 
@@ -214,7 +262,57 @@ export default function App(){
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, [isDraggingWikiPanel, wikiPanelPosition]);
+  }, [isDraggingWikiPanel, wikiPanelPosition, wikiPanelSize]);
+
+  // Floating panel resize (SE corner handle)
+  useEffect(() => {
+    if (!isResizingWikiPanel) {
+      return undefined;
+    }
+
+    const onMouseMove = (event) => {
+      const dx = event.clientX - resizeStartRef.current.x;
+      const dy = event.clientY - resizeStartRef.current.y;
+
+      // Never smaller than the minimum, never larger than the viewport
+      // space remaining from the panel's current position.
+      const maxWidth = Math.max(
+        MIN_WIKI_PANEL_SIZE.width,
+        window.innerWidth - wikiPanelPosition.x - 20
+      );
+      const maxHeight = Math.max(
+        MIN_WIKI_PANEL_SIZE.height,
+        window.innerHeight - wikiPanelPosition.y - 20
+      );
+
+      const newWidth = Math.max(
+        MIN_WIKI_PANEL_SIZE.width,
+        Math.min(maxWidth, resizeStartRef.current.width + dx)
+      );
+      const newHeight = Math.max(
+        MIN_WIKI_PANEL_SIZE.height,
+        Math.min(maxHeight, resizeStartRef.current.height + dy)
+      );
+
+      setWikiPanelSize({ width: newWidth, height: newHeight });
+    };
+
+    const onMouseUp = () => {
+      setIsResizingWikiPanel(false);
+      // Size is persisted by the effect below.
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+    // Note: deliberately not dep'ing on wikiPanelSize — the move handler
+    // derives the new size from the drag start + cursor delta, so
+    // re-subscribing on every size tick would just churn listeners mid-drag.
+  }, [isResizingWikiPanel, wikiPanelPosition]);
 
   // Get wiki pages for the manuscript component
   const { pages: wikiPages, refresh: refreshWikiPages } = useWikiPages(novelPath);
@@ -257,6 +355,57 @@ export default function App(){
       setWikiDetached(false);
     }
   };
+
+  // ── Tiling presets + reset ──
+  // All presets re-dock the wiki (floating is separate from tiling); the
+  // reset also restores the floating panel's home position so nothing can
+  // stay mis-sized to zero or stranded off-screen.
+  const restoreSplit = useCallback(() => {
+    return lastSplitRef.current && lastSplitRef.current > 0 && lastSplitRef.current < 100
+      ? lastSplitRef.current
+      : DEFAULT_WIKI_PCT;
+  }, []);
+
+  const showManuscriptOnly = useCallback(() => {
+    setWikiDetached(false);
+    setWikiPct(0);
+  }, []);
+
+  const showSplitEven = useCallback(() => {
+    setWikiDetached(false);
+    setWikiPct(50);
+  }, []);
+
+  const showWikiOnly = useCallback(() => {
+    setWikiDetached(false);
+    setWikiPct(100);
+  }, []);
+
+  const expandManuscript = useCallback(() => {
+    setWikiDetached(false);
+    setWikiPct((prev) => (prev >= 100 ? restoreSplit() : prev));
+  }, [restoreSplit]);
+
+  const expandWiki = useCallback(() => {
+    setWikiDetached(false);
+    setWikiPct((prev) => (prev <= 0 ? restoreSplit() : prev));
+  }, [restoreSplit]);
+
+  const resetLayout = useCallback(() => {
+    setWikiDetached(false);
+    setWikiPct(DEFAULT_WIKI_PCT);
+    lastSplitRef.current = DEFAULT_WIKI_PCT;
+    setWikiPanelPosition({ x: 100, y: 100 });
+    setWikiPanelSize(DEFAULT_WIKI_PANEL_SIZE);
+    try {
+      window.localStorage.setItem('zuojia-layout-wiki-pct', String(DEFAULT_WIKI_PCT));
+      window.localStorage.setItem('zuojia-wiki-position', JSON.stringify({ x: 100, y: 100 }));
+      window.localStorage.setItem('zuojia-wiki-panel-size', JSON.stringify(DEFAULT_WIKI_PANEL_SIZE));
+      window.localStorage.removeItem('zuojia-sidebar-width');
+    } catch {
+      // Ignore storage failures.
+    }
+  }, []);
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
@@ -362,6 +511,17 @@ export default function App(){
     }
   }, [wikiDetached, wikiPanelPosition]);
 
+  // Persist wiki panel size
+  useEffect(() => {
+    if (wikiDetached) {
+      try {
+        window.localStorage.setItem('zuojia-wiki-panel-size', JSON.stringify(wikiPanelSize));
+      } catch {
+        // Ignore
+      }
+    }
+  }, [wikiDetached, wikiPanelSize]);
+
   // Show novel selector if no novel is loaded
   if (!novelPath) {
     return (
@@ -446,51 +606,149 @@ export default function App(){
             onBeforeRestore={prepareEditorForRestore}
           />
           <SettingsModal novelPath={novelPath} />
+          <div className="layout-controls" data-testid="layout-controls" role="group" aria-label="Workspace layout">
+            <button
+              type="button"
+              className="btn ghost btn-sm"
+              data-testid="layout-manuscript-only"
+              title="Manuscript takes all space"
+              aria-pressed={!wikiDetached && wikiPct <= 0.5}
+              onClick={showManuscriptOnly}
+            >
+              Manuscript
+            </button>
+            <button
+              type="button"
+              className="btn ghost btn-sm"
+              data-testid="layout-split-even"
+              title="Split space evenly"
+              aria-pressed={!wikiDetached && wikiPct > 0.5 && wikiPct < 99.5}
+              onClick={showSplitEven}
+            >
+              Split
+            </button>
+            <button
+              type="button"
+              className="btn ghost btn-sm"
+              data-testid="layout-wiki-only"
+              title="Wiki takes all space"
+              aria-pressed={!wikiDetached && wikiPct >= 99.5}
+              onClick={showWikiOnly}
+            >
+              Wiki
+            </button>
+            <button
+              type="button"
+              className="btn ghost btn-sm"
+              data-testid="reset-layout-button"
+              title="Reset workspace layout to defaults"
+              onClick={resetLayout}
+            >
+              Reset UI
+            </button>
+          </div>
           {wikiDetached && (
             <button className="btn ghost" data-testid="topbar-dock-wiki-button" onClick={() => setWikiDetached(false)}>Dock Wiki</button>
           )}
           <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>
         </div>
       </header>
-      <main className="main-grid" ref={mainGridRef}>
-        <section className="manuscript" data-testid="manuscript-section">
-          <Manuscript
-            key={restoreKey}
-            novelPath={novelPath}
-            wikiPages={wikiPages}
-            onOpenWikiPage={handleOpenWikiPage}
-            editorFontSize={editorFontSize}
-            registerEditorFlush={handleRegisterEditorFlush}
-          />
-        </section>
-        {!wikiDetached && (
-          <div
-            className={`sidebar-resizer${isResizingSidebar ? ' active' : ''}`}
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize wiki sidebar"
-            data-testid="sidebar-resizer"
-            onMouseDown={() => setIsResizingSidebar(true)}
-          />
-        )}
-        <aside className={`sidebar${wikiDetached ? ' collapsed' : ''}`} data-testid="sidebar-section" style={{ width: `${sidebarWidth}px` }}>
-          <Sidebar
-            key={`${restoreKey}-${novelPath}`}
-            novelPath={novelPath}
-            openPageSlug={wikiPageToOpen}
-            wikiDetached={wikiDetached}
-            onToggleWikiDetached={setWikiDetached}
-            onWikiPageConsumed={handleWikiPageConsumed}
-          />
-        </aside>
+      <main className="main-grid tiling-grid" ref={mainGridRef}>
+        {(() => {
+          const manuscriptHidden = !wikiDetached && wikiPct >= 99.5;
+          const wikiHidden = !wikiDetached && wikiPct <= 0.5;
+          const manuscriptStyle = manuscriptHidden
+            ? { display: 'none' }
+            : wikiDetached || wikiHidden
+              ? { flex: '1 1 0', minWidth: 0 }
+              : { flex: `${100 - wikiPct} 1 0`, minWidth: 0 };
+          const sidebarStyle = wikiHidden
+            ? { display: 'none' }
+            : wikiDetached
+              ? undefined
+              : manuscriptHidden
+                ? { flex: '1 1 0', minWidth: 0, width: 'auto', maxWidth: 'none' }
+                : { flex: `${wikiPct} 1 0`, minWidth: 0, width: 'auto', maxWidth: 'none' };
+          return (
+            <>
+              <section
+                className={`manuscript${manuscriptHidden ? ' collapsed' : ''}`}
+                data-testid="manuscript-section"
+                data-hidden={manuscriptHidden || undefined}
+                style={manuscriptStyle}
+              >
+                <Manuscript
+                  key={restoreKey}
+                  novelPath={novelPath}
+                  wikiPages={wikiPages}
+                  onOpenWikiPage={handleOpenWikiPage}
+                  editorFontSize={editorFontSize}
+                  registerEditorFlush={handleRegisterEditorFlush}
+                />
+              </section>
+              {manuscriptHidden && !wikiDetached && (
+                <button
+                  type="button"
+                  className="btn ghost btn-sm pane-restore"
+                  data-testid="expand-manuscript-button"
+                  onClick={expandManuscript}
+                >
+                  Show manuscript
+                </button>
+              )}
+              {!wikiDetached && (
+                <div
+                  className={`sidebar-resizer${isResizingSidebar ? ' active' : ''}`}
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label="Resize manuscript and wiki panes (double-click to reset)"
+                  aria-valuenow={Math.round(wikiPct)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  data-testid="sidebar-resizer"
+                  title="Drag to give each pane any amount of space — double-click to reset"
+                  onMouseDown={() => setIsResizingSidebar(true)}
+                  onDoubleClick={resetLayout}
+                />
+              )}
+              {wikiHidden && !wikiDetached && (
+                <button
+                  type="button"
+                  className="btn ghost btn-sm pane-restore"
+                  data-testid="expand-wiki-button"
+                  onClick={expandWiki}
+                >
+                  Show wiki
+                </button>
+              )}
+              <aside
+                className={`sidebar${wikiDetached ? ' collapsed' : ''}${manuscriptHidden ? ' full' : ''}`}
+                data-testid="sidebar-section"
+                data-hidden={wikiHidden || undefined}
+                style={sidebarStyle}
+              >
+                <Sidebar
+                  key={`${restoreKey}-${novelPath}`}
+                  novelPath={novelPath}
+                  openPageSlug={wikiPageToOpen}
+                  wikiDetached={wikiDetached}
+                  onToggleWikiDetached={setWikiDetached}
+                  onWikiPageConsumed={handleWikiPageConsumed}
+                />
+              </aside>
+            </>
+          );
+        })()}
       </main>
       {/* Floating Wiki Panel (outside main-grid for fixed positioning) */}
       {wikiDetached && novelPath && (
         <div
-          className="wiki-panel"
+          className={`wiki-panel${isResizingWikiPanel ? ' resizing' : ''}`}
           style={{
             '--wiki-panel-x': `${wikiPanelPosition.x}px`,
             '--wiki-panel-y': `${wikiPanelPosition.y}px`,
+            width: `${wikiPanelSize.width}px`,
+            height: `${wikiPanelSize.height}px`,
             zIndex: 1000,
           }}
           data-testid="wiki-floating-panel"
@@ -523,9 +781,9 @@ export default function App(){
             </div>
           </div>
           <div className="wiki-panel-content">
-            <Sidebar 
+            <Sidebar
               key={`floating-${restoreKey}`}
-              novelPath={novelPath} 
+              novelPath={novelPath}
               openPageSlug={wikiPageToOpen}
               wikiDetached={wikiDetached}
               onToggleWikiDetached={setWikiDetached}
@@ -533,15 +791,36 @@ export default function App(){
               isFloating={true}
             />
           </div>
+          <div
+            className="wiki-panel-resize-handle"
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="Resize wiki panel"
+            aria-valuenow={Math.round(wikiPanelSize.width)}
+            data-testid="wiki-floating-panel-resize-handle"
+            title="Drag to resize the wiki panel"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setIsResizingWikiPanel(true);
+              resizeStartRef.current = {
+                x: e.clientX,
+                y: e.clientY,
+                width: wikiPanelSize.width,
+                height: wikiPanelSize.height,
+              };
+            }}
+            onDoubleClick={resetLayout}
+          />
         </div>
       )}
-      {/* Drag overlay for floating panel */}
+      {/* Drag / resize overlay for floating panel */}
       <div style={{ display: 'contents' }}>
-        {isDraggingWikiPanel && (
+        {(isDraggingWikiPanel || isResizingWikiPanel) && (
           <>
             <div
-              className="wiki-floating-panel-drag-overlay"
-              data-testid="wiki-floating-panel-drag-overlay"
+              className={`wiki-floating-panel-drag-overlay${isResizingWikiPanel ? ' resizing' : ''}`}
+              data-testid={isResizingWikiPanel ? 'wiki-floating-panel-resize-overlay' : 'wiki-floating-panel-drag-overlay'}
             />
           </>
         )}
