@@ -143,9 +143,33 @@ vi.mock('../../../src/components/LlmChatWindow', () => ({
 
 import App from '../../../src/App';
 
+// jsdom here has no localStorage (opaque origin), and App guards all
+// storage access with try/catch — so provide an in-memory stand-in for
+// tests that assert persisted preferences.
+const localStorageMock = (() => {
+  let store = {};
+  return {
+    getItem: (key) => (key in store ? store[key] : null),
+    setItem: (key, value) => {
+      store[key] = String(value);
+    },
+    removeItem: (key) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
+  };
+})();
+Object.defineProperty(window, 'localStorage', {
+  value: localStorageMock,
+  writable: true,
+});
+
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorageMock.clear();
     mockStartNovelServices.mockResolvedValue({
       status: 'ok',
       neo4j: { status: 'running' },
@@ -237,5 +261,58 @@ describe('App', () => {
     expect(btn).toHaveTextContent('Light Mode');
     await user.click(btn);
     expect(btn).toHaveTextContent('Dark Mode');
+  });
+
+  it('shows AI toggle defaulting to on', () => {
+    render(<App />);
+    const btn = screen.getByTestId('ai-toggle-button');
+    expect(btn).toHaveTextContent('AI On');
+    expect(btn).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('does not start services or show chat when opening a novel with AI off', async () => {
+    window.localStorage.setItem('zuojia-ai-enabled', 'false');
+    const user = userEvent.setup();
+    render(<App />);
+    expect(screen.getByTestId('ai-toggle-button')).toHaveTextContent('AI Off');
+    await user.click(screen.getByText('Open Novel'));
+    await waitFor(() => {
+      expect(screen.getByTestId('manuscript-mock')).toBeInTheDocument();
+    });
+    expect(mockStartNovelServices).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('llm-chat-mock')).not.toBeInTheDocument();
+  });
+
+  it('toggling AI off stops services and hides chat; toggling on restarts them', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByText('Open Novel'));
+    await waitFor(() => {
+      expect(screen.getByTestId('llm-chat-mock')).toBeInTheDocument();
+    });
+    expect(mockStartNovelServices).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByTestId('ai-toggle-button'));
+    await waitFor(() => {
+      expect(mockStopNovelServices).toHaveBeenCalled();
+      expect(screen.queryByTestId('llm-chat-mock')).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId('ai-toggle-button')).toHaveTextContent('AI Off');
+
+    await user.click(screen.getByTestId('ai-toggle-button'));
+    await waitFor(() => {
+      expect(screen.getByTestId('llm-chat-mock')).toBeInTheDocument();
+    });
+    expect(mockStartNovelServices).toHaveBeenCalledTimes(2);
+  });
+
+  it('persists AI preference across mounts', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<App />);
+    await user.click(screen.getByTestId('ai-toggle-button'));
+    expect(window.localStorage.getItem('zuojia-ai-enabled')).toBe('false');
+    unmount();
+    render(<App />);
+    expect(screen.getByTestId('ai-toggle-button')).toHaveTextContent('AI Off');
   });
 });

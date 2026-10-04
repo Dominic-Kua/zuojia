@@ -101,6 +101,28 @@ export default function App(){
     }
   }, [wikiPct]);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  // ── AI master switch ──
+  // Default ON (opt-out). When off, novel services (Neo4j, MCP/Synapse,
+  // LLM runtime) are never started and the LLM chat UI is hidden.
+  // String-compared so a missing key can never read as disabled.
+  const [aiEnabled, setAiEnabled] = useState(() => {
+    try {
+      return window.localStorage.getItem('zuojia-ai-enabled') !== 'false';
+    } catch {
+      return true;
+    }
+  });
+  // Mirror for async handlers so a toggle racing a novel open can't start
+  // services after the user switched AI off (or vice versa).
+  const aiEnabledRef = useRef(true);
+  useEffect(() => {
+    aiEnabledRef.current = aiEnabled;
+    try {
+      window.localStorage.setItem('zuojia-ai-enabled', String(aiEnabled));
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [aiEnabled]);
   const [servicesStatus, setServicesStatus] = useState(null);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [editorFontSize, setEditorFontSize] = useState(() => {
@@ -327,10 +349,7 @@ export default function App(){
     setRestoreKey((k) => k + 1);
   }, []);
 
-  // Novel creation and opening follow the same lifecycle: load the novel,
-  // then start its services.
-  const handleNovelReady = async (path) => {
-    setNovelPath(path);
+  const startServicesForNovel = useCallback(async (path) => {
     setServicesLoading(true);
     setServicesStatus(null);
 
@@ -343,7 +362,41 @@ export default function App(){
     } finally {
       setServicesLoading(false);
     }
+  }, []);
+
+  // Novel creation and opening follow the same lifecycle: load the novel,
+  // then start its services — unless the AI master switch is off.
+  const handleNovelReady = async (path) => {
+    setNovelPath(path);
+    if (!aiEnabledRef.current) {
+      setServicesLoading(false);
+      setServicesStatus(null);
+      return;
+    }
+    await startServicesForNovel(path);
   };
+
+  // Flipping the AI switch with a novel open starts or stops its services
+  // immediately; with no novel open it just records the preference for the
+  // next open.
+  const handleAiToggle = useCallback(async (next) => {
+    setAiEnabled(next);
+    if (!novelPath) {
+      return;
+    }
+    if (next) {
+      await startServicesForNovel(novelPath);
+    } else {
+      try {
+        await appHandlers.stopNovelServices();
+      } catch (err) {
+        console.error('Failed to stop novel services:', err);
+      } finally {
+        setServicesLoading(false);
+        setServicesStatus(null);
+      }
+    }
+  }, [novelPath, startServicesForNovel]);
 
   const handleCloseNovel = async () => {
     // Flush pending debounced chapter save before tearing down services —
@@ -536,6 +589,16 @@ export default function App(){
             <button
               type="button"
               className="btn ghost"
+              data-testid="ai-toggle-button"
+              aria-pressed={aiEnabled}
+              title={aiEnabled ? 'Turn AI features off' : 'Turn AI features on'}
+              onClick={() => handleAiToggle(!aiEnabled)}
+            >
+              {aiEnabled ? 'AI On' : 'AI Off'}
+            </button>
+            <button
+              type="button"
+              className="btn ghost"
               data-testid="theme-toggle-button"
               onClick={toggleTheme}
             >
@@ -598,11 +661,23 @@ export default function App(){
           >
             {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
           </button>
+          <button
+            type="button"
+            className="btn ghost"
+            data-testid="ai-toggle-button"
+            aria-pressed={aiEnabled}
+            title={aiEnabled ? 'Turn AI features off (stops novel services, hides LLM chat)' : 'Turn AI features on (starts novel services)'}
+            onClick={() => handleAiToggle(!aiEnabled)}
+          >
+            {aiEnabled ? 'AI On' : 'AI Off'}
+          </button>
           <ExportDialog novelPath={novelPath} onBeforeExport={flushEditorBeforeDestructiveOp} />
           <SnapshotButton novelPath={novelPath} />
           <CommitButton novelPath={novelPath} />
           <PushButton novelPath={novelPath} />
-          <LlmChatWindow novelPath={novelPath} servicesStatus={servicesStatus} servicesLoading={servicesLoading} />
+          {aiEnabled && (
+            <LlmChatWindow novelPath={novelPath} servicesStatus={servicesStatus} servicesLoading={servicesLoading} />
+          )}
           <DiagnosticsPanel
             novelPath={novelPath}
             onIndexRebuilt={refreshWikiPages}
