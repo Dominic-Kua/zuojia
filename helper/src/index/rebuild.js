@@ -2,6 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import { readdir, readFile, writeFile, rename, unlink } from 'fs/promises'
 import { createError } from '../util/error.js'
+import { isSymlink } from '../util/path-guard.js'
 import { calculateWordCount } from '../stats/word-count.js'
 
 /**
@@ -39,6 +40,10 @@ async function scanDirectory(dirPath, includeWordCount = false) {
 
     for (const filename of mdFiles) {
       const filePath = path.join(dirPath, filename);
+      // Never follow symlinks out of the novel (shared novels can carry them).
+      if (isSymlink(filePath)) {
+        continue;
+      }
       const content = await readFile(filePath, 'utf-8');
       const title = extractTitle(filename, content);
       

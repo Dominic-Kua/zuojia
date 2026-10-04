@@ -6,6 +6,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { createError } from '../util/error.js';
+import { isSymlink } from '../util/path-guard.js';
 
 /** Directories containing novel content that are included in every snapshot. */
 export const CONTENT_DIRECTORIES = ['manuscript', 'wiki', 'meta'];
@@ -42,7 +43,14 @@ async function copyDirectory(src, dest) {
     for (const entry of entries) {
       const srcPath = path.join(src, entry.name);
       const destPath = path.join(dest, entry.name);
-      
+
+      // Never follow symlinks: copyFile/stat would otherwise pull outside
+      // files into the snapshot (and a symlinked dir reads as a file here).
+      if (isSymlink(srcPath)) {
+        console.warn(`Skipping symlinked entry during snapshot: ${srcPath}`);
+        continue;
+      }
+
       if (entry.isDirectory()) {
         // Skip .git directory
         if (entry.name === '.git') continue;
@@ -129,7 +137,11 @@ async function getDirectorySize(dirPath) {
     
     for (const entry of entries) {
       const entryPath = path.join(dirPath, entry.name);
-      
+
+      if (isSymlink(entryPath)) {
+        continue;
+      }
+
       if (entry.isDirectory()) {
         size += await getDirectorySize(entryPath);
       } else {

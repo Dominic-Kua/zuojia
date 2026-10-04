@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { isSymlink } from '../util/path-guard.js';
 import { listWikiPages } from '../wiki/list-pages.js';
 import { readWikiPage } from '../wiki/crud.js';
 
@@ -71,6 +72,10 @@ async function listMarkdownFiles(rootDir) {
 
 async function readFileSafely(filePath) {
   try {
+    // Never follow symlinks out of the novel (shared novels can carry them).
+    if (isSymlink(filePath)) {
+      return '';
+    }
     return await fs.readFile(filePath, 'utf-8');
   } catch {
     return '';

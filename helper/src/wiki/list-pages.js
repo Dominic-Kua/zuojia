@@ -6,6 +6,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { calculateWordCount } from '../stats/word-count.js';
 import { createError } from '../util/error.js';
+import { isSymlink } from '../util/path-guard.js';
 
 /**
  * Extract title from markdown content (first H1)
@@ -107,12 +108,17 @@ export async function listWikiPages(novelPath) {
     });
 
     // Process each file
-    const pages = await Promise.all(
+    const allPages = await Promise.all(
       mdFiles.map(async (file) => {
         // Slug is the raw filename minus '.md' so it round-trips through CRUD,
         // which opens files by exactly that path; subdirectory relpaths keep '/'.
         const slug = file.replace(/\.md$/, '');
         const filePath = path.join(wikiDir, file);
+
+        // Skip symlinks instead of following them out of the wiki dir.
+        if (isSymlink(filePath)) {
+          return null;
+        }
 
         // Read content
         const rawContent = await fs.readFile(filePath, 'utf-8');
@@ -139,7 +145,8 @@ export async function listWikiPages(novelPath) {
       })
     );
 
-    // Sort alphabetically by title (case-insensitive)
+    // Drop symlinked entries refused above, then sort alphabetically.
+    const pages = allPages.filter((page) => page !== null);
     pages.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
 
     return {

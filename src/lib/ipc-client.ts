@@ -72,7 +72,7 @@ export const gitHandlers = {
   manualCommit: (novelPath, files, message) =>
     invokeHandler('helper:git:manualCommit', { novelPath, files, message }),
   pull: (novelPath) => invokeHandler('helper:git:pull', { novelPath }),
-  push: (novelPath) => invokeHandler('helper:git:push', { novelPath }),
+  push: (novelPath, opts) => invokeHandler('helper:git:push', { novelPath, confirmRemote: opts?.confirmRemote }),
   saveConfig: (novelPath, settings) => invokeHandler('helper:git:saveConfig', { novelPath, settings }),
   history: (novelPath, limit) => invokeHandler('helper:git:history', { novelPath, limit }),
   isRepo: (novelPath) => invokeHandler('helper:git:isRepo', { novelPath }),

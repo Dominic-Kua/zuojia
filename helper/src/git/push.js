@@ -10,6 +10,7 @@ import {
   loadGitConfig,
   validateSshKeyPath,
 } from './config.js';
+import { confirmRemote, isRemoteConfirmed } from './trusted-remotes.js';
 
 function validateNovelPath(novelPath) {
   if (!novelPath || !fs.existsSync(novelPath)) {
@@ -129,9 +130,12 @@ function ensureGitRepoExists(novelPath) {
 function getPushCountForRemote(novelPath, remoteUrl, branch, sshKeyPath) {
   const options = getExecOptions(novelPath, sshKeyPath);
   try {
+    // `--` before the branch is belt-and-suspenders alongside branch
+    // charset validation: a value that cannot start with `-` can never be
+    // parsed as a flag.
     const lsRemoteArgs = remoteUrl
-      ? getGitArgs(remoteUrl, ['ls-remote', '--heads', 'origin', branch])
-      : ['ls-remote', '--heads', 'origin', branch];
+      ? getGitArgs(remoteUrl, ['ls-remote', '--heads', 'origin', '--', branch])
+      : ['ls-remote', '--heads', 'origin', '--', branch];
     const lsRemoteOutput = execFileSync('git', lsRemoteArgs, options).trim();
 
     if (lsRemoteOutput) {
@@ -150,7 +154,7 @@ function getPushCountForRemote(novelPath, remoteUrl, branch, sshKeyPath) {
   }
 }
 
-export async function pushToRemote(novelPath) {
+export async function pushToRemote(novelPath, { confirmRemote: confirm = false } = {}) {
   try {
     const novelPathError = validateNovelPath(novelPath);
     if (novelPathError) {
@@ -168,6 +172,22 @@ export async function pushToRemote(novelPath) {
     }
 
     const { remoteUrl, branch, sshKeyPath } = configResult.data;
+
+    // Trust-on-first-use: the config (and therefore the remote) may have
+    // arrived inside a shared/cloned novel. The first push to an
+    // unconfirmed remote stops here so the UI can show the user exactly
+    // where their novel is about to go; confirming records it app-side
+    // (outside the novel) so later pushes proceed silently.
+    if (confirm) {
+      confirmRemote(novelPath, remoteUrl, branch);
+    } else if (!isRemoteConfirmed(novelPath, remoteUrl)) {
+      return createError(
+        'REMOTE_UNCONFIRMED',
+        'Push remote has not been confirmed for this novel',
+        `Confirm that you want to push to ${remoteUrl} on branch ${branch}`,
+        { remoteUrl, branch }
+      );
+    }
 
     const gitError = ensureGitAvailable();
     if (gitError) {
@@ -206,7 +226,7 @@ export async function pushToRemote(novelPath) {
     const options = getExecOptions(novelPath, effectiveSshKeyPath);
     // `-u` sets the upstream on first push so later plain `git push`/`pull`
     // keep working; when an upstream is already set this is a no-op.
-    execFileSync('git', getGitArgs(remoteUrl, ['push', '-u', 'origin', branch]), options);
+    execFileSync('git', getGitArgs(remoteUrl, ['push', '-u', 'origin', '--', branch]), options);
 
     return {
       status: 'ok',

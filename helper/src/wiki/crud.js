@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { createError } from '../util/error.js';
+import { resolveContainedPath, isSymlink } from '../util/path-guard.js';
 import { rebuildSpellcheckDict } from './rebuild-dict.js';
 
 const FRONTMATTER_BOUNDARY = '---';
@@ -24,6 +25,20 @@ function isValidSlug(slug) {
   if (slug.endsWith('/')) return false;
   if (slug.includes('//')) return false;
   return true;
+}
+
+/**
+ * Resolve a wiki page path, following symlinks and requiring the result to
+ * stay inside the novel's wiki dir. Lexical slug checks alone are defeated
+ * by symlinked subdirectories (e.g. `wiki/sub -> ~/.ssh` + slug `sub/key`),
+ * which a shared novel can carry — so the resolved path is verified.
+ * Returns the usable path, or null when refused.
+ */
+function safeWikiPath(novelPath, slug) {
+  if (!isValidSlug(slug)) {
+    return null;
+  }
+  return resolveContainedPath(path.join(novelPath, 'wiki'), `${slug}.md`);
 }
 
 function normalizeTags(inputTags) {
@@ -231,13 +246,17 @@ export async function createWikiPage(novelPath, title, content, tags = []) {
     }
 
     const wikiDir = path.join(novelPath, 'wiki');
-    const filePath = path.join(wikiDir, `${slug}.md`);
+    const filePath = safeWikiPath(novelPath, slug);
 
     // Check if wiki directory exists
     try {
       await fs.access(wikiDir);
     } catch {
       return createError('WIKI_DIR_NOT_FOUND', 'Wiki directory does not exist');
+    }
+
+    if (!filePath) {
+      return createError('INVALID_SLUG', 'Invalid slug format');
     }
 
     // Check if file already exists
@@ -280,7 +299,10 @@ export async function readWikiPage(novelPath, slug) {
       return createError('INVALID_SLUG', 'Invalid slug format');
     }
 
-    const filePath = path.join(novelPath, 'wiki', `${slug}.md`);
+    const filePath = safeWikiPath(novelPath, slug);
+    if (!filePath) {
+      return createError('INVALID_SLUG', 'Invalid slug format');
+    }
 
     // Check if file exists
     try {
@@ -313,12 +335,11 @@ export async function readWikiPage(novelPath, slug) {
  */
 export async function updateWikiPage(novelPath, slug, content, tags = []) {
   try {
-    // Validate slug
-    if (!isValidSlug(slug)) {
+    // Validate slug and resolve through symlinks (shared novels can carry them).
+    const filePath = safeWikiPath(novelPath, slug);
+    if (!filePath) {
       return createError('INVALID_SLUG', 'Invalid slug format');
     }
-
-    const filePath = path.join(novelPath, 'wiki', `${slug}.md`);
 
     // Check if file exists
     try {
@@ -375,12 +396,11 @@ export async function updateWikiPage(novelPath, slug, content, tags = []) {
  */
 export async function deleteWikiPage(novelPath, slug) {
   try {
-    // Validate slug
-    if (!isValidSlug(slug)) {
+    // Validate slug and resolve through symlinks (shared novels can carry them).
+    const filePath = safeWikiPath(novelPath, slug);
+    if (!filePath) {
       return createError('INVALID_SLUG', 'Invalid slug format');
     }
-
-    const filePath = path.join(novelPath, 'wiki', `${slug}.md`);
 
     // Check if file exists
     try {
@@ -412,7 +432,9 @@ async function listWikiMarkdownFiles(rootDir) {
   const entries = await fs.readdir(rootDir, { recursive: true });
   return entries.filter((entry) => {
     if (!entry.endsWith('.md')) return false;
-    return entry.split('/').every((segment) => !segment.startsWith('.'));
+    if (!entry.split('/').every((segment) => !segment.startsWith('.'))) return false;
+    // Never follow symlinks out of the wiki dir.
+    return !isSymlink(path.join(rootDir, entry));
   });
 }
 
@@ -489,7 +511,10 @@ export async function renameWikiPage(novelPath, oldSlug, newTitle) {
       return createError('INVALID_TITLE', 'New title cannot be empty');
     }
 
-    const oldPath = path.join(novelPath, 'wiki', `${oldSlug}.md`);
+    const oldPath = safeWikiPath(novelPath, oldSlug);
+    if (!oldPath) {
+      return createError('INVALID_SLUG', 'Invalid slug format');
+    }
 
     // Check if old file exists
     try {
@@ -504,7 +529,10 @@ export async function renameWikiPage(novelPath, oldSlug, newTitle) {
       return createError('INVALID_TITLE', 'New title must contain at least one alphanumeric character');
     }
 
-    const newPath = path.join(novelPath, 'wiki', `${newSlug}.md`);
+    const newPath = safeWikiPath(novelPath, newSlug);
+    if (!newPath) {
+      return createError('INVALID_SLUG', 'Invalid slug format');
+    }
 
     // Check if new slug already exists
     if (oldSlug !== newSlug) {

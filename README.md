@@ -110,9 +110,9 @@ This list reflects what is currently wired in the app code.
 
 ### Unreleased
 
-- AI master switch in the top bar (`AI On` / `AI Off`, on by default): switching off stops novel services and hides LLM chat; the preference persists across sessions
+- Security hardening for shared novels: git remote/branch validation (blocks `ext::` RCE and `--upload-pack` injection), push trust-on-first-use confirmation, wiki embed path traversal fix, symlink containment across file operations
 
-### v3.1.0
+### v3.1.2
 
 - Flexible tiling workspace: manuscript/wiki proportional split with `Manuscript` / `Split` / `Wiki` presets and a `Reset UI` button (PR #112)
 - Resizable, draggable floating wiki panel with persisted position and size (PR #112)
@@ -141,7 +141,7 @@ This list reflects what is currently wired in the app code.
 - Added artifact-level release validation: local release now smoke-tests both the packaged `.app` bundle and the mounted `.dmg` artifact before publish
 - Added checksum generation in the local mac release flow for uploaded DMG verification
 
-For full release details, see `docs/release-notes-v3.1.2.md`, `docs/release-notes-v3.1.0.md`, and `docs/release-notes-v2.0.1.md`.
+For full release details, see `docs/release-notes-v3.1.3.md`, `docs/release-notes-v3.1.2.md`, `docs/release-notes-v3.1.0.md`, and `docs/release-notes-v2.0.1.md`.
 
 ## AI Foundation
 

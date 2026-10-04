@@ -4,6 +4,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { isSymlink } from '../util/path-guard.js';
 
 const DICT_FILENAME = 'spellcheck-dict.json';
 
@@ -159,6 +160,9 @@ export async function rebuildSpellcheckDict(novelPath) {
     for (const file of wikiFiles) {
       try {
         const filePath = path.join(wikiDir, file);
+        if (isSymlink(filePath)) {
+          continue;
+        }
         const content = await fs.readFile(filePath, 'utf-8');
 
         // Extract title from first H1 heading

@@ -39,6 +39,7 @@ tests/e2e/
 ├── e2e-global-teardown.js        # sweep orphaned test novels
 ├── ai-toggle.spec.js
 ├── commit-flow.spec.js
+├── wiki-embeds.spec.js
 ├── diagnostics-restore.spec.js
 ├── export-pdf.spec.js
 ├── git-integration.spec.js
