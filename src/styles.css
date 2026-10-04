@@ -185,7 +185,17 @@ body{
 .btn-danger{color:var(--danger)}
 .btn-danger:hover:not(:disabled){background:var(--danger-soft)}
 .main-grid{display:flex;gap:16px;padding:24px;align-items:stretch;min-height:calc(100vh - 56px)}
+/* Tiling desk: manuscript + wiki share the row proportionally via inline
+   flex ratios, so either pane can take some or all of the space. */
+.tiling-grid{align-items:stretch}
+.tiling-grid > .manuscript,
+.tiling-grid > .sidebar{min-width:0;min-height:0}
 .manuscript{background:transparent;flex:1 1 auto;min-width:0;height:calc(100vh - 56px - 48px)}
+.manuscript.collapsed{display:none}
+.layout-controls{display:flex;align-items:center;gap:4px;padding:2px;border-left:1px solid var(--divider);padding-left:10px;margin-left:2px}
+.layout-controls .btn-sm{padding:4px 10px;font-size:12px}
+.layout-controls .btn-sm[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--muted-accent)}
+.pane-restore{align-self:center;flex:0 0 auto;white-space:nowrap}
 .manuscript-inner{
   background:var(--manuscript-surface);
   padding:32px 36px;
@@ -202,8 +212,9 @@ body{
 .wordcounts span{color:var(--text-secondary);font-size:12.5px;font-variant-numeric:tabular-nums;padding:4px 10px;background:color-mix(in srgb, var(--accent) 5%, transparent);border-radius:var(--radius-pill)}
 .editor{font-family:'Merriweather', Georgia, serif;font-size:18px;line-height:1.75;color:var(--text-primary);min-height:0;flex:1;overflow:auto;padding-bottom:16px;white-space:pre-wrap;caret-color:var(--accent)}
 .editor:focus{outline:none}
-.sidebar{padding-top:8px;flex:0 0 auto;min-width:280px;max-width:720px;height:calc(100vh - 56px - 48px)}
+.sidebar{padding-top:8px;flex:0 0 auto;min-width:0;height:calc(100vh - 56px - 48px)}
 .sidebar.collapsed{display:none}
+.sidebar.full{max-width:none}
 .sidebar-resizer.sidebar-hidden{display:none}
 .sidebar-resizer{width:8px;cursor:col-resize;position:relative;flex:0 0 8px;border-radius:8px;align-self:stretch;background:transparent}
 .sidebar-resizer::after{content:'';position:absolute;top:8px;bottom:8px;left:3px;width:2px;border-radius:2px;background:var(--divider)}
@@ -226,7 +237,7 @@ body{
 .wiki-view-toggle .btn.ghost{border:1px solid var(--muted-accent);padding:6px 10px;font-size:12px}
 .wiki-view-toggle .btn.ghost.active{background:var(--accent);color:white;border-color:var(--accent)}
 .wiki-editor-status{font-size:11px;color:var(--text-secondary)}
-.wiki-editor-textarea{width:100%;min-height:160px;border-radius:8px;border:1px solid var(--divider);padding:10px;font-family:'Merriweather', Georgia, serif;font-size:13px;line-height:1.5;resize:vertical;background:var(--manuscript-surface)}
+.wiki-editor-textarea{width:100%;min-height:160px;border-radius:8px;border:1px solid var(--divider);padding:10px;font-family:'Merriweather', Georgia, serif;font-size:13px;line-height:1.5;resize:vertical;background:var(--manuscript-surface);color:var(--text-primary)}
 .wiki-editor-textarea:disabled{background:var(--surface-sunken);color:var(--text-faint)}
 .wiki-preview{margin-top:12px;padding:10px;border-radius:8px;background:var(--manuscript-surface);border:1px solid var(--divider)}
 .wiki-preview-header{font-size:12px;color:var(--text-secondary);margin-bottom:8px}
@@ -271,8 +282,13 @@ body{
 
 @media (max-width:900px){
   .main-grid{flex-direction:column;}
-  .sidebar{order:2}
+  .tiling-grid > .manuscript,
+  .tiling-grid > .sidebar{flex:none !important;max-width:none !important;width:auto !important}
+  .manuscript{height:auto;min-height:50vh}
+  .sidebar{order:2;height:auto;min-height:40vh}
   .sidebar-resizer{display:none}
+  .pane-restore{align-self:flex-start}
+  .layout-controls{flex-wrap:wrap}
   .spellcheck-issue-item{flex-direction:column;align-items:stretch}
   .spellcheck-suggestions{justify-content:flex-start}
 }
@@ -315,11 +331,11 @@ body{
 .commit-dialog{width:460px}
 .snapshot-dialog h3{margin:0 0 8px 0;font-size:16px}
 .snapshot-dialog p{margin:0 0 16px 0;font-size:13px;color:var(--text-secondary)}
-.snapshot-label-input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--divider);font-size:14px;box-sizing:border-box}
+.snapshot-label-input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--divider);font-size:14px;box-sizing:border-box;background:var(--manuscript-surface);color:var(--text-primary)}
 .snapshot-label-input:focus{outline:none;border-color:var(--accent)}
 .commit-file-list{display:flex;flex-direction:column;gap:8px;max-height:180px;overflow:auto;margin-bottom:12px;padding:2px}
 .commit-file-option{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary)}
-.commit-message-input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--divider);font-size:14px;resize:vertical;font-family:inherit;box-sizing:border-box}
+.commit-message-input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--divider);font-size:14px;resize:vertical;font-family:inherit;box-sizing:border-box;background:var(--manuscript-surface);color:var(--text-primary)}
 .commit-empty-state,.commit-loading,.sidebar-muted-copy{font-size:13px;color:var(--text-secondary)}
 .snapshot-dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
 .snapshot-error{margin-top:8px;padding:8px 12px;border-radius:var(--radius-md);background:var(--danger-soft);color:var(--danger);font-size:13px}
@@ -783,14 +799,17 @@ body{
   }
 }
 
-/* Wiki Floating Panel */
+/* Wiki Floating Panel — draggable + resizable (size set inline from state) */
 .wiki-panel {
   position: fixed;
   top: 0;
   left: 0;
   width: 380px;
+  height: 600px;
+  min-width: 280px;
   min-height: 200px;
-  max-height: calc(100vh - 80px);
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 40px);
   background: var(--sidebar-surface);
   border: 1px solid var(--divider);
   border-radius: 10px;
@@ -801,6 +820,7 @@ body{
   overflow: hidden;
   transform: translate(var(--wiki-panel-x), var(--wiki-panel-y));
 }
+.wiki-panel.resizing{user-select:none}
 
 .wiki-panel-titlebar {
   display: flex;
@@ -841,6 +861,37 @@ body{
   }
 }
 
+/* SE corner resize handle for the floating wiki panel */
+.wiki-panel-resize-handle{
+  position:absolute;
+  right:0;
+  bottom:0;
+  width:22px;
+  height:22px;
+  cursor:nwse-resize;
+  border-radius:10px 0 10px 0;
+  touch-action:none;
+}
+.wiki-panel-resize-handle::after{
+  content:'';
+  position:absolute;
+  right:5px;
+  bottom:5px;
+  width:10px;
+  height:10px;
+  border-right:2px solid var(--text-faint);
+  border-bottom:2px solid var(--text-faint);
+  border-bottom-right-radius:3px;
+  opacity:0.7;
+  transition:opacity var(--speed-fast) var(--ease-out),
+    border-color var(--speed-fast) var(--ease-out);
+}
+.wiki-panel-resize-handle:hover::after,
+.wiki-panel.resizing .wiki-panel-resize-handle::after{
+  opacity:1;
+  border-color:var(--accent);
+}
+
 /* Drag overlay for floating panel */
 .wiki-floating-panel-drag-overlay {
   position: fixed;
@@ -852,3 +903,4 @@ body{
   background: transparent;
   cursor: move;
 }
+.wiki-floating-panel-drag-overlay.resizing{cursor:nwse-resize}
