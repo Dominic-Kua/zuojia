@@ -1,4 +1,4 @@
-# Release Notes: v3.1.2 (unreleased)
+# Release Notes: v3.1.2
 
 ## Summary
 
