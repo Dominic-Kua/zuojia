@@ -37,6 +37,7 @@ tests/e2e/
 ├── helpers/electron-launcher.js  # launch/close Electron, wait for React root
 ├── e2e-global-setup.js           # rebuild dist/ when stale
 ├── e2e-global-teardown.js        # sweep orphaned test novels
+├── ai-toggle.spec.js
 ├── commit-flow.spec.js
 ├── diagnostics-restore.spec.js
 ├── export-pdf.spec.js

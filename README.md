@@ -34,7 +34,7 @@ The app focuses on a writing workflow where you can:
 - Follow wiki links directly from the manuscript
 - Track word counts (chapter, manuscript, today)
 - Back up/push work through Git
-- Ask an LLM questions grounded in your worldbuilding notes
+- Ask an LLM questions grounded in your worldbuilding notes (optional — disable with the `AI Off` toggle)
 
 ## Implemented Features
 
@@ -78,6 +78,12 @@ This list reflects what is currently wired in the app code.
 - `Reset UI` button restores the default layout, re-docks the wiki, and resets the floating panel position/size
 - Layout choice persists across sessions; double-clicking the divider also resets
 
+### AI Toggle
+
+- The top-bar `AI On` / `AI Off` switch is a master on/off for all AI features (on by default)
+- Switching AI off stops the novel services (Neo4j, MCP/Synapse, LLM runtime) and hides the LLM chat; switching on starts them again
+- The preference persists across sessions, so opening a novel with AI off never starts services
+
 ### Statistics
 
 - Chapter word count
@@ -102,7 +108,11 @@ This list reflects what is currently wired in the app code.
 
 ## Release Notes
 
-### Unreleased (since v3.0.0)
+### Unreleased
+
+- AI master switch in the top bar (`AI On` / `AI Off`, on by default): switching off stops novel services and hides LLM chat; the preference persists across sessions
+
+### v3.1.0
 
 - Flexible tiling workspace: manuscript/wiki proportional split with `Manuscript` / `Split` / `Wiki` presets and a `Reset UI` button (PR #112)
 - Resizable, draggable floating wiki panel with persisted position and size (PR #112)
@@ -131,7 +141,7 @@ This list reflects what is currently wired in the app code.
 - Added artifact-level release validation: local release now smoke-tests both the packaged `.app` bundle and the mounted `.dmg` artifact before publish
 - Added checksum generation in the local mac release flow for uploaded DMG verification
 
-For full release details, see `docs/release-notes-v3.1.0.md` and `docs/release-notes-v2.0.1.md`.
+For full release details, see `docs/release-notes-v3.1.2.md`, `docs/release-notes-v3.1.0.md`, and `docs/release-notes-v2.0.1.md`.
 
 ## AI Foundation
 
