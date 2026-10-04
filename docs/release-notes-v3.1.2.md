@@ -2,7 +2,7 @@
 
 ## Summary
 
-Version 3.1.2 adds a master AI on/off switch for writers who want a pure offline writing app.
+Version 3.1.2 adds a master AI on/off switch. The app was already fully local — this just takes the LLM (and its Neo4j/MCP services) out of the equation for writers who don't want AI involved.
 
 ## Highlights
 
