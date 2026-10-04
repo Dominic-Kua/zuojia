@@ -22,9 +22,13 @@ describe('pushToRemote', () => {
     await fs.mkdir(TEST_DIR, { recursive: true });
     await fs.mkdir(path.join(TEST_DIR, '.git'), { recursive: true });
     vi.clearAllMocks();
+    // Point the push-trust record at a temp file so the real ~/.zuojia
+    // record is never touched.
+    process.env.ZUOJIA_TRUSTED_REMOTES_PATH = path.join(TEST_DIR, 'trusted-remotes.json');
   });
 
   afterEach(async () => {
+    delete process.env.ZUOJIA_TRUSTED_REMOTES_PATH;
     await fs.rm(TEST_DIR, { recursive: true, force: true });
   });
 
@@ -68,14 +72,14 @@ describe('pushToRemote', () => {
       return '';
     });
 
-    const result = await pushToRemote(TEST_DIR);
+    const result = await pushToRemote(TEST_DIR, { confirmRemote: true });
 
     expect(result.status).toBe('ok');
     expect(result.data.remoteUrl).toBe('https://github.com/user/repo.git');
     expect(result.data.branch).toBe('feature');
     expect(execFileSync).toHaveBeenCalledWith(
       'git',
-      ['-c', 'remote.origin.url=https://github.com/user/repo.git', 'push', '-u', 'origin', 'feature'],
+      ['-c', 'remote.origin.url=https://github.com/user/repo.git', 'push', '-u', 'origin', '--', 'feature'],
       expect.any(Object)
     );
   });
@@ -100,7 +104,7 @@ describe('pushToRemote', () => {
       throw new Error('unexpected command');
     });
 
-    const result = await pushToRemote(TEST_DIR);
+    const result = await pushToRemote(TEST_DIR, { confirmRemote: true });
     expect(result.status).toBe('error');
     expect(result.error.code).toBe('SSH_KEY_NOT_FOUND');
   });
@@ -117,7 +121,7 @@ describe('pushToRemote', () => {
       throw new Error(`unexpected command ${cmd} ${args.join(' ')}`);
     });
 
-    const result = await pushToRemote(TEST_DIR);
+    const result = await pushToRemote(TEST_DIR, { confirmRemote: true });
 
     expect(result.status).toBe('ok');
     expect(result.data.pushed).toBe(true);
@@ -143,7 +147,7 @@ describe('pushToRemote', () => {
       throw new Error(`unexpected command ${cmd} ${args.join(' ')}`);
     });
 
-    const result = await pushToRemote(TEST_DIR);
+    const result = await pushToRemote(TEST_DIR, { confirmRemote: true });
 
     // Passes on machines without ~/.ssh/id_rsa (auto mode); on machines with
     // that file it takes the explicit-key path and fails SSH_KEY_NOT_FOUND
@@ -168,7 +172,7 @@ describe('pushToRemote', () => {
       throw new Error('unexpected command');
     });
 
-    const result = await pushToRemote(TEST_DIR);
+    const result = await pushToRemote(TEST_DIR, { confirmRemote: true });
     expect(result.status).toBe('error');
     expect(result.error.code).toBe('SSH_AGENT_UNAVAILABLE');
   });
@@ -185,7 +189,7 @@ describe('pushToRemote', () => {
       throw new Error('unexpected command');
     });
 
-    const result = await pushToRemote(TEST_DIR);
+    const result = await pushToRemote(TEST_DIR, { confirmRemote: true });
     expect(result.status).toBe('error');
     expect(result.error.code).toBe('SSH_AGENT_NO_IDENTITIES');
   });
@@ -200,7 +204,7 @@ describe('pushToRemote', () => {
       throw new Error('unexpected command');
     });
 
-    const result = await pushToRemote(TEST_DIR);
+    const result = await pushToRemote(TEST_DIR, { confirmRemote: true });
     expect(result.status).toBe('error');
     expect(result.error.code).toBe('SSH_AGENT_CHECK_FAILED');
   });
@@ -219,7 +223,7 @@ describe('pushToRemote', () => {
       throw new Error(`unexpected command ${cmd} ${args.join(' ')}`);
     });
 
-    const result = await pushToRemote(TEST_DIR);
+    const result = await pushToRemote(TEST_DIR, { confirmRemote: true });
 
     expect(result.status).toBe('ok');
     expect(result.data.pushed).toBe(true);
@@ -237,7 +241,7 @@ describe('pushToRemote', () => {
       throw new Error(`unexpected command ${cmd} ${args.join(' ')}`);
     });
 
-    const result = await pushToRemote(TEST_DIR);
+    const result = await pushToRemote(TEST_DIR, { confirmRemote: true });
     expect(result.status).toBe('error');
     expect(result.error.code).toBe('WORKING_TREE_DIRTY');
   });
@@ -285,7 +289,7 @@ describe('pushToRemote', () => {
       return '';
     });
 
-    const result = await pushToRemote(TEST_DIR);
+    const result = await pushToRemote(TEST_DIR, { confirmRemote: true });
 
     expect(result.status).toBe('ok');
     expect(result.data.remoteUrl).toBe('https://github.com/user/repo.git');
@@ -314,7 +318,7 @@ describe('pushToRemote', () => {
       return '';
     });
 
-    const result = await pushToRemote(TEST_DIR);
+    const result = await pushToRemote(TEST_DIR, { confirmRemote: true });
 
     expect(result.status).toBe('ok');
     expect(result.data.pushed).toBe(true);
@@ -323,10 +327,140 @@ describe('pushToRemote', () => {
     expect(result.data.pushedCommits).toBe(3);
     expect(execFileSync).toHaveBeenCalledWith(
       'git',
-      ['-c', 'remote.origin.url=git@github.com:user/repo.git', 'push', '-u', 'origin', 'main'],
+      ['-c', 'remote.origin.url=git@github.com:user/repo.git', 'push', '-u', 'origin', '--', 'main'],
       expect.any(Object)
     );
     expect(execFileSync).not.toHaveBeenCalledWith('git', ['remote', 'set-url', 'origin', 'git@github.com:user/repo.git'], expect.any(Object));
     expect(execFileSync).not.toHaveBeenCalledWith('git', ['remote', 'add', 'origin', 'git@github.com:user/repo.git'], expect.any(Object));
+  });
+});
+
+describe('pushToRemote remote-trust hardening', () => {
+  beforeEach(async () => {
+    await fs.mkdir(TEST_DIR, { recursive: true });
+    await fs.mkdir(path.join(TEST_DIR, '.git'), { recursive: true });
+    vi.clearAllMocks();
+    process.env.ZUOJIA_TRUSTED_REMOTES_PATH = path.join(TEST_DIR, 'trusted-remotes.json');
+  });
+
+  afterEach(async () => {
+    delete process.env.ZUOJIA_TRUSTED_REMOTES_PATH;
+    await fs.rm(TEST_DIR, { recursive: true, force: true });
+  });
+
+  function mockSuccessfulPush() {
+    execFileSync.mockImplementation((cmd, args) => {
+      if (cmd === 'git' && args[0] === '--version') return 'git version 2.42.0';
+      if (cmd === 'git' && args[0] === 'status') return '';
+      if (cmd === 'git' && args[0] === '-c' && args[2] === 'ls-remote') return 'abc123\trefs/heads/main\n';
+      if (cmd === 'git' && args[0] === 'rev-list') return '1\n';
+      if (cmd === 'git' && args[0] === '-c' && args[2] === 'push') return '';
+      throw new Error(`unexpected command ${cmd} ${args.join(' ')}`);
+    });
+  }
+
+  it('returns REMOTE_UNCONFIRMED on first push without running git push', async () => {
+    await writeConfig('git:\n  remoteUrl: https://github.com/user/repo.git\n  branch: main\n');
+    mockSuccessfulPush();
+
+    const result = await pushToRemote(TEST_DIR);
+
+    expect(result.status).toBe('error');
+    expect(result.error.code).toBe('REMOTE_UNCONFIRMED');
+    expect(result.error.context.remoteUrl).toBe('https://github.com/user/repo.git');
+    expect(result.error.context.branch).toBe('main');
+    expect(execFileSync).not.toHaveBeenCalledWith(
+      'git',
+      expect.arrayContaining(['push']),
+      expect.any(Object)
+    );
+  });
+
+  it('pushes after confirm and skips the gate on later pushes', async () => {
+    await writeConfig('git:\n  remoteUrl: https://github.com/user/repo.git\n  branch: main\n');
+    mockSuccessfulPush();
+
+    const confirmed = await pushToRemote(TEST_DIR, { confirmRemote: true });
+    expect(confirmed.status).toBe('ok');
+
+    const again = await pushToRemote(TEST_DIR);
+    expect(again.status).toBe('ok');
+  });
+
+  it('re-prompts when the configured remote changes', async () => {
+    await writeConfig('git:\n  remoteUrl: https://github.com/user/repo.git\n  branch: main\n');
+    mockSuccessfulPush();
+    expect((await pushToRemote(TEST_DIR, { confirmRemote: true })).status).toBe('ok');
+
+    await writeConfig('git:\n  remoteUrl: https://evil.example/other.git\n  branch: main\n');
+    const result = await pushToRemote(TEST_DIR);
+    expect(result.status).toBe('error');
+    expect(result.error.code).toBe('REMOTE_UNCONFIRMED');
+  });
+
+  it.each([
+    ['ext transport', 'ext::sh -c touch /tmp/pwned'],
+    ['uppercase EXT transport', 'EXT::sh -c touch /tmp/pwned'],
+    ['fd transport', 'fd::17'],
+    ['upload-pack branch', null, '--upload-pack=touch /tmp/pwned'],
+    ['leading-dash branch', null, '-pwn'],
+    ['parent traversal branch', null, 'a/../b'],
+  ])('refuses hostile config %s without invoking git transport', async (_, badUrl, badBranch) => {
+    await writeConfig(
+      `git:\n  remoteUrl: ${badUrl || 'https://github.com/user/repo.git'}\n  branch: ${badBranch || 'main'}\n`
+    );
+    mockSuccessfulPush();
+
+    const result = await pushToRemote(TEST_DIR);
+
+    expect(result.status).toBe('error');
+    expect(['UNSAFE_REMOTE_URL', 'INVALID_BRANCH_NAME']).toContain(result.error.code);
+    // No ls-remote / push may run with hostile values, confirmed or not.
+    const transportCalls = execFileSync.mock.calls.filter(
+      ([cmd, args]) => cmd === 'git' && (args.includes('ls-remote') || args.includes('push'))
+    );
+    expect(transportCalls).toEqual([]);
+    const confirmedAttempt = await pushToRemote(TEST_DIR, { confirmRemote: true });
+    expect(confirmedAttempt.status).toBe('error');
+    expect(['UNSAFE_REMOTE_URL', 'INVALID_BRANCH_NAME']).toContain(confirmedAttempt.error.code);
+  });
+
+  it.each([
+    ['https', 'https://github.com/user/repo.git'],
+    ['ssh scp-like', 'git@github.com:user/repo.git'],
+    ['ssh scheme', 'ssh://git@nas.local:2222/repo.git'],
+    ['lan https', 'https://192.168.1.50/repo.git'],
+    ['local path', '/Volumes/NAS/novels/repo'],
+    ['file scheme', 'file:///srv/git/repo.git'],
+  ])('accepts legitimate remote %s', async (_, url) => {
+    await writeConfig(`git:\n  remoteUrl: ${url}\n  branch: feature/chapter-2\n`);
+    // SSH remotes need an (auto-mode) key story; https/file/local skip it.
+    execFileSync.mockImplementation((cmd, args) => {
+      if (cmd === 'git' && args[0] === '--version') return 'git version 2.42.0';
+      if (cmd === 'git' && args[0] === 'status') return '';
+      if (cmd === 'git' && args[0] === '-c' && args[2] === 'ls-remote') return 'abc123\trefs/heads/main\n';
+      if (cmd === 'git' && args[0] === 'rev-list') return '1\n';
+      if (cmd === 'git' && args[0] === '-c' && args[2] === 'push') return '';
+      throw new Error(`unexpected command ${cmd} ${args.join(' ')}`);
+    });
+
+    const result = await pushToRemote(TEST_DIR, { confirmRemote: true });
+
+    expect(result.status).toBe('ok');
+  });
+
+  it('emits -- before the branch in ls-remote and push invocations', async () => {
+    await writeConfig('git:\n  remoteUrl: https://github.com/user/repo.git\n  branch: main\n');
+    mockSuccessfulPush();
+
+    const result = await pushToRemote(TEST_DIR, { confirmRemote: true });
+    expect(result.status).toBe('ok');
+
+    const lsRemote = execFileSync.mock.calls.find(
+      ([cmd, args]) => cmd === 'git' && args.includes('ls-remote')
+    );
+    expect(lsRemote[1]).toEqual(
+      expect.arrayContaining(['--heads', 'origin', '--', 'main'])
+    );
   });
 });

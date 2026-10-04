@@ -300,8 +300,8 @@ export function registerHandlers() {
 
   ipcMain.handle(
     'helper:git:push',
-    wrapHandler(async ({ novelPath }) => {
-      return await pushToRemote(novelPath);
+    wrapHandler(async ({ novelPath, confirmRemote }) => {
+      return await pushToRemote(novelPath, { confirmRemote });
     })
   );
 

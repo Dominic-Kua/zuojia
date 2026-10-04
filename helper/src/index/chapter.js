@@ -2,6 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import { readFile, writeFile, unlink } from 'fs/promises'
 import { createError } from '../util/error.js'
+import { resolveContainedPath } from '../util/path-guard.js'
 
 /**
  * Read chapter content from manuscript directory
@@ -34,11 +35,16 @@ export async function readChapter(novelPath, filename) {
       return createError('INVALID_PATH', 'Path escapes manuscript directory');
     }
 
-    const chapterPath = path.join(novelPath, 'manuscript', filename);
-
-    // Check if file exists
-    if (!fs.existsSync(chapterPath)) {
+    // Check if file exists (missing novel or chapter stays ENOENT, as before)
+    if (!fs.existsSync(path.join(novelPath, 'manuscript', filename))) {
       return createError('ENOENT', `Chapter file not found: ${filename}`);
+    }
+
+    // Resolve through symlinks as well: a shared novel can carry a
+    // symlinked manuscript entry pointing outside the novel.
+    const chapterPath = resolveContainedPath(manuscriptRoot, filename);
+    if (!chapterPath) {
+      return createError('INVALID_PATH', 'Path escapes manuscript directory');
     }
 
     // Read content
@@ -95,7 +101,12 @@ export async function writeChapter(novelPath, filename, content) {
       return createError('INVALID_PATH', 'Path escapes manuscript directory');
     }
 
-    const chapterPath = path.join(manuscriptPath, filename);
+    // Resolve through symlinks too — especially for writes, which would
+    // otherwise follow a planted link outside the novel.
+    const chapterPath = resolveContainedPath(manuscriptPath, filename);
+    if (!chapterPath) {
+      return createError('INVALID_PATH', 'Path escapes manuscript directory');
+    }
 
     // Write content atomically (write to temp file, then rename)
     tempPath = `${chapterPath}.tmp`;

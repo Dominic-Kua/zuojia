@@ -344,8 +344,14 @@ describe('ipc-handlers', () => {
     it('helper:git:push delegates to pushToRemote', async () => {
       mockPush.pushToRemote.mockResolvedValue({ pushed: true });
       const result = await callHandler('helper:git:push', { novelPath: '/tmp/novel' });
-      expect(mockPush.pushToRemote).toHaveBeenCalledWith('/tmp/novel');
+      expect(mockPush.pushToRemote).toHaveBeenCalledWith('/tmp/novel', { confirmRemote: undefined });
       expect(result).toEqual({ pushed: true });
+    });
+
+    it('helper:git:push forwards the trust-confirm flag', async () => {
+      mockPush.pushToRemote.mockResolvedValue({ pushed: true });
+      await callHandler('helper:git:push', { novelPath: '/tmp/novel', confirmRemote: true });
+      expect(mockPush.pushToRemote).toHaveBeenCalledWith('/tmp/novel', { confirmRemote: true });
     });
   });
 

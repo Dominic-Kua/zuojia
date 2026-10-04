@@ -4,6 +4,7 @@ import { useWikiPages } from '../hooks/useWikiPages'
 import { useGitHistory } from '../hooks/useGitHistory'
 import { wikiHandlers, gitHandlers } from '../lib/ipc-client'
 import { resolveSlug } from '../lib/wiki-link-parser'
+import { buildWikiAssetUrl } from '../lib/wiki-asset-path'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
@@ -68,20 +69,21 @@ export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggl
     }));
   }, [novelPath]);
 
+  // Embed filenames are untrusted (shared novels): traversal and absolute
+  // paths are refused inside buildWikiAssetUrl, which returns '' for them.
   const buildAssetUrl = useCallback((fileName) => {
-    const trimmed = fileName.trim();
-    if (!trimmed || !novelPath) {
-      return '';
-    }
-
-    if (/^(https?:)?\/\//i.test(trimmed)) {
-      return trimmed;
-    }
-
-    const normalizedPath = trimmed.replace(/\\/g, '/');
-    const basePath = novelPath.replace(/\\/g, '/');
-    return `file://${basePath}/wiki/${encodeURI(normalizedPath)}`;
+    return buildWikiAssetUrl(novelPath, fileName);
   }, [novelPath]);
+
+  const renderEmbedFigure = (file, caption) => {
+    const src = buildAssetUrl(file);
+    const safeCaption = caption ? escapeHtml(caption.trim()) : '';
+    const alt = safeCaption || escapeHtml(String(file).trim());
+    if (!src) {
+      return `<figure class="wiki-embed"><span class="wiki-embed-blocked">${alt} (attachment blocked)</span>${safeCaption ? `<figcaption class="wiki-embed-caption">${safeCaption}</figcaption>` : ''}</figure>`;
+    }
+    return `<figure class="wiki-embed"><img src="${src}" alt="${alt}" loading="lazy" referrerpolicy="no-referrer" />${safeCaption ? `<figcaption class="wiki-embed-caption">${safeCaption}</figcaption>` : ''}</figure>`;
+  };
 
   const renderWikiContent = useCallback((rawContent) => {
     if (!rawContent) {
@@ -91,18 +93,12 @@ export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggl
 
     // Obsidian-style embeds: ![[image.png|Caption]]
     markdown = markdown.replace(/!\[\[([^\]|]+)(\|([^\]]+))?\]\]/g, (match, file, _, caption) => {
-      const src = buildAssetUrl(file);
-      const safeCaption = caption ? escapeHtml(caption.trim()) : '';
-      const alt = safeCaption || escapeHtml(file.trim());
-      return `<figure class="wiki-embed"><img src="${src}" alt="${alt}" />${safeCaption ? `<figcaption class="wiki-embed-caption">${safeCaption}</figcaption>` : ''}</figure>`;
+      return renderEmbedFigure(file, caption);
     });
 
     // MediaWiki-style files: [[File:name|Caption]] or [[Image:name|Caption]]
     markdown = markdown.replace(/\[\[(file|image):([^\]|]+)(\|([^\]]+))?\]\]/gi, (match, _type, file, _, caption) => {
-      const src = buildAssetUrl(file);
-      const safeCaption = caption ? escapeHtml(caption.trim()) : '';
-      const alt = safeCaption || escapeHtml(file.trim());
-      return `<figure class="wiki-embed"><img src="${src}" alt="${alt}" />${safeCaption ? `<figcaption class="wiki-embed-caption">${safeCaption}</figcaption>` : ''}</figure>`;
+      return renderEmbedFigure(file, caption);
     });
 
     // Wiki links: [[Page]] or [[Page|Label]]
@@ -122,7 +118,7 @@ export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggl
     });
 
     return DOMPurify.sanitize(html, {
-      ADD_ATTR: ['data-wiki-link'],
+      ADD_ATTR: ['data-wiki-link', 'loading', 'referrerpolicy'],
       ADD_TAGS: ['figure', 'figcaption'],
       // Extend the default allow-list with file: URIs so wiki image embeds
       // (file://… asset URLs) survive sanitization.

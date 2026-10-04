@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { createError } from '../util/error.js';
+import { validateRemoteUrlScheme } from './config.js';
 
 function validateNovelPath(novelPath) {
   if (!novelPath || !fs.existsSync(novelPath)) {
@@ -336,6 +337,19 @@ export function pullFromRemote(novelPath) {
         'There are uncommitted changes in the working tree',
         'Commit or stash your changes before pulling'
       );
+    }
+
+    // The native origin URL of a shared/cloned novel is untrusted: `git
+    // pull` would execute an `ext::` transport, so the scheme is checked
+    // before git ever sees it. (No TOFU confirm here — pulling content is
+    // the same trust as opening the novel in the first place.)
+    const remoteUrl = execFileSync('git', ['config', '--get', 'remote.origin.url'], {
+      cwd: novelPath,
+      encoding: 'utf-8',
+    }).trim();
+    const schemeError = validateRemoteUrlScheme(remoteUrl);
+    if (schemeError) {
+      return schemeError;
     }
 
     // Execute pull

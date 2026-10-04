@@ -191,6 +191,53 @@ export function isSshRemote(remoteUrl) {
   return remoteUrl.startsWith('git@') || remoteUrl.startsWith('ssh://');
 }
 
+// Transports that make git itself execute a command. `ext::` runs an
+// arbitrary shell command as the transport (documented git behavior), so a
+// remote URL with this scheme is remote code execution the moment git
+// touches it — even for a read-only `ls-remote`. `fd::` reads from a file
+// descriptor another process controls. Everything else (https://, http://,
+// ssh://, scp-like `git@host:path`, plain `host:path`, local paths,
+// file://) is inert as a transport, including self-hosted hosts and LAN
+// addresses, so only these two prefixes are rejected.
+const FORBIDDEN_REMOTE_URL_PREFIXES = ['ext::', 'fd::'];
+
+export function validateRemoteUrlScheme(remoteUrl) {
+  const normalized = String(remoteUrl || '').trim().toLowerCase();
+  if (FORBIDDEN_REMOTE_URL_PREFIXES.some((prefix) => normalized.startsWith(prefix))) {
+    return createError(
+      'UNSAFE_REMOTE_URL',
+      'Remote URL uses a forbidden transport',
+      'Only https://, http://, ssh://, scp-like (git@host:path), plain host:path, local paths, and file:// remotes are accepted. ext:: and fd:: transports can execute arbitrary commands and are never used.'
+    );
+  }
+  return null;
+}
+
+// Branch names flow into `git push` / `git ls-remote` argument lists. Argv
+// form stops shell injection but a value starting with `-` is still parsed
+// as a git flag (e.g. `--upload-pack=<cmd>`), so branches are restricted to
+// the characters real branch names use and may never start with a dash.
+// (`..`, `@{`, trailing slashes, and `.lock` suffixes are also rejected per
+// git check-ref-format, since they are never valid in a branch ref.)
+export function validateBranchName(branch) {
+  const name = String(branch || '').trim();
+  if (
+    !/^[A-Za-z0-9._/-]+$/.test(name) ||
+    name.startsWith('-') ||
+    name.includes('..') ||
+    name.includes('@{') ||
+    name.endsWith('/') ||
+    name.endsWith('.lock')
+  ) {
+    return createError(
+      'INVALID_BRANCH_NAME',
+      'Branch name contains invalid characters',
+      'Branch names may only contain letters, digits, dots, underscores, slashes, and hyphens (and may not start with a hyphen)'
+    );
+  }
+  return null;
+}
+
 export function validateSshKeyPath(sshKeyPath) {
   if (!/^[a-zA-Z0-9._/~-]+$/.test(sshKeyPath)) {
     return createError(
@@ -277,6 +324,13 @@ async function validateRemoteReachable(novelPath, remoteUrl, sshKeyPath) {
   const gitError = ensureGitAvailable();
   if (gitError) {
     return gitError;
+  }
+
+  // Checked before any git process sees the URL: `ext::` would execute
+  // during this very validation run.
+  const schemeError = validateRemoteUrlScheme(remoteUrl);
+  if (schemeError) {
+    return schemeError;
   }
 
   const useSsh = isSshRemote(remoteUrl);
@@ -420,6 +474,18 @@ export function loadGitConfig(novelPath) {
     return noRemoteConfiguredError();
   }
 
+  // meta/config.yml travels with shared/cloned novels, so values read from
+  // it (or inherited from a foreign git checkout) are untrusted until
+  // validated here — every push/pull/status consumer goes through this.
+  const schemeError = validateRemoteUrlScheme(config.remoteUrl);
+  if (schemeError) {
+    return schemeError;
+  }
+  const branchError = validateBranchName(config.branch);
+  if (branchError) {
+    return branchError;
+  }
+
   // Blank means "auto" (ssh-agent / default keys such as id_ed25519 or
   // id_rsa); only an explicitly configured key is pinned via `-i`.
   const resolvedSshKey = resolveSshKeyPath(fileSettings.sshKeyPath);
@@ -449,6 +515,15 @@ export async function saveGitSettings(novelPath, settings) {
       'Git remote is not configured',
       'Enter a remote URL before saving your git settings'
     );
+  }
+
+  const schemeError = validateRemoteUrlScheme(normalized.remoteUrl);
+  if (schemeError) {
+    return schemeError;
+  }
+  const branchError = validateBranchName(normalized.branch);
+  if (branchError) {
+    return branchError;
   }
 
   // Resolve against the raw key field so blank stays "auto" instead of being
