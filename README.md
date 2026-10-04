@@ -68,6 +68,15 @@ This list reflects what is currently wired in the app code.
 - Markdown preview mode
 - Wiki links rendered in preview mode
 - Image embed parsing for wiki content
+- Detachable floating panel: drag by the titlebar, resize from the corner handle, position/size persist across sessions
+- Commit history and git sync status (branch, ahead/behind, uncommitted changes) with a `Pull` button when a remote is configured
+
+### Workspace Layout
+
+- Tiling manuscript/wiki split: drag the divider to give either pane any share of the desk, from a sliver up to the full window
+- Top-bar presets: `Manuscript` (editor only), `Split` (50/50), `Wiki` (wiki only)
+- `Reset UI` button restores the default layout, re-docks the wiki, and resets the floating panel position/size
+- Layout choice persists across sessions; double-clicking the divider also resets
 
 ### Statistics
 
@@ -78,7 +87,9 @@ This list reflects what is currently wired in the app code.
 ### Git and Backup Helpers
 
 - Helper endpoint for chapter Git commits (`helper:git:commit`)
-- Validated remote push flow from the UI `Push` button
+- `Commit` button commits all novel files; generated directories are ignored on push
+- Validated remote push flow from the UI `Push` button, inheriting the existing git remote and upstream branch when present
+- SSH key auto mode supporting ed25519 keys and ssh-agent setups out of the box
 - Git remote configuration from the UI `Settings` button
 - Local snapshot helper APIs (create, list, restore)
 
@@ -90,6 +101,18 @@ This list reflects what is currently wired in the app code.
 - Export logs written under `meta/logs/`
 
 ## Release Notes
+
+### Unreleased (since v3.0.0)
+
+- Flexible tiling workspace: manuscript/wiki proportional split with `Manuscript` / `Split` / `Wiki` presets and a `Reset UI` button (PR #112)
+- Resizable, draggable floating wiki panel with persisted position and size (PR #112)
+- Fixed wiki editor, snapshot, and commit inputs rendering unreadable text in dark mode (PR #112)
+- `Commit` now covers all novel files; `Push` ignores generated directories (PR #111)
+- `Push` inherits the existing git remote and upstream branch instead of requiring reconfiguration (PR #111)
+- SSH key auto mode so ed25519 and ssh-agent setups work out of the box (PR #111)
+- Sidebar now shows commit history, sync status (branch, ahead/behind, last push), dirty-file indicator, and a `Pull` button for repos with a remote
+- Writing Desk design-token theme across light and dark modes
+- Test hygiene: global E2E teardown sweeps orphaned test novels; live-Synapse integration tests skip cleanly when Neo4j isn't available with the test credentials
 
 ### v3.0.0
 
@@ -108,7 +131,7 @@ This list reflects what is currently wired in the app code.
 - Added artifact-level release validation: local release now smoke-tests both the packaged `.app` bundle and the mounted `.dmg` artifact before publish
 - Added checksum generation in the local mac release flow for uploaded DMG verification
 
-For full release details, see `docs/release-notes-v2.0.1.md`.
+For full release details, see `docs/release-notes-v3.1.0.md` and `docs/release-notes-v2.0.1.md`.
 
 ## AI Foundation
 
@@ -208,9 +231,17 @@ The editor tracks:
 ### 6. Backup / Push
 
 Use the top-bar `Settings` button to configure your remote URL, branch, and SSH key path.
-Use `Push` to send committed work to that configured remote.
+Use `Push` to send committed work to that configured remote. If the novel already has a git remote and upstream branch, `Push` uses them automatically.
+Use the sidebar `Pull` button to fetch and merge the remote's latest changes.
 
-### 7. Export PDF
+### 7. Arrange the Workspace
+
+- Drag the divider between the manuscript and wiki to give either pane more room, up to the full window
+- Use the top-bar `Manuscript`, `Split`, and `Wiki` buttons to jump to a preset arrangement
+- Click `Detach` in the wiki header to float the wiki as a separate panel; drag it by the titlebar and resize it from the bottom-right corner
+- If anything gets mis-sized or lost, click `Reset UI` to restore the default layout
+
+### 8. Export PDF
 
 Use the top-bar `Export` button to review chapter order, set export metadata, and generate a PDF.
 Exported PDFs are written to `meta/exports/`, and export logs are written to `meta/logs/`.
@@ -233,7 +264,7 @@ npm run test:all          # Run all tests
 
 ## Testing
 
-The project has **630+ tests** across unit, integration, and E2E layers:
+The project has **690+ tests** across unit, integration, and E2E layers:
 
 | Layer | Framework | Run with |
 |-------|-----------|----------|
@@ -264,4 +295,4 @@ _bmad-output/        Planning artifacts, story specs, sprint tracking
 
 ## Current Scope Notes
 
-Some helper endpoints and roadmap items exist in planning docs but are not fully surfaced in the UI yet (for example pull/merge UX). The README above describes the functionality currently implemented in code and available in the running app.
+Some helper endpoints and roadmap items exist in planning docs but are not fully surfaced in the UI yet. The README above describes the functionality currently implemented in code and available in the running app. Merge-conflict resolution, for example, is still handled outside the app with standard git tooling.

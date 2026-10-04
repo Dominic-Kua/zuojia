@@ -2,174 +2,73 @@
 
 ## Overview
 
-This guide explains how to set up and run end-to-end tests for 作家 using Playwright with Electron.
-
-## Installation
-
-```bash
-npm install --save-dev @playwright/test playwright
-```
-
-## Configuration
-
-Create `playwright.config.js` in the project root:
-
-```javascript
-import { defineConfig } from '@playwright/test';
-
-export default defineConfig({
-  testDir: './tests/e2e',
-  timeout: 30000,
-  fullyParallel: false, // Electron tests should run serially
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: 1, // Single worker for Electron
-  reporter: 'html',
-  use: {
-    trace: 'on-first-retry',
-    video: 'retain-on-failure',
-  },
-});
-```
-
-## Test Structure
-
-```
-
-tests/e2e/
-├── fixtures/          # Test data (novels, wiki pages)
-├── helpers/           # Test utilities
-├── novel-creation.spec.js
-├── wiki-workflow.spec.js
-└── word-count.spec.js
-```
+Playwright drives the real Electron app (`electron/main.cjs`) against the production renderer build (`dist/`). Specs run serially with a single worker.
 
 ## Running Tests
 
 ```bash
-# Run all E2E tests
+# Full E2E suite (rebuilds dist/ first via global setup)
 npm run test:e2e
 
-# Run specific test file
-npx playwright test tests/e2e/wiki-workflow.spec.js
+# One spec file
+ZUOJIA_RENDERER_MODE=production npx playwright test tests/e2e/wiki-operations.spec.js
 
-# Run with UI (debug mode)
-npx playwright test --ui
+# Debug UI
+npm run test:e2e:ui
 
-# Generate HTML report
+# HTML report
 npx playwright show-report
 ```
 
-## Example Test
+## Configuration
 
-```javascript
-import { test, expect, _electron as electron } from '@playwright/test';
-import path from 'path';
+See `playwright.config.js` in the repo root:
 
-test.describe('Wiki Workflow', () => {
-  let electronApp;
-  let page;
+- `timeout: 30000` per test, `workers: 1`, `fullyParallel: false`
+- Retries: 1 locally, 2 on CI (service-backed specs are timing-sensitive back-to-back)
+- `globalSetup` rebuilds `dist/` when sources are newer, so specs never test stale code
+- `globalTeardown` sweeps orphaned test novels (`e2e-*`, `test-*`) from `~/.zuojia/`
+- Reports: HTML (`playwright-report/e2e-report`), JSON (`playwright-report/e2e-results.json`)
 
-  test.beforeAll(async () => {
-    // Launch Electron app
-    electronApp = await electron.launch({
-      args: [path.join(__dirname, '../../electron/main.cjs')]
-    });
-    page = await electronApp.firstWindow();
-  });
+## Test Structure
 
-  test.afterAll(async () => {
-    await electronApp.close();
-  });
-
-  test('create and edit wiki page', async () => {
-    // Click "+ New Wiki Page" button
-    await page.click('[data-testid="new-wiki-button"]');
-    
-    // Fill in wiki title
-    await page.fill('[data-testid="wiki-title-input"]', 'Test Character');
-    await page.click('[data-testid="wiki-create-button"]');
-    
-    // Verify page appears in list
-    await expect(page.locator('text=Test Character')).toBeVisible();
-    
-    // Click to open editor
-    await page.click('text=Test Character');
-    
-    // Edit content
-    await page.fill('[data-testid="wiki-editor"]', '# Test Character\\n\\nDescription here');
-    
-    // Save
-    await page.click('[data-testid="wiki-save-button"]');
-    
-    // Verify saved
-    await expect(page.locator('text=All changes saved')).toBeVisible();
-  });
-});
+```
+tests/e2e/
+├── helpers/electron-launcher.js  # launch/close Electron, wait for React root
+├── e2e-global-setup.js           # rebuild dist/ when stale
+├── e2e-global-teardown.js        # sweep orphaned test novels
+├── commit-flow.spec.js
+├── diagnostics-restore.spec.js
+├── export-pdf.spec.js
+├── git-integration.spec.js
+├── git-settings.spec.js
+├── manuscript-editor.spec.js
+├── novel-creation.spec.js
+├── snapshot.spec.js
+├── spellcheck.spec.js
+├── wiki-floating-panel.spec.js
+├── wiki-link-syntax.spec.js
+├── wiki-online.spec.js           # needs Neo4j + Synapse checkout
+└── wiki-operations.spec.js
 ```
 
-## Best Practices
+## Conventions (idempotency)
 
-1. **Use data-testid attributes** for reliable selectors
-2. **Clean up test data** after each test
-3. **Wait for elements** before interacting
-4. **Take screenshots** on failure for debugging
-5. **Test keyboard shortcuts** in addition to clicks
+Every spec must be re-runnable without manual cleanup:
+
+1. **Unique novel names** per run: `` `e2e-<topic>-${Date.now()}` `` under `~/.zuojia/`, created in `beforeAll`, removed in `afterAll`.
+2. **Clean renderer state** in `beforeEach`: `localStorage.clear()` + `page.reload()` before opening the novel, so layout/detach/theme state never leaks between tests.
+3. **`data-testid` selectors** for reliable targeting (e.g. `novel-list`, `wiki-detach-button`, `sidebar-resizer`, `reset-layout-button`).
+4. **Explicit waits** after file-system or IPC side effects (polling intervals apply: dirty state ~10s, sync status ~30s).
+
+## Service Prerequisites
+
+- Most specs run with no external services.
+- `wiki-online.spec.js` requires Neo4j on `bolt://localhost:7687` and the Project Synapse checkout at `~/code/project-synapse-mcp`.
+- The `tests/integration/bridge-esm.test.js` live-Synapse tests additionally require Neo4j to accept the `neo4j/neo4j` test credentials; otherwise they skip instead of failing.
 
 ## Debugging Tips
 
-- Use `await page.pause()` to pause execution
-- Use `page.screenshot({ path: 'debug.png' })` to capture state
-- Enable verbose logging: `DEBUG=pw:api npm run test:e2e`
-- Use Playwright Inspector: `PWDEBUG=1 npm run test:e2e`
-
-## CI/CD Integration
-
-Add to `.github/workflows/test.yml`:
-
-```yaml
-- name: Run E2E Tests
-  run: |
-    xvfb-run --auto-servernum npm run test:e2e
-```
-
-## Test Data Management
-
-Store test fixtures in `tests/e2e/fixtures/`:
-
-```
-fixtures/
-├── test-novel/
-│   ├── manuscript/
-│   │   ├── chapter-1.md
-│   │   └── chapter-2.md
-│   ├── wiki/
-│   │   └── character.md
-│   └── meta/
-│       └── index.json
-```
-
-Load fixtures in tests:
-
-```javascript
-import { copyFile } from 'fs/promises';
-
-test.beforeEach(async () => {
-  // Copy fixture to temp location
-  await copyFile('tests/e2e/fixtures/test-novel', tmpDir);
-});
-```
-
-## Known Issues & Workarounds
-
-1. **Electron startup delay:** Add `await page.waitForLoadState('networkidle')`
-2. **IPC timing:** Use `await page.waitForFunction()` for IPC completion
-3. **File system operations:** Add explicit waits after save operations
-
-## Next Steps
-
-1. Implement Playwright configuration
-2. Add data-testid attributes to components
-3. Create test fixtures
-4. Write E2E tests for each story
-5. Integrate with CI/CD pipeline
+- Screenshots/video Traces land in `test-results/e2e/` on failure (`screenshot: only-on-failure`, `trace: on-first-retry`).
+- Console and page errors are forwarded to stdout by `electron-launcher.js` (`PAGE LOG:` / `PAGE ERROR:`).
+- `await page.pause()` and `PWDEBUG=1` work as usual with Playwright.
