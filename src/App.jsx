@@ -75,7 +75,11 @@ export default function App(){
   const DEFAULT_WIKI_PCT = 30;
   const [wikiPct, setWikiPct] = useState(() => {
     try {
-      const stored = Number(window.localStorage.getItem('zuojia-layout-wiki-pct'));
+      // NB: getItem returns null when unset and Number(null) === 0, which
+      // is in range — so an explicit null check is required, otherwise a
+      // fresh/cleared profile wrongly starts at 0 (manuscript only).
+      const raw = window.localStorage.getItem('zuojia-layout-wiki-pct');
+      const stored = raw === null ? NaN : Number(raw);
       if (Number.isFinite(stored) && stored >= 0 && stored <= 100) {
         return stored;
       }

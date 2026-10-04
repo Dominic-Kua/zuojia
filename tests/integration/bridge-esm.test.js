@@ -7,11 +7,36 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import neo4j from 'neo4j-driver';
 
 const BRIDGE_PATH = path.resolve(__dirname, '../../helper/src/mcp/project-synapse-bridge.js');
 const SYNAPSE_DIR = path.join(process.env.HOME, 'code', 'project-synapse-mcp');
 const HAS_SYNAPSE = fs.existsSync(path.join(SYNAPSE_DIR, 'pyproject.toml'));
 const TMP_NOVEL = '/tmp/zuojia-bridge-test';
+
+// Live-Synapse tests need more than the checkout: Neo4j must be up AND
+// accepting the test credentials (neo4j/neo4j). Probe once and cache —
+// environments with a running Neo4j under different credentials (e.g. a
+// dev install) get a skip instead of a spurious failure.
+let neo4jReadyCache = null;
+async function isNeo4jReady() {
+  if (neo4jReadyCache !== null) {
+    return neo4jReadyCache;
+  }
+  const testDriver = neo4j.driver(
+    'bolt://localhost:7687',
+    neo4j.auth.basic('neo4j', 'neo4j')
+  );
+  try {
+    await testDriver.verifyConnectivity();
+    neo4jReadyCache = true;
+  } catch {
+    neo4jReadyCache = false;
+  } finally {
+    await testDriver.close().catch(() => {});
+  }
+  return neo4jReadyCache;
+}
 
 function spawnBridge(opts = {}) {
   const novelPath = opts.novelPath || TMP_NOVEL;
@@ -139,7 +164,11 @@ describe('Project Synapse Bridge (ESM integration)', () => {
     expect(result.stderr).not.toContain('Cannot use import statement');
   });
 
-  it.skipIf(!HAS_SYNAPSE)('connects to Synapse and responds to JSON-RPC initialize', async () => {
+  it.skipIf(!HAS_SYNAPSE)('connects to Synapse and responds to JSON-RPC initialize', async (ctx) => {
+    if (!(await isNeo4jReady())) {
+      ctx.skip();
+      return;
+    }
     // Send an initialize request through stdin
     const novelPath = TMP_NOVEL;
     const env = {
@@ -213,7 +242,11 @@ describe('Project Synapse Bridge (ESM integration)', () => {
     expect(result.response.result.serverInfo).toBeDefined();
   }, 30000);
 
-  it.skipIf(!HAS_SYNAPSE)('survives SIGTERM gracefully', async () => {
+  it.skipIf(!HAS_SYNAPSE)('survives SIGTERM gracefully', async (ctx) => {
+    if (!(await isNeo4jReady())) {
+      ctx.skip();
+      return;
+    }
     const novelPath = TMP_NOVEL;
     const env = {
       ...process.env,
