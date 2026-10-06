@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useStorymap } from '../../hooks/useStorymap';
+import { useWikiPages } from '../../hooks/useWikiPages';
+import { storymapWindowHandlers } from '../../lib/ipc-client';
 import { createScene, createChapter, createArc, snapSceneToChapter, ARC_COLORS } from '../../lib/storymap-model';
 import { screenToWorld } from '../../lib/storymap-canvas/view';
 import { applyTheme, getStoredTheme } from '../../lib/theme';
@@ -34,6 +36,7 @@ function getCenterWorldPoint(hostElement, view) {
 export function StoryMapApp() {
   const [novelPath] = React.useState(() => getNovelPathFromUrl());
   const { storymap, loading, error, updateStorymap } = useStorymap(novelPath);
+  const { pages: wikiPages } = useWikiPages(novelPath);
   const [selectedSceneId, setSelectedSceneId] = useState(null);
   const [theme, setTheme] = useState(() => applyTheme(getStoredTheme()));
   const [showHelp, setShowHelp] = useState(false);
@@ -339,6 +342,14 @@ export function StoryMapApp() {
     [updateStorymap]
   );
 
+  const handleOpenWikiPage = useCallback(async (slug) => {
+    try {
+      await storymapWindowHandlers.openWikiPage(slug);
+    } catch (err) {
+      console.error('Failed to open wiki page from storymap:', err);
+    }
+  }, []);
+
   const handleHoverArc = useCallback((arcId, screenX, screenY) => {
     setHoveredArcId(arcId);
     if (arcId) {
@@ -477,11 +488,13 @@ export function StoryMapApp() {
           <SceneNotesPanel
             scene={selectedScene}
             chapters={chapters}
+            wikiPages={wikiPages}
             isCurrent={storymap?.currentSceneId === selectedScene.id}
             onMarkCurrent={() => handleMarkCurrent(selectedScene.id)}
             onChange={handleSceneChange}
             onClose={handleBackgroundClick}
             onCreateChapter={handleCreateChapter}
+            onOpenWikiPage={handleOpenWikiPage}
           />
         )}
         {showArcPanel && (

@@ -1,5 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { CHAPTER_COLORS, createChapter } from '../../lib/storymap-model';
+import { createWikiLink } from '../../lib/wiki-link';
+import { WikiNotesRenderer } from './WikiNotesRenderer';
 
 const TENSION_OPTIONS = [
   { value: 'low', label: 'Low' },
@@ -8,8 +10,22 @@ const TENSION_OPTIONS = [
   { value: 'unresolved', label: 'Unresolved' },
 ];
 
-export function SceneNotesPanel({ scene, chapters = [], isCurrent, onMarkCurrent, onChange, onClose, onCreateChapter }) {
+export function SceneNotesPanel({
+  scene,
+  chapters = [],
+  wikiPages = [],
+  isCurrent,
+  onMarkCurrent,
+  onChange,
+  onClose,
+  onCreateChapter,
+  onOpenWikiPage,
+}) {
   const panelRef = useRef(null);
+  const charactersInputRef = useRef(null);
+  const [query, setQuery] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
 
   useEffect(() => {
     function handleKeyDown(event) {
@@ -50,6 +66,50 @@ export function SceneNotesPanel({ scene, chapters = [], isCurrent, onMarkCurrent
     const title = window.prompt('Chapter title:');
     if (!title) return;
     onCreateChapter(title);
+  }
+
+  const filteredPages = (wikiPages || [])
+    .filter((page) => {
+      const q = query.trim().toLowerCase();
+      if (!q) return false;
+      return page.title.toLowerCase().includes(q) || page.slug.toLowerCase().includes(q);
+    })
+    .slice(0, 8);
+
+  function handleCharactersChange(event) {
+    const value = event.target.value;
+    updateField('characters', value);
+    setQuery(value);
+    setShowDropdown(true);
+    setHighlightedIndex(0);
+  }
+
+  function insertWikiLink(page) {
+    const linkText = createWikiLink(page.slug, page.title);
+    const currentNotes = scene.notes || '';
+    const separator = currentNotes.length > 0 && !currentNotes.endsWith(' ') ? ' ' : '';
+    updateField('notes', `${currentNotes}${separator}${linkText}`);
+    setQuery('');
+    setShowDropdown(false);
+    if (charactersInputRef.current) {
+      charactersInputRef.current.focus();
+    }
+  }
+
+  function handleCharactersKeyDown(event) {
+    if (!showDropdown || filteredPages.length === 0) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setHighlightedIndex((i) => (i + 1) % filteredPages.length);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setHighlightedIndex((i) => (i - 1 + filteredPages.length) % filteredPages.length);
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      insertWikiLink(filteredPages[highlightedIndex]);
+    } else if (event.key === 'Escape') {
+      setShowDropdown(false);
+    }
   }
 
   return (
@@ -110,14 +170,37 @@ export function SceneNotesPanel({ scene, chapters = [], isCurrent, onMarkCurrent
             placeholder="Where does this scene happen?"
           />
         </label>
-        <label>
+        <label className="scene-notes-characters-wrap">
           <span>Characters</span>
           <input
+            ref={charactersInputRef}
             type="text"
             value={scene.characters}
-            onChange={(e) => updateField('characters', e.target.value)}
+            onChange={handleCharactersChange}
+            onKeyDown={handleCharactersKeyDown}
+            onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
             placeholder="Who appears in this scene?"
+            data-testid="scene-characters-input"
           />
+          {showDropdown && filteredPages.length > 0 && (
+            <ul className="scene-notes-wiki-dropdown" role="listbox" data-testid="scene-wiki-dropdown">
+              {filteredPages.map((page, index) => (
+                <li
+                  key={page.slug}
+                  role="option"
+                  aria-selected={index === highlightedIndex}
+                  className={index === highlightedIndex ? 'highlighted' : ''}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    insertWikiLink(page);
+                  }}
+                  onMouseEnter={() => setHighlightedIndex(index)}
+                >
+                  {page.title}
+                </li>
+              ))}
+            </ul>
+          )}
         </label>
         <label>
           <span>Tension</span>
@@ -139,6 +222,11 @@ export function SceneNotesPanel({ scene, chapters = [], isCurrent, onMarkCurrent
             onChange={(e) => updateField('notes', e.target.value)}
             placeholder="Anything else about this scene..."
             rows={5}
+          />
+          <WikiNotesRenderer
+            text={scene.notes}
+            wikiPages={wikiPages}
+            onOpenWikiPage={onOpenWikiPage}
           />
         </label>
       </div>

@@ -58,6 +58,7 @@ export const storymapHandlers = {
 
 export const storymapWindowHandlers = {
   open: (novelPath) => invokeHandler('storymap-window:open', novelPath),
+  openWikiPage: (slug) => invokeHandler('storymap:open-wiki-page', slug),
 };
 
 export const chapterHandlers = {

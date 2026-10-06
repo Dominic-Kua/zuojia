@@ -1383,3 +1383,43 @@ body{
 .scene-notes-chapter-row select {
   flex: 1 1 0;
 }
+
+.scene-notes-characters-wrap {
+  position: relative;
+}
+
+.scene-notes-wiki-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  margin: 4px 0 0;
+  padding: 4px 0;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-sm, 6px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 200px;
+  overflow: auto;
+}
+
+.scene-notes-wiki-dropdown li {
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.scene-notes-wiki-dropdown li.highlighted,
+.scene-notes-wiki-dropdown li:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.06));
+}
+
+.scene-notes-wiki-rendered {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px dashed var(--divider);
+  border-radius: var(--radius-sm, 6px);
+  font-size: 13px;
+  line-height: 1.5;
+}

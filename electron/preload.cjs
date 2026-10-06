@@ -15,6 +15,7 @@ const ALLOWED_INVOKE_CHANNELS = new Set([
   'helper:storymap:load',
   'helper:storymap:save',
   'storymap-window:open',
+  'storymap:open-wiki-page',
   // Chapters
   'helper:chapter:read',
   'helper:chapter:write',

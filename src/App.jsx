@@ -489,6 +489,18 @@ export default function App(){
     setWikiPageToOpen(null);
   }, []);
 
+  // Listen for wiki-open requests sent from storymap windows.
+  useEffect(() => {
+    if (!window.electronAPI?.on) return undefined;
+    const handler = (slug) => handleOpenWikiPage(slug);
+    window.electronAPI.on('wiki:open-page', handler);
+    return () => {
+      if (window.electronAPI?.off) {
+        window.electronAPI.off('wiki:open-page', handler);
+      }
+    };
+  }, [handleOpenWikiPage]);
+
   // Wiki floating panel drag handlers
   const handleWikiPanelDragStart = useCallback((e) => {
     if (!wikiDetached) return;
