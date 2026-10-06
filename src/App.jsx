@@ -11,7 +11,7 @@ import { SnapshotButton } from './components/SnapshotButton'
 
 import { LlmChatWindow } from './components/LlmChatWindow'
 import { useWikiPages } from './hooks/useWikiPages'
-import { appHandlers } from './lib/ipc-client'
+import { appHandlers, storymapWindowHandlers } from './lib/ipc-client'
 
 export default function App(){
   const [novelPath, setNovelPath] = useState(null);
@@ -729,6 +729,14 @@ export default function App(){
           {wikiDetached && (
             <button className="btn ghost" data-testid="topbar-dock-wiki-button" onClick={() => setWikiDetached(false)}>Dock Wiki</button>
           )}
+          <button
+            type="button"
+            className="btn ghost"
+            data-testid="open-storymap-button"
+            onClick={() => storymapWindowHandlers.open(novelPath)}
+          >
+            Story Map
+          </button>
           <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>
         </div>
       </header>

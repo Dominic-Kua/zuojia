@@ -18,6 +18,7 @@ import { createWikiPage, readWikiPage, updateWikiPage, deleteWikiPage, renameWik
 import { listWikiPages } from '../helper/src/wiki/list-pages.js';
 import { rebuildSpellcheckDict, getSpellcheckDict, addWordToSpellcheckDict } from '../helper/src/wiki/rebuild-dict.js';
 import { createSnapshot, listSnapshots, deleteSnapshot, restoreSnapshot } from '../helper/src/backup/snapshot.js';
+import { loadStorymap, debouncedSaveStorymap, flushDebouncedStorymapSaves } from '../helper/src/storymap/store.js';
 import { loadLlmConfig, saveLlmConfig, validateLlmConfig } from './llm-config.js';
 import { createLlmRuntimeManager } from './llm-runtime.js';
 import { createMcpRuntimeManager } from './mcp-runtime.js';
@@ -99,6 +100,31 @@ function validateHandlerPayload(payload) {
 
 function invalidInputEnvelope(message) {
   return fail('INVALID_INPUT', message);
+}
+
+async function validateNovelPathUnderZuojia(novelPath) {
+  if (typeof novelPath !== 'string' || !path.isAbsolute(novelPath)) {
+    return invalidInputEnvelope('novelPath must be an absolute filesystem path');
+  }
+
+  const novelsRoot = path.resolve(process.env.ZUOJIA_NOVELS_ROOT || path.join(os.homedir(), '.zuojia'));
+  let realNovelPath;
+  try {
+    realNovelPath = await fs.promises.realpath(novelPath);
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      realNovelPath = novelPath;
+    } else {
+      return invalidInputEnvelope(`could not resolve novelPath: ${err.message}`);
+    }
+  }
+
+  const realRoot = await fs.promises.realpath(novelsRoot).catch(() => novelsRoot);
+  const rel = path.relative(realRoot, realNovelPath);
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) {
+    return invalidInputEnvelope(`novelPath must be under ${novelsRoot}`);
+  }
+  return null;
 }
 
 function ok(data) {
@@ -198,7 +224,12 @@ export function registerHandlers() {
       try {
         // Never let a hung child block quitting forever.
         await Promise.race([
-          orchestrator.stopAll(),
+          Promise.all([
+            orchestrator.stopAll(),
+            flushDebouncedStorymapSaves().catch((err) => {
+              console.error('[quit] error flushing storymap saves:', err);
+            }),
+          ]),
           new Promise((resolve) => setTimeout(resolve, 10000)),
         ]);
       } catch (err) {
@@ -237,6 +268,31 @@ export function registerHandlers() {
     'helper:index:rebuild',
     wrapHandler(async ({ novelPath }) => {
       return await rebuildIndex(novelPath);
+    })
+  );
+
+  // Storymap handlers
+  ipcMain.handle(
+    'helper:storymap:load',
+    wrapHandler(async ({ novelPath }) => {
+      const problem = await validateNovelPathUnderZuojia(novelPath);
+      if (problem) {
+        return problem;
+      }
+      const storymap = await loadStorymap(novelPath);
+      return ok(storymap);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:storymap:save',
+    wrapHandler(async ({ novelPath, data }) => {
+      const problem = await validateNovelPathUnderZuojia(novelPath);
+      if (problem) {
+        return problem;
+      }
+      const result = await debouncedSaveStorymap(novelPath, data);
+      return ok(result);
     })
   );
 
