@@ -939,6 +939,7 @@ body{
 }
 
 .storymap-canvas-host {
+  position: relative;
   flex: 1 1 0;
   min-height: 0;
   display: flex;
