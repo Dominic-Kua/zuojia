@@ -38,6 +38,8 @@ function resolveRendererEntry() {
   return distEntry;
 }
 
+let mainWindow = null;
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
@@ -58,6 +60,11 @@ function createWindow() {
   } else {
     win.loadFile(resolveRendererEntry());
   }
+
+  mainWindow = win;
+  win.on('closed', () => {
+    mainWindow = null;
+  });
 }
 
 function getStorymapBoundsPath() {
@@ -160,6 +167,18 @@ function registerWindowHandlers() {
     }
     createStorymapWindow(novelPath);
     return { status: 'ok', data: { opened: true } };
+  });
+
+  ipcMain.handle('storymap:open-wiki-page', (event, slug) => {
+    if (typeof slug !== 'string' || slug.length === 0) {
+      return { status: 'error', error: { code: 'INVALID_INPUT', message: 'slug is required' } };
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('wiki:open-page', slug);
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+    return { status: 'ok', data: { sent: true } };
   });
 }
 
