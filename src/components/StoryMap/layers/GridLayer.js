@@ -1,4 +1,4 @@
-import { resolveColorWithAlpha } from '../../lib/theme';
+import { resolveColorWithAlpha } from '../../../lib/theme';
 
 const GRID_SIZE = 100;
 
