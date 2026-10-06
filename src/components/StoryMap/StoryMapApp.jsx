@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useStorymap } from '../../hooks/useStorymap';
-import { createScene, createChapter, snapSceneToChapter } from '../../lib/storymap-model';
+import { createScene, createChapter, createArc, snapSceneToChapter, ARC_COLORS } from '../../lib/storymap-model';
 import { screenToWorld } from '../../lib/storymap-canvas/view';
 import { applyTheme, getStoredTheme } from '../../lib/theme';
 import { StoryMapWindow } from './StoryMapWindow';
@@ -13,7 +13,10 @@ import { createSceneLayer } from './layers/SceneLayer';
 import { createChapterLayer } from './layers/ChapterLayer';
 import { createTemporalSceneLayer } from './layers/TemporalSceneLayer';
 import { createTemporalLaneLayer } from './layers/TemporalLaneLayer';
+import { createArcLayer } from './layers/ArcLayer';
 import { ViewControls } from './ViewControls';
+import { ArcPanel } from './ArcPanel';
+import { ArcManagementModal } from './ArcManagementModal';
 
 function getNovelPathFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -36,6 +39,15 @@ export function StoryMapApp() {
   const [showHelp, setShowHelp] = useState(false);
   const [view, setView] = useState('sequential');
   const [split, setSplit] = useState(false);
+  const [showArcPanel, setShowArcPanel] = useState(false);
+  const [selectedSceneIds, setSelectedSceneIds] = useState([]);
+  const [connectionMode, setConnectionMode] = useState('sequential');
+  const [hoveredArcId, setHoveredArcId] = useState(null);
+  const [selectedArcId, setSelectedArcId] = useState(null);
+  const [managedArcId, setManagedArcId] = useState(null);
+  const [hoverTooltip, setHoverTooltip] = useState(null);
+
+  const activeArcId = hoveredArcId || selectedArcId;
 
   useEffect(() => {
     applyTheme(theme);
@@ -54,6 +66,7 @@ export function StoryMapApp() {
 
   const scenes = storymap?.scenes ?? [];
   const chapters = storymap?.chapters ?? [];
+  const arcs = storymap?.arcs ?? [];
   const selectedScene = scenes.find((s) => s.id === selectedSceneId) || null;
 
   const handleAddScene = useCallback(() => {
@@ -116,6 +129,10 @@ export function StoryMapApp() {
           event.preventDefault();
           setSplit((s) => !s);
           break;
+        case 'a':
+          event.preventDefault();
+          setShowArcPanel((p) => !p);
+          break;
         case 'Escape':
           if (showHelp) {
             setShowHelp(false);
@@ -163,8 +180,15 @@ export function StoryMapApp() {
     [updateStorymap]
   );
 
-  const handleSceneSelect = useCallback((scene) => {
-    setSelectedSceneId(scene.id);
+  const handleSceneSelect = useCallback((scene, event) => {
+    if (event?.metaKey || event?.ctrlKey) {
+      setSelectedSceneIds((ids) =>
+        ids.includes(scene.id) ? ids.filter((id) => id !== scene.id) : [...ids, scene.id]
+      );
+    } else {
+      setSelectedSceneId(scene.id);
+      setSelectedSceneIds([]);
+    }
   }, []);
 
   const handleBackgroundClick = useCallback(() => {
@@ -208,6 +232,127 @@ export function StoryMapApp() {
     [updateStorymap]
   );
 
+  const handleCreateArc = useCallback(
+    (name, initialSceneIds = []) => {
+      updateStorymap((current) => {
+        const nextColor = ARC_COLORS[current.arcs.length % ARC_COLORS.length];
+        const newArc = createArc({ name, color: nextColor });
+        const newAssignments = initialSceneIds.map((sceneId) => ({ arcId: newArc.id, sceneId }));
+        return {
+          ...current,
+          arcs: [...current.arcs, newArc],
+          sceneArcAssignments: [...current.sceneArcAssignments, ...newAssignments],
+        };
+      });
+      setSelectedSceneIds([]);
+    },
+    [updateStorymap]
+  );
+
+  const handleAssignScenesToArc = useCallback(
+    (arcId, sceneIds) => {
+      updateStorymap((current) => {
+        const existing = new Set(current.sceneArcAssignments.map((a) => `${a.arcId}-${a.sceneId}`));
+        const newAssignments = sceneIds
+          .filter((sceneId) => !existing.has(`${arcId}-${sceneId}`))
+          .map((sceneId) => ({ arcId, sceneId }));
+        return {
+          ...current,
+          sceneArcAssignments: [...current.sceneArcAssignments, ...newAssignments],
+        };
+      });
+      setSelectedSceneIds([]);
+    },
+    [updateStorymap]
+  );
+
+  const handleRenameArc = useCallback(
+    (arcId, name) => {
+      updateStorymap((current) => ({
+        ...current,
+        arcs: current.arcs.map((a) => (a.id === arcId ? { ...a, name } : a)),
+      }));
+    },
+    [updateStorymap]
+  );
+
+  const handleDeleteArc = useCallback(
+    (arcId) => {
+      updateStorymap((current) => ({
+        ...current,
+        arcs: current.arcs.filter((a) => a.id !== arcId),
+        sceneArcAssignments: current.sceneArcAssignments.filter((a) => a.arcId !== arcId),
+      }));
+      if (selectedArcId === arcId) setSelectedArcId(null);
+    },
+    [updateStorymap, selectedArcId]
+  );
+
+  const handleMergeArc = useCallback(
+    (sourceId, targetId) => {
+      updateStorymap((current) => {
+        const moved = current.sceneArcAssignments
+          .filter((a) => a.arcId === sourceId)
+          .map((a) => ({ ...a, arcId: targetId }));
+        const existingKeys = new Set(current.sceneArcAssignments.map((a) => `${a.arcId}-${a.sceneId}`));
+        const newAssignments = moved.filter((a) => !existingKeys.has(`${a.arcId}-${a.sceneId}`));
+        return {
+          ...current,
+          arcs: current.arcs.filter((a) => a.id !== sourceId),
+          sceneArcAssignments: [
+            ...current.sceneArcAssignments.filter((a) => a.arcId !== sourceId),
+            ...newAssignments,
+          ],
+        };
+      });
+      if (selectedArcId === sourceId) setSelectedArcId(null);
+    },
+    [updateStorymap, selectedArcId]
+  );
+
+  const handleSplitArc = useCallback(
+    (sourceId, sceneIds, newName) => {
+      updateStorymap((current) => {
+        const nextColor = ARC_COLORS[current.arcs.length % ARC_COLORS.length];
+        const newArc = createArc({ name: newName, color: nextColor });
+        const newAssignments = sceneIds.map((sceneId) => ({ arcId: newArc.id, sceneId }));
+        return {
+          ...current,
+          arcs: [...current.arcs, newArc],
+          sceneArcAssignments: [
+            ...current.sceneArcAssignments.filter((a) => !(a.arcId === sourceId && sceneIds.includes(a.sceneId))),
+            ...newAssignments,
+          ],
+        };
+      });
+    },
+    [updateStorymap]
+  );
+
+  const handleChangeArcColor = useCallback(
+    (arcId, color) => {
+      updateStorymap((current) => ({
+        ...current,
+        arcs: current.arcs.map((a) => (a.id === arcId ? { ...a, color } : a)),
+      }));
+    },
+    [updateStorymap]
+  );
+
+  const handleHoverArc = useCallback((arcId, screenX, screenY) => {
+    setHoveredArcId(arcId);
+    if (arcId) {
+      const arc = arcs.find((a) => a.id === arcId);
+      setHoverTooltip({
+        name: arc?.name || '',
+        x: screenX,
+        y: screenY,
+      });
+    } else {
+      setHoverTooltip(null);
+    }
+  }, [arcs]);
+
   const sceneLayer = useMemo(
     () =>
       view === 'temporal'
@@ -246,9 +391,25 @@ export function StoryMapApp() {
     [scenes, split]
   );
 
+  const arcLayer = useMemo(
+    () =>
+      createArcLayer({
+        getScenes: () => scenes,
+        getArcs: () => arcs,
+        getAssignments: () => storymap?.sceneArcAssignments ?? [],
+        getMode: () => connectionMode,
+        getActiveArcId: () => activeArcId,
+        isDark: theme === 'dark',
+      }),
+    [scenes, arcs, storymap?.sceneArcAssignments, connectionMode, activeArcId, theme]
+  );
+
   const layers = useMemo(
-    () => (view === 'temporal' ? [temporalLaneLayer, sceneLayer] : [chapterLayer, sceneLayer]),
-    [view, temporalLaneLayer, chapterLayer, sceneLayer]
+    () =>
+      view === 'temporal'
+        ? [temporalLaneLayer, arcLayer, sceneLayer]
+        : [chapterLayer, arcLayer, sceneLayer],
+    [view, temporalLaneLayer, chapterLayer, arcLayer, sceneLayer]
   );
 
   if (error) {
@@ -283,18 +444,34 @@ export function StoryMapApp() {
         novelPath={novelPath}
         layers={layers}
         viewName={view}
+        activeArcId={activeArcId}
+        onHoverArc={handleHoverArc}
         onSceneDrag={handleSceneDrag}
         onSceneSelect={handleSceneSelect}
         onBackgroundClick={handleBackgroundClick}
       >
-        <StoryMapToolbar onAddScene={handleAddScene} onShowHelp={() => setShowHelp(true)}>
-          <ViewControls
-            view={view}
-            split={split}
-            onChangeView={setView}
-            onToggleSplit={() => setSplit((s) => !s)}
-          />
-        </StoryMapToolbar>
+        <StoryMapToolbar
+          onAddScene={handleAddScene}
+          onShowHelp={() => setShowHelp(true)}
+          viewControls={
+            <ViewControls
+              view={view}
+              split={split}
+              onChangeView={setView}
+              onToggleSplit={() => setSplit((s) => !s)}
+            />
+          }
+          arcControls={
+            <button
+              type="button"
+              className={`btn btn-sm ${showArcPanel ? 'primary' : 'ghost'}`}
+              aria-pressed={showArcPanel}
+              onClick={() => setShowArcPanel((p) => !p)}
+            >
+              Arcs
+            </button>
+          }
+        />
         {!loading && scenes.length === 0 && <EmptyCanvasState onAddScene={handleAddScene} />}
         {selectedScene && (
           <SceneNotesPanel
@@ -307,7 +484,47 @@ export function StoryMapApp() {
             onCreateChapter={handleCreateChapter}
           />
         )}
+        {showArcPanel && (
+          <ArcPanel
+            arcs={arcs}
+            sceneArcAssignments={storymap?.sceneArcAssignments ?? []}
+            selectedSceneIds={selectedSceneIds}
+            selectedArcId={selectedArcId}
+            connectionMode={connectionMode}
+            onConnectionModeChange={setConnectionMode}
+            onCreateArc={handleCreateArc}
+            onAssignScenes={handleAssignScenesToArc}
+            onSelectArc={setSelectedArcId}
+            onManageArc={setManagedArcId}
+            onClose={() => setShowArcPanel(false)}
+          />
+        )}
+        {managedArcId && (
+          <ArcManagementModal
+            arc={arcs.find((a) => a.id === managedArcId)}
+            arcs={arcs}
+            scenes={scenes}
+            assignments={storymap?.sceneArcAssignments ?? []}
+            onClose={() => setManagedArcId(null)}
+            onRename={handleRenameArc}
+            onDelete={handleDeleteArc}
+            onMerge={handleMergeArc}
+            onSplit={handleSplitArc}
+            onChangeColor={handleChangeArcColor}
+          />
+        )}
         {showHelp && <KeyboardHelpOverlay onClose={() => setShowHelp(false)} />}
+        {hoverTooltip && (
+          <div
+            className="arc-hover-tooltip"
+            style={{
+              left: hoverTooltip.x + 12,
+              top: hoverTooltip.y + 12,
+            }}
+          >
+            {hoverTooltip.name}
+          </div>
+        )}
       </CanvasView>
     </StoryMapWindow>
   );

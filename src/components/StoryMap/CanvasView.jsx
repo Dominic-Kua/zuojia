@@ -11,7 +11,18 @@ import { createGridLayer } from './layers/GridLayer';
 
 const CLICK_THRESHOLD_PX = 4;
 
-export function CanvasView({ novelPath, layers = [], theme = 'light', viewName = 'sequential', onSceneDrag, onSceneSelect, onBackgroundClick, children }) {
+export function CanvasView({
+  novelPath,
+  layers = [],
+  theme = 'light',
+  viewName = 'sequential',
+  activeArcId,
+  onHoverArc,
+  onSceneDrag,
+  onSceneSelect,
+  onBackgroundClick,
+  children,
+}) {
   const canvasRef = useRef(null);
   const hostRef = useRef(null);
   const viewRef = useRef(createViewState());
@@ -19,6 +30,11 @@ export function CanvasView({ novelPath, layers = [], theme = 'light', viewName =
   const rafRef = useRef(null);
   const dragRef = useRef(null);
   const [isReady, setIsReady] = useState(false);
+  const activeArcIdRef = useRef(activeArcId);
+  const onHoverArcRef = useRef(onHoverArc);
+
+  activeArcIdRef.current = activeArcId;
+  onHoverArcRef.current = onHoverArc;
 
   useEffect(() => {
     if (!novelPath) return;
@@ -38,6 +54,10 @@ export function CanvasView({ novelPath, layers = [], theme = 'light', viewName =
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const allRegisteredLayers = registry.getLayers();
+    const baseLayers = allRegisteredLayers.filter((l) => l.layerType !== 'arc');
+    const arcLayers = allRegisteredLayers.filter((l) => l.layerType === 'arc');
+
     function resizeCanvas() {
       const rect = host.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
@@ -49,9 +69,31 @@ export function CanvasView({ novelPath, layers = [], theme = 'light', viewName =
       requestRender();
     }
 
+    function renderLayerList(list, alpha) {
+      ctx.save();
+      if (alpha !== undefined) {
+        ctx.globalAlpha = alpha;
+      }
+      for (const layer of list) {
+        ctx.save();
+        layer.render(ctx, { view: viewRef.current, width: host.clientWidth, height: host.clientHeight });
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+
     function render() {
       const rect = host.getBoundingClientRect();
-      layersRef.current.render(ctx, viewRef.current, rect.width, rect.height);
+      ctx.save();
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      ctx.restore();
+
+      if (activeArcIdRef.current) {
+        renderLayerList(baseLayers, 0.2);
+        renderLayerList(arcLayers, 1);
+      } else {
+        renderLayerList(allRegisteredLayers, 1);
+      }
     }
 
     function requestRender() {
@@ -73,26 +115,28 @@ export function CanvasView({ novelPath, layers = [], theme = 'light', viewName =
       return null;
     }
 
+    function hitTestArc(screenX, screenY) {
+      for (let i = layers.length - 1; i >= 0; i -= 1) {
+        const layer = layers[i];
+        if (typeof layer.hitTestArc === 'function') {
+          const hit = layer.hitTestArc(viewRef.current, screenX, screenY);
+          if (hit) return hit;
+        }
+      }
+      return null;
+    }
+
+    function updateHover(screenX, screenY) {
+      const arcId = hitTestArc(screenX, screenY);
+      onHoverArcRef.current?.(arcId, screenX, screenY);
+    }
+
     function handlePointerDown(event) {
       const rect = canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
 
-      const hit = hitTestScene(x, y);
-      if (hit) {
-        const offset = hit.layer.getDragOffset
-          ? hit.layer.getDragOffset(viewRef.current, hit.scene, x, y)
-          : { dx: 0, dy: 0 };
-        dragRef.current = {
-          type: 'scene',
-          scene: hit.scene,
-          startScreen: { x, y },
-          lastScreen: { x, y },
-          totalMovement: 0,
-          offset,
-        };
-        canvas.style.cursor = 'grabbing';
-      } else {
+      if (activeArcIdRef.current) {
         dragRef.current = {
           type: 'pan',
           startScreen: { x, y },
@@ -100,15 +144,43 @@ export function CanvasView({ novelPath, layers = [], theme = 'light', viewName =
           totalMovement: 0,
         };
         canvas.style.cursor = 'grabbing';
+      } else {
+        const hit = hitTestScene(x, y);
+        if (hit) {
+          const offset = hit.layer.getDragOffset
+            ? hit.layer.getDragOffset(viewRef.current, hit.scene, x, y)
+            : { dx: 0, dy: 0 };
+          dragRef.current = {
+            type: 'scene',
+            scene: hit.scene,
+            startScreen: { x, y },
+            lastScreen: { x, y },
+            totalMovement: 0,
+            offset,
+          };
+          canvas.style.cursor = 'grabbing';
+        } else {
+          dragRef.current = {
+            type: 'pan',
+            startScreen: { x, y },
+            lastScreen: { x, y },
+            totalMovement: 0,
+          };
+          canvas.style.cursor = 'grabbing';
+        }
       }
       canvas.setPointerCapture(event.pointerId);
     }
 
     function handlePointerMove(event) {
-      if (!dragRef.current) return;
       const rect = canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
+
+      if (!dragRef.current) {
+        updateHover(x, y);
+        return;
+      }
 
       const dx = x - dragRef.current.lastScreen.x;
       const dy = y - dragRef.current.lastScreen.y;
@@ -135,10 +207,16 @@ export function CanvasView({ novelPath, layers = [], theme = 'light', viewName =
 
       if (totalMovement <= CLICK_THRESHOLD_PX) {
         if (type === 'scene' && onSceneSelect) {
-          onSceneSelect(scene);
+          onSceneSelect(scene, event);
         } else if (type === 'pan' && onBackgroundClick) {
           onBackgroundClick(startScreen.x, startScreen.y);
         }
+      }
+    }
+
+    function handlePointerLeave() {
+      if (!dragRef.current) {
+        onHoverArcRef.current?.(null, 0, 0);
       }
     }
 
@@ -162,6 +240,7 @@ export function CanvasView({ novelPath, layers = [], theme = 'light', viewName =
     canvas.addEventListener('pointermove', handlePointerMove);
     canvas.addEventListener('pointerup', handlePointerUp);
     canvas.addEventListener('pointercancel', handlePointerUp);
+    canvas.addEventListener('pointerleave', handlePointerLeave);
     canvas.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
@@ -173,6 +252,7 @@ export function CanvasView({ novelPath, layers = [], theme = 'light', viewName =
       canvas.removeEventListener('pointermove', handlePointerMove);
       canvas.removeEventListener('pointerup', handlePointerUp);
       canvas.removeEventListener('pointercancel', handlePointerUp);
+      canvas.removeEventListener('pointerleave', handlePointerLeave);
       canvas.removeEventListener('wheel', handleWheel);
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);

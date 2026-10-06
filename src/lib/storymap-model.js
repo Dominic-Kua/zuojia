@@ -28,6 +28,19 @@ export function createChapterId(timestamp = Date.now()) {
   return `chapter-${timestamp}-${chapterCounter++}`;
 }
 
+export function createArcId(timestamp = Date.now()) {
+  return `arc-${timestamp}-${arcCounter++}`;
+}
+
+export function createArc(options = {}) {
+  const { name = 'Untitled Arc', color = ARC_COLORS[0] } = options;
+  return {
+    id: createArcId(),
+    name,
+    color,
+  };
+}
+
 export const CHAPTER_COLORS = [
   { name: 'sage', light: '#7da27e', dark: '#9bc09c' },
   { name: 'clay', light: '#c17a5c', dark: '#d99a7a' },
@@ -37,6 +50,15 @@ export const CHAPTER_COLORS = [
   { name: 'rust', light: '#b35a4a', dark: '#cf7a6a' },
   { name: 'moss', light: '#6a8f5a', dark: '#8ab07a' },
   { name: 'indigo', light: '#5d6fa8', dark: '#7d8fc8' },
+];
+
+export const ARC_COLORS = [
+  { name: 'crimson', light: '#c44569', dark: '#e66767' },
+  { name: 'teal', light: '#2d8a8a', dark: '#4ecdc4' },
+  { name: 'gold', light: '#b38f00', dark: '#f7d794' },
+  { name: 'violet', light: '#7d5ba6', dark: '#a29bfe' },
+  { name: 'emerald', light: '#3d8b5d', dark: '#55efc4' },
+  { name: 'coral', light: '#d66d58', dark: '#fab1a0' },
 ];
 
 export const CHAPTER_COLUMN_WIDTH = 300;
