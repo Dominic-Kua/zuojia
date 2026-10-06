@@ -51,6 +51,15 @@ export const indexHandlers = {
   rebuildIndex: (novelPath) => invokeHandler('helper:index:rebuild', { novelPath }),
 };
 
+export const storymapHandlers = {
+  load: (novelPath) => invokeHandler('helper:storymap:load', { novelPath }),
+  save: (novelPath, data) => invokeHandler('helper:storymap:save', { novelPath, data }),
+};
+
+export const storymapWindowHandlers = {
+  open: (novelPath) => invokeHandler('storymap-window:open', novelPath),
+};
+
 export const chapterHandlers = {
   readChapter: (novelPath, filename) => invokeHandler('helper:chapter:read', { novelPath, filename }),
   writeChapter: (novelPath, filename, content) => invokeHandler('helper:chapter:write', { novelPath, filename, content }),
