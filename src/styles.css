@@ -69,6 +69,10 @@
   --input-bg: var(--manuscript-surface);
   --text-color: var(--text-primary);
   --text-muted: var(--text-faint);
+  --surface: var(--manuscript-surface);
+  --text: var(--text-primary);
+  --hover-bg: var(--color-bg-hover);
+  --selected-bg: var(--accent-soft);
   --danger-color: var(--danger);
 }
 :root[data-theme='dark']{
@@ -905,3 +909,569 @@ body{
   cursor: move;
 }
 .wiki-floating-panel-drag-overlay.resizing{cursor:nwse-resize}
+
+/* Story Map window chrome */
+.storymap-app,
+.storymap-window {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.storymap-topbar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--divider);
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.storymap-brand {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.storymap-meta {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.storymap-canvas-host {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.storymap-empty-state,
+.storymap-placeholder,
+.storymap-loading {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 24px;
+}
+
+.storymap-error {
+  color: var(--error, #c0392b);
+}
+
+.storymap-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.storymap-canvas-host .storymap-empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: var(--text-muted);
+  padding: 24px;
+  background: var(--surface);
+  border-radius: var(--radius-md, 10px);
+  box-shadow: var(--shadow-md);
+}
+
+.storymap-toolbar {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-md, 10px);
+  box-shadow: var(--shadow-sm);
+  z-index: 10;
+}
+
+.storymap-toolbar-slot {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.storymap-toolbar-slot[data-slot="end"] {
+  margin-left: auto;
+}
+
+.storymap-view-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.arc-panel {
+  position: absolute;
+  top: 72px;
+  left: 16px;
+  width: 260px;
+  max-height: calc(100% - 88px);
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-md, 10px);
+  box-shadow: var(--shadow-md);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+}
+
+.arc-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.arc-panel-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.arc-panel-actions {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.arc-panel-retroactive-form {
+  padding: 0 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.arc-panel-retroactive-form input,
+.arc-panel-retroactive-form select {
+  padding: 6px 8px;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--input-bg, var(--surface));
+  color: var(--text);
+}
+
+.arc-panel-retroactive-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.arc-panel-mode {
+  padding: 0 16px 12px;
+  display: flex;
+  gap: 4px;
+}
+
+.arc-panel-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+}
+
+.arc-panel-item:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.04));
+}
+
+.arc-panel-item.selected {
+  background: var(--selected-bg, rgba(0, 0, 0, 0.08));
+  border-left-color: var(--accent);
+}
+
+.arc-wait-caption {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.arc-hover-tooltip {
+  position: absolute;
+  z-index: 100;
+  pointer-events: none;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-sm, 6px);
+  padding: 4px 8px;
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 200;
+}
+
+.arc-management-modal {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-md, 10px);
+  width: 100%;
+  max-width: 480px;
+  max-height: 80vh;
+  overflow: auto;
+  padding: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.storymap-action-dialog {
+  width: min(420px, calc(100vw - 32px));
+  padding: 20px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-md, 10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.storymap-action-dialog h3 {
+  margin: 0 0 8px;
+}
+
+.storymap-action-dialog p {
+  margin: 0 0 16px;
+  color: var(--text-muted);
+}
+
+.storymap-action-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-muted);
+}
+
+.storymap-action-dialog-field input {
+  width: 100%;
+  padding: 8px 10px;
+  color: var(--text);
+  background: var(--input-bg, var(--surface));
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.storymap-chronology-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.modal-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.modal-body label,
+.modal-body fieldset {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.modal-body input,
+.modal-body select {
+  width: 100%;
+  padding: 6px 8px;
+  margin-top: 4px;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--input-bg, var(--surface));
+  color: var(--text);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--divider);
+}
+
+.arc-delete-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.arc-delete-confirm span {
+  flex: 1 1 100%;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.arc-color-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.arc-color-option {
+  width: 100%;
+  height: 32px;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+
+.checkbox-row input {
+  width: auto;
+}
+
+.arc-panel-list {
+  padding: 0 16px 12px;
+  overflow-y: auto;
+}
+
+.arc-panel-empty {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.arc-panel-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.arc-panel-item:last-child {
+  border-bottom: none;
+}
+
+.arc-color-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.arc-name {
+  flex: 1 1 0;
+  font-size: 0.9375rem;
+}
+
+.arc-count {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.storymap-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 100;
+}
+
+.storymap-overlay-content {
+  width: 100%;
+  max-width: 480px;
+  max-height: 80vh;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-md, 10px);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.storymap-overlay-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.storymap-overlay-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.storymap-shortcut-list {
+  margin: 0;
+  padding: 12px 16px;
+  overflow-y: auto;
+}
+
+.storymap-shortcut-row {
+  display: flex;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--divider);
+}
+
+.storymap-shortcut-row:last-child {
+  border-bottom: none;
+}
+
+.storymap-shortcut-row dt {
+  flex: 0 0 120px;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.storymap-shortcut-row dd {
+  margin: 0;
+  flex: 1 1 0;
+  color: var(--text-muted);
+}
+
+.scene-notes-panel {
+  position: absolute;
+  top: 72px;
+  right: 16px;
+  width: 100%;
+  max-width: 320px;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-md, 10px);
+  box-shadow: var(--shadow-md);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100% - 88px);
+}
+
+.scene-notes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.scene-notes-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.scene-notes-fields {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.scene-notes-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.scene-notes-fields input,
+.scene-notes-fields select,
+.scene-notes-fields textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--input-bg, var(--surface));
+  color: var(--text);
+  font-size: 0.9375rem;
+}
+
+.scene-notes-fields textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.scene-notes-characters-wrap {
+  position: relative;
+}
+
+.scene-notes-wiki-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  margin: 4px 0 0;
+  padding: 4px 0;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-sm, 6px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 200px;
+  overflow: auto;
+}
+
+.scene-notes-wiki-dropdown li {
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.scene-notes-wiki-dropdown li.highlighted,
+.scene-notes-wiki-dropdown li:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.06));
+}
+
+.scene-notes-wiki-rendered {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px dashed var(--divider);
+  border-radius: var(--radius-sm, 6px);
+  font-size: 13px;
+  line-height: 1.5;
+}
