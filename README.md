@@ -78,6 +78,16 @@ This list reflects what is currently wired in the app code.
 - `Reset UI` button restores the default layout, re-docks the wiki, and resets the floating panel position/size
 - Layout choice persists across sessions; double-clicking the divider also resets
 
+### Story Map
+
+- Open `Story Map` from the top bar while a novel is open; it appears in a separate window.
+- Add and drag scene cards on the canvas. Chronology is relative to the start of the story, using signed `Day` and `Year` values that default to `Day 0 Year 0`.
+- Edit each scene's location, characters, free-text tension prompt (the issue the scene resolves, creates, or explores), and notes. Character suggestions link to existing wiki pages, which open in the main wiki pane when clicked.
+- Assign scenes to chapters from the novel's chapter list. The map follows chapter additions and ordering from the novel.
+- Switch between Sequential and Temporal views, use POV lanes and split timelines, and pan/zoom the canvas.
+- Create arcs from selected scenes or before assigning scenes; manage arcs by renaming, recoloring, merging, splitting, or deleting them. Scenes can belong to multiple arcs.
+- Story Map saves its data to `meta/storymap.json` inside the novel directory.
+
 ### AI Toggle
 
 - The top-bar `AI On` / `AI Off` switch is a master on/off for all AI features (on by default)
@@ -112,6 +122,13 @@ This list reflects what is currently wired in the app code.
 
 - Security hardening for shared novels: git remote/branch validation (blocks `ext::` RCE and `--upload-pack` injection), push trust-on-first-use confirmation, wiki embed path traversal fix, symlink containment across file operations
 
+### v3.3.0
+
+- Added Story Map: a dedicated scene-planning canvas with relative Day/Year chronology, novel chapter assignments, Sequential/Temporal/Split views, and POV lanes.
+- Added colored arc threads with retroactive creation, multi-arc scenes, hover focus, and arc rename/merge/split/recolor/delete controls.
+- Added scene-note wiki autocomplete and navigation to pages in the main wiki pane.
+- Added light/dark canvas rendering and persistence in each novel's `meta/storymap.json`.
+
 ### v3.1.2
 
 - Flexible tiling workspace: manuscript/wiki proportional split with `Manuscript` / `Split` / `Wiki` presets and a `Reset UI` button (PR #112)
@@ -141,7 +158,7 @@ This list reflects what is currently wired in the app code.
 - Added artifact-level release validation: local release now smoke-tests both the packaged `.app` bundle and the mounted `.dmg` artifact before publish
 - Added checksum generation in the local mac release flow for uploaded DMG verification
 
-For full release details, see `docs/release-notes-v3.1.3.md`, `docs/release-notes-v3.1.2.md`, `docs/release-notes-v3.1.0.md`, and `docs/release-notes-v2.0.1.md`.
+For full release details, see `docs/release-notes-v3.3.0.md`, `docs/release-notes-v3.1.3.md`, `docs/release-notes-v3.1.2.md`, `docs/release-notes-v3.1.0.md`, and `docs/release-notes-v2.0.1.md`.
 
 ## AI Foundation
 
@@ -255,6 +272,13 @@ Use the sidebar `Pull` button to fetch and merge the remote's latest changes.
 
 Use the top-bar `Export` button to review chapter order, set export metadata, and generate a PDF.
 Exported PDFs are written to `meta/exports/`, and export logs are written to `meta/logs/`.
+
+### 9. Plan with Story Map
+
+- Open a novel, then select `Story Map` in the top bar to open its separate planning window.
+- Click `Add Scene` and enter a relative day and year. Click a scene to edit its notes and chapter assignment; drag it to position it on the canvas.
+- Open `Arcs` to create a thread, assign selected scenes, or manage an existing arc. Switch to Temporal view to see scenes by story chronology and character lane.
+- Changes save automatically with the novel. The map does not create or modify manuscript chapter files; chapter assignments reflect the novel's existing chapter list.
 
 ## Developer Commands
 
