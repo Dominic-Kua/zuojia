@@ -1,4 +1,4 @@
-import { resolveColorWithAlpha } from '../../../lib/theme';
+import { resolveColorWithAlpha, resolveCssVariable } from '../../../lib/theme';
 import { computeTemporalLayout } from '../../../lib/storymap-canvas/temporal-layout';
 
 export function createTemporalLaneLayer(options = {}) {
@@ -20,6 +20,7 @@ export function createTemporalLaneLayer(options = {}) {
       ctx.font = '12px system-ui, sans-serif';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
+      const laneLabelColor = resolveCssVariable('--text-secondary') || '#6B6A5E';
 
       for (let splitIdx = 0; splitIdx < layout.splits.length; splitIdx += 1) {
         for (let i = 0; i < layout.lanes.length; i += 1) {
@@ -35,7 +36,7 @@ export function createTemporalLaneLayer(options = {}) {
           ctx.lineTo(width, y);
           ctx.stroke();
 
-          ctx.fillStyle = 'var(--text-muted)';
+          ctx.fillStyle = laneLabelColor;
           ctx.fillText(lane.name, 8, y + 6);
           ctx.fillStyle = resolveColorWithAlpha('--text-muted', 0.08, 'rgba(128, 128, 128, 0.08)');
         }

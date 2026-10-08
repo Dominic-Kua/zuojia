@@ -256,6 +256,7 @@ export function CanvasView({
       canvas.removeEventListener('wheel', handleWheel);
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
       }
     };
   }, [novelPath, layers, theme, viewName, onSceneDrag, onSceneSelect, onBackgroundClick]);

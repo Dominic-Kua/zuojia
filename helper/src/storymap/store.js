@@ -13,7 +13,7 @@ import {
 } from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { createEmptyStorymap, STORYMAP_VERSION } from '../../../src/lib/storymap-model.js';
+import { createEmptyStorymap, formatChronologyDate, STORYMAP_VERSION } from '../../../src/lib/storymap-model.js';
 
 const rawDebounceMs = Number(process.env.ZUOJIA_STORYMAP_DEBOUNCE_MS);
 const DEBOUNCE_MS = Number.isFinite(rawDebounceMs) && rawDebounceMs > 0 ? rawDebounceMs : 300;
@@ -64,12 +64,35 @@ export function validateStorymap(data) {
 
   return {
     version: Number.isFinite(data.version) ? data.version : STORYMAP_VERSION,
-    scenes: Array.isArray(data.scenes) ? data.scenes : [],
+    scenes: normalizeLegacyChronology(Array.isArray(data.scenes) ? data.scenes : []),
     chapters: Array.isArray(data.chapters) ? data.chapters : [],
     arcs: Array.isArray(data.arcs) ? data.arcs : [],
     sceneArcAssignments: Array.isArray(data.sceneArcAssignments) ? data.sceneArcAssignments : [],
     currentSceneId: typeof data.currentSceneId === 'string' ? data.currentSceneId : null,
   };
+}
+
+function normalizeLegacyChronology(scenes) {
+  const legacyScenes = scenes.filter((scene) =>
+    typeof scene?.chronologyDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(scene.chronologyDate)
+  );
+  if (legacyScenes.length === 0) return scenes;
+
+  const legacyOrdinals = legacyScenes.map((scene) =>
+    Math.floor(Date.parse(`${scene.chronologyDate}T00:00:00Z`) / 86_400_000)
+  );
+  const origin = Math.min(...legacyOrdinals);
+  return scenes.map((scene) => {
+    if (typeof scene?.chronologyDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(scene.chronologyDate)) {
+      return scene;
+    }
+
+    const absoluteDay = Math.floor(Date.parse(`${scene.chronologyDate}T00:00:00Z`) / 86_400_000);
+    const relativeDay = absoluteDay - origin;
+    const year = Math.floor(relativeDay / 365);
+    const day = relativeDay - year * 365;
+    return { ...scene, chronologyDate: formatChronologyDate(day, year) };
+  });
 }
 
 /**

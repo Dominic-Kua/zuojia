@@ -41,6 +41,42 @@ export function createArc(options = {}) {
   };
 }
 
+export function formatChronologyDate(day, year) {
+  return `Day ${day} Year ${year}`;
+}
+
+export function parseChronologyDate(value) {
+  if (typeof value !== 'string') {
+    return { day: 0, year: 0, ordinal: 0, key: formatChronologyDate(0, 0) };
+  }
+
+  const relative = value.match(/^Day\s+([+-]?\d+)\s+Year\s+([+-]?\d+)$/i);
+  if (relative) {
+    const day = Number(relative[1]);
+    const year = Number(relative[2]);
+    return { day, year, ordinal: year * 365 + day, key: formatChronologyDate(day, year) };
+  }
+
+  // Read dates created by earlier storymap versions. The store migrates them
+  // relative to the earliest legacy scene when loading a saved map.
+  const isLegacyDate = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const timestamp = isLegacyDate ? Date.parse(`${value}T00:00:00Z`) : NaN;
+  if (Number.isFinite(timestamp)) {
+    return {
+      day: 0,
+      year: 0,
+      ordinal: Math.floor(timestamp / 86_400_000),
+      key: value,
+    };
+  }
+
+  return { day: 0, year: 0, ordinal: 0, key: formatChronologyDate(0, 0) };
+}
+
+export function getChronologyOrdinal(scene) {
+  return parseChronologyDate(scene?.chronologyDate).ordinal;
+}
+
 export const CHAPTER_COLORS = [
   { name: 'sage', light: '#7da27e', dark: '#9bc09c' },
   { name: 'clay', light: '#c17a5c', dark: '#d99a7a' },
@@ -97,11 +133,11 @@ export function createScene(options = {}) {
     title = 'Untitled Scene',
     x = 0,
     y = 0,
-    chronologyDate = new Date().toISOString().slice(0, 10),
+    chronologyDate = formatChronologyDate(0, 0),
     chapterId = null,
     location = '',
     characters = '',
-    tension = 'medium',
+    tension = '',
     notes = '',
   } = options;
 

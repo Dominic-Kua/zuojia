@@ -1,6 +1,6 @@
 import React from 'react';
 
-export function StoryMapToolbar({ onAddScene, onShowHelp, viewControls, arcControls }) {
+export function StoryMapToolbar({ onAddScene, onShowHelp, viewControls, arcControls, addSceneDisabled = false }) {
   return (
     <div className="storymap-toolbar" role="toolbar" aria-label="Story map actions">
       <div className="storymap-toolbar-slot" data-slot="start">
@@ -8,6 +8,7 @@ export function StoryMapToolbar({ onAddScene, onShowHelp, viewControls, arcContr
           type="button"
           className="btn primary btn-sm"
           data-testid="storymap-add-scene-button"
+          disabled={addSceneDisabled}
           onClick={onAddScene}
         >
           Add Scene

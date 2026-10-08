@@ -1,4 +1,5 @@
-import { getChapterColor } from '../../../lib/storymap-model';
+import { getChapterColor, getChronologyOrdinal } from '../../../lib/storymap-model';
+import { resolveCssVariable } from '../../../lib/theme';
 
 const HIT_DISTANCE_PX = 8;
 const BEZIER_SAMPLES = 20;
@@ -42,7 +43,7 @@ export function createArcLayer(options = {}) {
   function sortArcScenes(arcScenes, mode) {
     if (mode === 'chronological') {
       return [...arcScenes].sort(
-        (a, b) => a.chronologyDate.localeCompare(b.chronologyDate) || a.id.localeCompare(b.id)
+        (a, b) => getChronologyOrdinal(a) - getChronologyOrdinal(b) || a.id.localeCompare(b.id)
       );
     }
     return [...arcScenes].sort((a, b) => a.x - b.x || a.y - b.y);
@@ -83,7 +84,7 @@ export function createArcLayer(options = {}) {
 
         if (arcScenes.length < 2) continue;
 
-        const color = getChapterColor(arc, isDark) || 'var(--accent)';
+        const color = getChapterColor(arc, isDark) || resolveCssVariable('--accent') || '#6E9A8F';
         const isActive = activeArcId === arc.id;
         const isDimmed = activeArcId && !isActive;
 

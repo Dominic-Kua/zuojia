@@ -18,6 +18,7 @@ export function ArcManagementModal({
   const [targetArcId, setTargetArcId] = useState('');
   const [splitSceneIds, setSplitSceneIds] = useState([]);
   const [splitName, setSplitName] = useState('');
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const arcScenes = assignments
     .filter((a) => a.arcId === arc.id)
@@ -46,10 +47,12 @@ export function ArcManagementModal({
   }
 
   function handleDelete() {
-    if (window.confirm(`Delete arc "${arc.name}"? Its scenes will remain.`)) {
-      onDelete(arc.id);
-      onClose();
-    }
+    setConfirmingDelete(true);
+  }
+
+  function confirmDelete() {
+    onDelete(arc.id);
+    onClose();
   }
 
   const otherArcs = arcs.filter((a) => a.id !== arc.id);
@@ -159,9 +162,21 @@ export function ArcManagementModal({
           )}
         </div>
         <div className="modal-footer">
-          <button type="button" className="btn danger btn-sm" onClick={handleDelete}>
-            Delete Arc
-          </button>
+          {confirmingDelete ? (
+            <div className="arc-delete-confirm" role="group" aria-label={`Confirm delete ${arc.name}`}>
+              <span>Delete this arc? Its scenes will remain.</span>
+              <button type="button" className="btn danger btn-sm" data-testid="arc-delete-confirm" onClick={confirmDelete}>
+                Confirm Delete
+              </button>
+              <button type="button" className="btn ghost btn-sm" onClick={() => setConfirmingDelete(false)}>
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="btn danger btn-sm" onClick={handleDelete}>
+              Delete Arc
+            </button>
+          )}
         </div>
       </div>
     </div>

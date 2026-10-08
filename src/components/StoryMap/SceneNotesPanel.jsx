@@ -1,14 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CHAPTER_COLORS, createChapter } from '../../lib/storymap-model';
 import { createWikiLink } from '../../lib/wiki-link';
 import { WikiNotesRenderer } from './WikiNotesRenderer';
-
-const TENSION_OPTIONS = [
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
-  { value: 'unresolved', label: 'Unresolved' },
-];
 
 export function SceneNotesPanel({
   scene,
@@ -18,7 +10,6 @@ export function SceneNotesPanel({
   onMarkCurrent,
   onChange,
   onClose,
-  onCreateChapter,
   onOpenWikiPage,
 }) {
   const panelRef = useRef(null);
@@ -56,16 +47,6 @@ export function SceneNotesPanel({
   function handleChapterChange(event) {
     const chapterId = event.target.value || null;
     onChange({ ...scene, chapterId });
-  }
-
-  function handleCreateChapter() {
-    if (chapters.length >= CHAPTER_COLORS.length) {
-      window.alert(`You can create up to ${CHAPTER_COLORS.length} chapters.`);
-      return;
-    }
-    const title = window.prompt('Chapter title:');
-    if (!title) return;
-    onCreateChapter(title);
   }
 
   const filteredPages = (wikiPages || [])
@@ -142,24 +123,14 @@ export function SceneNotesPanel({
         </button>
         <label>
           <span>Chapter</span>
-          <div className="scene-notes-chapter-row">
-            <select value={scene.chapterId || ''} onChange={handleChapterChange}>
-              <option value="">Unassigned</option>
-              {chapters.map((chapter) => (
-                <option key={chapter.id} value={chapter.id}>
-                  {chapter.title}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="btn ghost btn-sm"
-              onClick={handleCreateChapter}
-              disabled={chapters.length >= CHAPTER_COLORS.length}
-            >
-              +
-            </button>
-          </div>
+          <select value={scene.chapterId || ''} onChange={handleChapterChange}>
+            <option value="">Unassigned</option>
+            {chapters.map((chapter) => (
+              <option key={chapter.id} value={chapter.id}>
+                {chapter.title}
+              </option>
+            ))}
+          </select>
         </label>
         <label>
           <span>Location</span>
@@ -204,16 +175,12 @@ export function SceneNotesPanel({
         </label>
         <label>
           <span>Tension</span>
-          <select
+          <input
+            type="text"
             value={scene.tension}
-            onChange={(e) => updateField('tension', e.target.value)}
-          >
-            {TENSION_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            onChange={(event) => updateField('tension', event.target.value)}
+            placeholder="What issue does this scene resolve, create, or explore?"
+          />
         </label>
         <label>
           <span>Notes</span>

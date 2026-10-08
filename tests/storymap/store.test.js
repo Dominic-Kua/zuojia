@@ -11,6 +11,7 @@ import {
   rename,
 } from 'fs/promises';
 import os from 'os';
+import { getChronologyOrdinal } from '../../src/lib/storymap-model.js';
 
 vi.mock('fs/promises', async (importOriginal) => {
   const actual = await importOriginal();
@@ -61,6 +62,26 @@ describe('storymap/store', () => {
 
     const result = await store.loadStorymap(np);
     expect(result).toEqual(existing);
+  });
+
+  it('migrates legacy calendar dates to relative chronology from the earliest scene', async () => {
+    const np = novelPath('legacy-chronology');
+    const filePath = path.join(np, 'meta', 'storymap.json');
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, JSON.stringify({
+      version: 1,
+      scenes: [
+        { id: 'later', chronologyDate: '1825-01-11' },
+        { id: 'start', chronologyDate: '1825-01-01' },
+      ],
+    }), 'utf-8');
+
+    const result = await store.loadStorymap(np);
+    const start = result.scenes.find((scene) => scene.id === 'start');
+    const later = result.scenes.find((scene) => scene.id === 'later');
+    expect(start.chronologyDate).toBe('Day 0 Year 0');
+    expect(later.chronologyDate).toBe('Day 10 Year 0');
+    expect(getChronologyOrdinal(later) - getChronologyOrdinal(start)).toBe(10);
   });
 
   it('returns an empty storymap when file is missing', async () => {

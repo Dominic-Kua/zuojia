@@ -29,4 +29,17 @@ describe('temporal layout', () => {
     expect(p1.x).toBe(p2.x);
     expect(p1.y).not.toBe(p2.y);
   });
+
+  it('orders signed day/year values relative to Day 0 Year 0', () => {
+    const scenes = [
+      { id: 'future', chronologyDate: 'Day 1 Year 1' },
+      { id: 'start', chronologyDate: 'Day 0 Year 0' },
+      { id: 'before', chronologyDate: 'Day -1 Year 0' },
+      { id: 'previous-year', chronologyDate: 'Day 0 Year -1' },
+    ];
+    const layout = computeTemporalLayout(scenes);
+    expect(layout.positions.get('previous-year').x).toBeLessThan(layout.positions.get('before').x);
+    expect(layout.positions.get('before').x).toBeLessThan(layout.positions.get('start').x);
+    expect(layout.positions.get('start').x).toBeLessThan(layout.positions.get('future').x);
+  });
 });

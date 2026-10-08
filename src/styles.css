@@ -69,6 +69,10 @@
   --input-bg: var(--manuscript-surface);
   --text-color: var(--text-primary);
   --text-muted: var(--text-faint);
+  --surface: var(--manuscript-surface);
+  --text: var(--text-primary);
+  --hover-bg: var(--color-bg-hover);
+  --selected-bg: var(--accent-soft);
   --danger-color: var(--danger);
 }
 :root[data-theme='dark']{
@@ -948,7 +952,8 @@ body{
 }
 
 .storymap-empty-state,
-.storymap-placeholder {
+.storymap-placeholder,
+.storymap-loading {
   text-align: center;
   color: var(--text-muted);
   padding: 24px;
@@ -1132,6 +1137,47 @@ body{
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 
+.storymap-action-dialog {
+  width: min(420px, calc(100vw - 32px));
+  padding: 20px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-md, 10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.storymap-action-dialog h3 {
+  margin: 0 0 8px;
+}
+
+.storymap-action-dialog p {
+  margin: 0 0 16px;
+  color: var(--text-muted);
+}
+
+.storymap-action-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-muted);
+}
+
+.storymap-action-dialog-field input {
+  width: 100%;
+  padding: 8px 10px;
+  color: var(--text);
+  background: var(--input-bg, var(--surface));
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.storymap-chronology-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -1180,6 +1226,20 @@ body{
   margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid var(--divider);
+}
+
+.arc-delete-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.arc-delete-confirm span {
+  flex: 1 1 100%;
+  color: var(--text-muted);
+  text-align: right;
 }
 
 .arc-color-grid {
@@ -1374,15 +1434,6 @@ body{
 .scene-notes-fields textarea {
   resize: vertical;
   min-height: 80px;
-}
-
-.scene-notes-chapter-row {
-  display: flex;
-  gap: 8px;
-}
-
-.scene-notes-chapter-row select {
-  flex: 1 1 0;
 }
 
 .scene-notes-characters-wrap {

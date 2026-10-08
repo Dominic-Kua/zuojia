@@ -174,7 +174,10 @@ function registerWindowHandlers() {
       return { status: 'error', error: { code: 'INVALID_INPUT', message: 'slug is required' } };
     }
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('wiki:open-page', slug);
+      const serializedSlug = JSON.stringify(slug);
+      mainWindow.webContents.executeJavaScript(
+        `window.dispatchEvent(new CustomEvent('zuojia:open-wiki-page', { detail: ${serializedSlug} }));`
+      ).catch((err) => console.error('[storymap] failed to dispatch wiki page request:', err));
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
     }

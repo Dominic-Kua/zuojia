@@ -1,3 +1,5 @@
+import { getChronologyOrdinal } from '../storymap-model';
+
 const TEMPORAL_COLUMN_WIDTH = 200;
 const TEMPORAL_ROW_HEIGHT = 80;
 const LANE_HEIGHT = 120;
@@ -9,41 +11,37 @@ function getPovCharacter(scene) {
   return first || null;
 }
 
-function parseDate(date) {
-  return new Date(date).getTime();
-}
-
-function daysBetween(a, b) {
-  return Math.abs(parseDate(a) - parseDate(b)) / (1000 * 60 * 60 * 24);
-}
-
 export function computeTemporalLayout(scenes, options = {}) {
   const { split = false, splitGapDays = DEFAULT_SPLIT_GAP_DAYS } = options;
 
   const sorted = [...scenes].sort((a, b) => {
-    const dateCompare = a.chronologyDate.localeCompare(b.chronologyDate);
-    if (dateCompare !== 0) return dateCompare;
+    const chronologyCompare = getChronologyOrdinal(a) - getChronologyOrdinal(b);
+    if (chronologyCompare !== 0) return chronologyCompare;
     return a.id.localeCompare(b.id);
   });
+  const ordinals = sorted.map(getChronologyOrdinal);
 
   const lanes = computeLanes(sorted);
   const laneIndex = new Map(lanes.map((lane, index) => [lane.name, index]));
-  const splits = split ? computeSplits(sorted, splitGapDays) : [{ startIndex: 0, endIndex: sorted.length - 1 }];
+  const splits = split ? computeSplits(ordinals, splitGapDays) : [{ startIndex: 0, endIndex: sorted.length - 1 }];
 
   const positions = new Map();
   const dateStacks = new Map();
 
-  for (const scene of sorted) {
+  for (let sceneIndex = 0; sceneIndex < sorted.length; sceneIndex += 1) {
+    const scene = sorted[sceneIndex];
     const pov = getPovCharacter(scene) || 'Unassigned';
     const lane = laneIndex.get(pov) ?? lanes.length - 1;
-    const splitIndex = getSplitIndex(splits, scene.chronologyDate, sorted);
-    const splitStartDate = sorted[splits[splitIndex].startIndex].chronologyDate;
-    const dayIndexInSplit = getDayIndexInSplit(sorted, splits[splitIndex], scene.chronologyDate);
-    const stackKey = `${splitIndex}-${pov}-${scene.chronologyDate}`;
+    const splitIndex = splits.findIndex((range) => sceneIndex >= range.startIndex && sceneIndex <= range.endIndex);
+    const split = splits[Math.max(0, splitIndex)];
+    const ordinal = ordinals[sceneIndex];
+    const splitStartOrdinal = ordinals[split.startIndex];
+    const dayIndexInSplit = [...new Set(ordinals.slice(split.startIndex, split.endIndex + 1))].indexOf(ordinal);
+    const stackKey = `${splitIndex}-${pov}-${ordinal}`;
     const stack = dateStacks.get(stackKey) || 0;
     const x = dayIndexInSplit * TEMPORAL_COLUMN_WIDTH;
     const y = splitIndex * (lanes.length * LANE_HEIGHT + 60) + lane * LANE_HEIGHT + stack * TEMPORAL_ROW_HEIGHT;
-    positions.set(scene.id, { x, y, lane, pov, splitIndex, splitStartDate });
+    positions.set(scene.id, { x, y, lane, pov, splitIndex, splitStartOrdinal });
     dateStacks.set(stackKey, stack + 1);
   }
 
@@ -57,32 +55,17 @@ export function computeTemporalLayout(scenes, options = {}) {
   };
 }
 
-function computeSplits(sortedScenes, splitGapDays) {
+function computeSplits(ordinals, splitGapDays) {
   const splits = [];
   let startIndex = 0;
-  for (let i = 1; i < sortedScenes.length; i += 1) {
-    if (daysBetween(sortedScenes[i - 1].chronologyDate, sortedScenes[i].chronologyDate) > splitGapDays) {
+  for (let i = 1; i < ordinals.length; i += 1) {
+    if (ordinals[i] - ordinals[i - 1] > splitGapDays) {
       splits.push({ startIndex, endIndex: i - 1 });
       startIndex = i;
     }
   }
-  splits.push({ startIndex, endIndex: sortedScenes.length - 1 });
+  splits.push({ startIndex, endIndex: ordinals.length - 1 });
   return splits;
-}
-
-function getSplitIndex(splits, date, sortedScenes) {
-  for (let i = 0; i < splits.length; i += 1) {
-    const split = splits[i];
-    const startDate = sortedScenes[split.startIndex].chronologyDate;
-    const endDate = sortedScenes[split.endIndex]?.chronologyDate ?? startDate;
-    if (date >= startDate && date <= endDate) return i;
-  }
-  return 0;
-}
-
-function getDayIndexInSplit(sortedScenes, split, date) {
-  const dates = [...new Set(sortedScenes.slice(split.startIndex, split.endIndex + 1).map((s) => s.chronologyDate))];
-  return dates.indexOf(date);
 }
 
 function computeLanes(sortedScenes) {
@@ -95,11 +78,6 @@ function computeLanes(sortedScenes) {
   const lanes = Array.from(povs).sort().map((name) => ({ name }));
   lanes.push({ name: 'Unassigned' });
   return lanes;
-}
-
-function getDayIndex(sortedScenes, date) {
-  const dates = [...new Set(sortedScenes.map((s) => s.chronologyDate))];
-  return dates.indexOf(date);
 }
 
 export function getTemporalPosition(layout, sceneId) {

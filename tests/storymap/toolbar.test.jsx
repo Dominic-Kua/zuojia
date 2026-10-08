@@ -20,6 +20,11 @@ describe('StoryMapToolbar', () => {
     expect(onAddScene).toHaveBeenCalled();
   });
 
+  it('disables Add Scene until the story map has loaded', () => {
+    render(<StoryMapToolbar onAddScene={vi.fn()} onShowHelp={vi.fn()} addSceneDisabled />);
+    expect(screen.getByTestId('storymap-add-scene-button')).toBeDisabled();
+  });
+
   it('calls onShowHelp when Help clicked', () => {
     const onShowHelp = vi.fn();
     render(<StoryMapToolbar onAddScene={vi.fn()} onShowHelp={onShowHelp} />);

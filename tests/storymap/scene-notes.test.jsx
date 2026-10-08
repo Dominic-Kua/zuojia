@@ -11,7 +11,7 @@ describe('SceneNotesPanel', () => {
     title: 'Opening',
     location: '',
     characters: '',
-    tension: 'medium',
+    tension: '',
     notes: '',
   };
 
@@ -41,6 +41,14 @@ describe('SceneNotesPanel', () => {
     });
 
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ location: 'Tavern' }));
+  });
+
+  it('treats tension as free text about the scene issue', () => {
+    const onChange = vi.fn();
+    render(<SceneNotesPanel scene={scene} onChange={onChange} onClose={vi.fn()} />);
+    const tension = screen.getByPlaceholderText(/What issue does this scene resolve, create, or explore/);
+    fireEvent.change(tension, { target: { value: 'Whether Mara should trust the council' } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ tension: 'Whether Mara should trust the council' }));
   });
 
   it('calls onClose when close button is clicked', () => {

@@ -40,8 +40,7 @@ describe('ArcManagementModal', () => {
     expect(onRename).toHaveBeenCalledWith('arc-1', 'Hero Journey');
   });
 
-  it('deletes an arc after confirmation', () => {
-    window.confirm = vi.fn(() => true);
+  it('deletes an arc after the in-app confirmation', () => {
     const onDelete = vi.fn();
     render(
       <ArcManagementModal
@@ -59,7 +58,8 @@ describe('ArcManagementModal', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Delete Arc/i }));
-    expect(window.confirm).toHaveBeenCalled();
+    expect(screen.getByText(/Delete this arc\?/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('arc-delete-confirm'));
     expect(onDelete).toHaveBeenCalledWith('arc-1');
   });
 });

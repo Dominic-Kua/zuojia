@@ -491,13 +491,10 @@ export default function App(){
 
   // Listen for wiki-open requests sent from storymap windows.
   useEffect(() => {
-    if (!window.electronAPI?.on) return undefined;
-    const handler = (slug) => handleOpenWikiPage(slug);
-    window.electronAPI.on('wiki:open-page', handler);
+    const handler = (event) => handleOpenWikiPage(event.detail);
+    window.addEventListener('zuojia:open-wiki-page', handler);
     return () => {
-      if (window.electronAPI?.off) {
-        window.electronAPI.off('wiki:open-page', handler);
-      }
+      window.removeEventListener('zuojia:open-wiki-page', handler);
     };
   }, [handleOpenWikiPage]);
 

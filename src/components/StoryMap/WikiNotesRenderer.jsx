@@ -37,7 +37,7 @@ export function WikiNotesRenderer({ text, wikiPages, onOpenWikiPage }) {
     }
     el.addEventListener('click', handleClick);
     return () => el.removeEventListener('click', handleClick);
-  }, [onOpenWikiPage]);
+  }, [onOpenWikiPage, text]);
 
   if (!text || !/\[\[/.test(text)) return null;
 

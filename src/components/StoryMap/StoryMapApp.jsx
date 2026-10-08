@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useStorymap } from '../../hooks/useStorymap';
 import { useWikiPages } from '../../hooks/useWikiPages';
+import { useChapters } from '../../hooks/useChapters';
 import { storymapWindowHandlers } from '../../lib/ipc-client';
-import { createScene, createChapter, createArc, snapSceneToChapter, ARC_COLORS } from '../../lib/storymap-model';
+import { createScene, createArc, snapSceneToChapter, ARC_COLORS, CHAPTER_COLORS, formatChronologyDate } from '../../lib/storymap-model';
 import { screenToWorld } from '../../lib/storymap-canvas/view';
 import { applyTheme, getStoredTheme } from '../../lib/theme';
 import { StoryMapWindow } from './StoryMapWindow';
@@ -19,6 +20,7 @@ import { createArcLayer } from './layers/ArcLayer';
 import { ViewControls } from './ViewControls';
 import { ArcPanel } from './ArcPanel';
 import { ArcManagementModal } from './ArcManagementModal';
+import { StoryMapActionDialog } from './StoryMapActionDialog';
 
 function getNovelPathFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -37,6 +39,7 @@ export function StoryMapApp() {
   const [novelPath] = React.useState(() => getNovelPathFromUrl());
   const { storymap, loading, error, updateStorymap } = useStorymap(novelPath);
   const { pages: wikiPages } = useWikiPages(novelPath);
+  const { chapters: novelChapters, loading: chaptersLoading, error: chaptersError, refresh: refreshNovelChapters } = useChapters(novelPath);
   const [selectedSceneId, setSelectedSceneId] = useState(null);
   const [theme, setTheme] = useState(() => applyTheme(getStoredTheme()));
   const [showHelp, setShowHelp] = useState(false);
@@ -49,6 +52,7 @@ export function StoryMapApp() {
   const [selectedArcId, setSelectedArcId] = useState(null);
   const [managedArcId, setManagedArcId] = useState(null);
   const [hoverTooltip, setHoverTooltip] = useState(null);
+  const [activeDialog, setActiveDialog] = useState(null);
 
   const activeArcId = hoveredArcId || selectedArcId;
 
@@ -68,25 +72,73 @@ export function StoryMapApp() {
   }, [theme]);
 
   const scenes = storymap?.scenes ?? [];
-  const chapters = storymap?.chapters ?? [];
+  const chapters = useMemo(() => {
+    const sourceChapters = chaptersError ? storymap?.chapters ?? [] : novelChapters;
+    const storedChapters = storymap?.chapters ?? [];
+    return sourceChapters.map((novelChapter, order) => {
+      const filename = typeof novelChapter === 'string' ? novelChapter : novelChapter.filename;
+      const title = typeof novelChapter === 'string'
+        ? novelChapter.replace(/\.md$/i, '').replace(/[-_]+/g, ' ')
+        : novelChapter.title || filename;
+      const stored = storedChapters.find((chapter) =>
+        chapter.id === filename || chapter.filename === filename || chapter.title === title
+      ) || storedChapters.find((chapter) => chapter.order === order);
+      return {
+        id: filename || stored?.id || `chapter-${order}`,
+        filename,
+        title,
+        order,
+        color: stored?.color || CHAPTER_COLORS[order % CHAPTER_COLORS.length],
+      };
+    });
+  }, [chaptersError, novelChapters, storymap?.chapters]);
   const arcs = storymap?.arcs ?? [];
   const selectedScene = scenes.find((s) => s.id === selectedSceneId) || null;
 
+  useEffect(() => {
+    function refreshChaptersOnFocus() {
+      refreshNovelChapters();
+    }
+    window.addEventListener('focus', refreshChaptersOnFocus);
+    return () => window.removeEventListener('focus', refreshChaptersOnFocus);
+  }, [refreshNovelChapters]);
+
+  useEffect(() => {
+    if (!storymap || loading || chaptersLoading || chaptersError) return;
+
+    const storedChapters = storymap.chapters ?? [];
+    const legacyChapterIds = new Map();
+    for (const stored of storedChapters) {
+      const chapter = chapters.find((candidate) =>
+        candidate.id === stored.id || candidate.id === stored.filename || candidate.title === stored.title
+      ) || chapters.find((candidate) => candidate.order === stored.order);
+      if (chapter && stored.id !== chapter.id) legacyChapterIds.set(stored.id, chapter.id);
+    }
+
+    const normalizedScenes = scenes.map((scene) => {
+      if (!scene.chapterId || chapters.some((chapter) => chapter.id === scene.chapterId)) return scene;
+      return { ...scene, chapterId: legacyChapterIds.get(scene.chapterId) || null };
+    });
+
+    if (
+      JSON.stringify(storedChapters) !== JSON.stringify(chapters) ||
+      JSON.stringify(normalizedScenes) !== JSON.stringify(scenes)
+    ) {
+      updateStorymap((current) => ({ ...current, chapters, scenes: normalizedScenes }));
+    }
+  }, [chapters, chaptersError, chaptersLoading, loading, scenes, storymap, updateStorymap]);
+
   const handleAddScene = useCallback(() => {
+    if (loading || !storymap) return;
+    setActiveDialog({ type: 'create-scene' });
+  }, [loading, storymap]);
+
+  const handleCreateScene = useCallback(({ day, year }) => {
+    if (!Number.isInteger(day) || !Number.isInteger(year)) return;
     const host = document.querySelector('.storymap-canvas-host');
     const view = { offset: { x: 0, y: 0 }, scale: 1 };
     const center = getCenterWorldPoint(host, view);
     const jitter = (Math.random() - 0.5) * 40;
-
-    let chronologyDate = window.prompt(
-      'Enter chronology date (YYYY-MM-DD):',
-      new Date().toISOString().slice(0, 10)
-    );
-    if (!chronologyDate) return;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(chronologyDate)) {
-      window.alert('Please enter a valid date in YYYY-MM-DD format.');
-      return;
-    }
 
     updateStorymap((current) => ({
       ...current,
@@ -96,10 +148,22 @@ export function StoryMapApp() {
           title: `Scene ${current.scenes.length + 1}`,
           x: center.x + jitter,
           y: center.y + jitter,
-          chronologyDate,
+          chronologyDate: formatChronologyDate(day, year),
         }),
       ],
     }));
+    setActiveDialog(null);
+  }, [updateStorymap]);
+
+  const handleDeleteScene = useCallback((sceneId) => {
+    updateStorymap((current) => ({
+      ...current,
+      scenes: current.scenes.filter((scene) => scene.id !== sceneId),
+      sceneArcAssignments: current.sceneArcAssignments.filter((assignment) => assignment.sceneId !== sceneId),
+      currentSceneId: current.currentSceneId === sceneId ? null : current.currentSceneId,
+    }));
+    setSelectedSceneId(null);
+    setActiveDialog(null);
   }, [updateStorymap]);
 
   useEffect(() => {
@@ -113,8 +177,11 @@ export function StoryMapApp() {
     function handleKeyDown(event) {
       if (isTypingTarget(document.activeElement)) {
         if (event.key === 'Escape') {
-          setSelectedSceneId(null);
-          setShowHelp(false);
+          if (activeDialog) setActiveDialog(null);
+          else {
+            setSelectedSceneId(null);
+            setShowHelp(false);
+          }
         }
         return;
       }
@@ -137,8 +204,14 @@ export function StoryMapApp() {
           setShowArcPanel((p) => !p);
           break;
         case 'Escape':
-          if (showHelp) {
+          if (activeDialog) {
+            setActiveDialog(null);
+          } else if (showHelp) {
             setShowHelp(false);
+          } else if (managedArcId) {
+            setManagedArcId(null);
+          } else if (showArcPanel) {
+            setShowArcPanel(false);
           } else if (selectedSceneId) {
             setSelectedSceneId(null);
           }
@@ -147,15 +220,7 @@ export function StoryMapApp() {
         case 'Backspace':
           if (selectedSceneId) {
             event.preventDefault();
-            if (window.confirm('Remove this scene?')) {
-              updateStorymap((current) => ({
-                ...current,
-                scenes: current.scenes.filter((s) => s.id !== selectedSceneId),
-                currentSceneId:
-                  current.currentSceneId === selectedSceneId ? null : current.currentSceneId,
-              }));
-              setSelectedSceneId(null);
-            }
+            setActiveDialog({ type: 'delete-scene', sceneId: selectedSceneId });
           }
           break;
         case '?':
@@ -169,7 +234,7 @@ export function StoryMapApp() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleAddScene, selectedSceneId, showHelp, updateStorymap]);
+  }, [activeDialog, handleAddScene, managedArcId, selectedSceneId, showArcPanel, showHelp, updateStorymap]);
 
   const handleSceneDrag = useCallback(
     (scene, dx, dy) => {
@@ -206,19 +271,6 @@ export function StoryMapApp() {
         return {
           ...current,
           scenes: current.scenes.map((s) => (s.id === nextScene.id ? nextScene : s)),
-        };
-      });
-    },
-    [updateStorymap]
-  );
-
-  const handleCreateChapter = useCallback(
-    (title) => {
-      updateStorymap((current) => {
-        const order = current.chapters.length;
-        return {
-          ...current,
-          chapters: [...current.chapters, createChapter({ title, order })],
         };
       });
     },
@@ -464,6 +516,7 @@ export function StoryMapApp() {
         <StoryMapToolbar
           onAddScene={handleAddScene}
           onShowHelp={() => setShowHelp(true)}
+          addSceneDisabled={loading || !storymap}
           viewControls={
             <ViewControls
               view={view}
@@ -483,6 +536,7 @@ export function StoryMapApp() {
             </button>
           }
         />
+        {loading && <div className="storymap-loading" role="status">Loading story map…</div>}
         {!loading && scenes.length === 0 && <EmptyCanvasState onAddScene={handleAddScene} />}
         {selectedScene && (
           <SceneNotesPanel
@@ -493,7 +547,6 @@ export function StoryMapApp() {
             onMarkCurrent={() => handleMarkCurrent(selectedScene.id)}
             onChange={handleSceneChange}
             onClose={handleBackgroundClick}
-            onCreateChapter={handleCreateChapter}
             onOpenWikiPage={handleOpenWikiPage}
           />
         )}
@@ -527,6 +580,28 @@ export function StoryMapApp() {
           />
         )}
         {showHelp && <KeyboardHelpOverlay onClose={() => setShowHelp(false)} />}
+        {activeDialog?.type === 'create-scene' && (
+          <StoryMapActionDialog
+            title="Add a scene"
+            mode="chronology"
+            description="Set when this scene happens relative to the start of the novel."
+            initialDay={0}
+            initialYear={0}
+            confirmLabel="Add Scene"
+            onConfirm={handleCreateScene}
+            onCancel={() => setActiveDialog(null)}
+          />
+        )}
+        {activeDialog?.type === 'delete-scene' && (
+          <StoryMapActionDialog
+            mode="confirm"
+            title="Remove scene?"
+            description={`Remove “${scenes.find((scene) => scene.id === activeDialog.sceneId)?.title || 'this scene'}” from the story map?`}
+            confirmLabel="Delete Scene"
+            onConfirm={() => handleDeleteScene(activeDialog.sceneId)}
+            onCancel={() => setActiveDialog(null)}
+          />
+        )}
         {hoverTooltip && (
           <div
             className="arc-hover-tooltip"

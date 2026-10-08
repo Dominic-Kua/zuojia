@@ -1,4 +1,5 @@
 import { CHAPTER_COLUMN_WIDTH, getChapterColor } from '../../../lib/storymap-model';
+import { resolveCssVariable } from '../../../lib/theme';
 
 export function createChapterLayer(options = {}) {
   const { getChapters = () => [], isDark = false } = options;
@@ -19,7 +20,7 @@ export function createChapterLayer(options = {}) {
         }
         ctx.fillRect(x - (CHAPTER_COLUMN_WIDTH * view.scale) / 2, 0, CHAPTER_COLUMN_WIDTH * view.scale, height);
 
-        ctx.fillStyle = 'var(--text-muted)';
+        ctx.fillStyle = resolveCssVariable('--text-secondary') || '#6B6A5E';
         ctx.font = '12px system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(chapter.title, x, 20);

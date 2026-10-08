@@ -1,4 +1,5 @@
 import { getChapterColor } from '../../../lib/storymap-model';
+import { resolveCssVariable } from '../../../lib/theme';
 
 const NODE_WIDTH = 140;
 const NODE_HEIGHT = 60;
@@ -36,6 +37,11 @@ export function createSceneLayer(options = {}) {
   return {
     render(ctx, { view, width, height }) {
       const scenes = getScenes();
+      const surfaceColor = resolveCssVariable('--manuscript-surface') || '#FDFCF9';
+      const textColor = resolveCssVariable('--text-primary') || '#26271F';
+      const accentColor = resolveCssVariable('--accent') || '#6E9A8F';
+      const secondaryTextColor = resolveCssVariable('--text-secondary') || '#6B6A5E';
+
       for (const scene of scenes) {
         const bounds = getScreenBounds(view, scene);
 
@@ -52,15 +58,15 @@ export function createSceneLayer(options = {}) {
         const chapter = getChapterById(scene.chapterId);
         const chapterColor = getChapterColor(chapter, isDark);
 
-        ctx.fillStyle = 'var(--surface)';
-        ctx.strokeStyle = chapterColor || 'var(--accent)';
+        ctx.fillStyle = surfaceColor;
+        ctx.strokeStyle = chapterColor || accentColor;
         ctx.lineWidth = 2;
 
         roundRect(ctx, bounds.left, bounds.top, nodeWidth, nodeHeight, nodeRadius);
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = 'var(--text)';
+        ctx.fillStyle = textColor;
         ctx.font = '13px system-ui, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -68,7 +74,7 @@ export function createSceneLayer(options = {}) {
         ctx.fillText(text, bounds.left + nodeWidth / 2, bounds.top + nodeHeight / 2);
 
         if (scene.id === getCurrentSceneId()) {
-          drawCurrentMarker(ctx, bounds, nodeWidth, nodeHeight, pulsePhase);
+          drawCurrentMarker(ctx, bounds, nodeWidth, nodeHeight, pulsePhase, accentColor, secondaryTextColor);
         }
       }
       pulsePhase += 0.05;
@@ -100,7 +106,7 @@ export function createSceneLayer(options = {}) {
   };
 }
 
-function drawCurrentMarker(ctx, bounds, nodeWidth, nodeHeight, phase) {
+function drawCurrentMarker(ctx, bounds, nodeWidth, nodeHeight, phase, accentColor, secondaryTextColor) {
   const cx = bounds.left + nodeWidth / 2;
   const cy = bounds.top + nodeHeight / 2;
   const pulse = 1 + Math.sin(phase) * 0.08;
@@ -108,13 +114,13 @@ function drawCurrentMarker(ctx, bounds, nodeWidth, nodeHeight, phase) {
   const ry = (nodeHeight / 2 + 6) * pulse;
 
   ctx.save();
-  ctx.strokeStyle = 'var(--accent)';
+  ctx.strokeStyle = accentColor;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
   ctx.stroke();
 
-  ctx.fillStyle = 'var(--text-muted)';
+  ctx.fillStyle = secondaryTextColor;
   ctx.font = '11px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText('You are here', cx, bounds.bottom + 14);

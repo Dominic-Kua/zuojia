@@ -12,7 +12,7 @@ describe('SceneNotesPanel wiki links', () => {
     characters: '',
     notes: '',
     chapterId: null,
-    tension: 'medium',
+    tension: '',
   };
   const wikiPages = [
     { slug: 'alice', title: 'Alice' },

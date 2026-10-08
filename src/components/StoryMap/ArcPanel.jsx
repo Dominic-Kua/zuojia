@@ -19,9 +19,7 @@ export function ArcPanel({
   const [selectedExistingArcId, setSelectedExistingArcId] = useState('');
 
   function handleCreateArc() {
-    const name = window.prompt('Arc name:');
-    if (!name || !name.trim()) return;
-    onCreateArc(name.trim());
+    handleStartRetroactive();
   }
 
   function handleStartRetroactive() {
@@ -102,28 +100,32 @@ export function ArcPanel({
           <input
             type="text"
             placeholder="New arc name"
+            data-testid="arc-panel-name-input"
             value={newName}
             onChange={(e) => {
               setNewName(e.target.value);
               setSelectedExistingArcId('');
             }}
           />
-          <select
-            value={selectedExistingArcId}
-            onChange={(e) => {
-              setSelectedExistingArcId(e.target.value);
-              setNewName('');
-            }}
-          >
-            <option value="">— or choose existing arc —</option>
-            {arcs.map((arc) => (
-              <option key={arc.id} value={arc.id}>
-                {arc.name}
-              </option>
-            ))}
-          </select>
+          {selectedSceneIds.length > 0 && (
+            <select
+              aria-label="Or assign to existing arc"
+              value={selectedExistingArcId}
+              onChange={(e) => {
+                setSelectedExistingArcId(e.target.value);
+                setNewName('');
+              }}
+            >
+              <option value="">— or choose existing arc —</option>
+              {arcs.map((arc) => (
+                <option key={arc.id} value={arc.id}>
+                  {arc.name}
+                </option>
+              ))}
+            </select>
+          )}
           <div className="arc-panel-retroactive-actions">
-            <button type="button" className="btn primary btn-sm" onClick={handleConfirmRetroactive}>
+            <button type="button" className="btn primary btn-sm" data-testid="arc-panel-form-confirm" onClick={handleConfirmRetroactive}>
               Confirm
             </button>
             <button type="button" className="btn ghost btn-sm" onClick={handleCancelRetroactive}>
