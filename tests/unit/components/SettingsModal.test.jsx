@@ -13,6 +13,7 @@ const mockLlmSaveConfig = vi.fn();
 const mockLlmHealth = vi.fn();
 const mockLlmStartRuntime = vi.fn();
 const mockLlmStopRuntime = vi.fn();
+const mockSaveAppearance = vi.fn();
 
 vi.mock('../../../src/lib/ipc-client', () => ({
   gitHandlers: {
@@ -75,6 +76,66 @@ describe('SettingsModal', () => {
     await openSettings(user);
     expect(screen.getByRole('button', { name: /Git Settings/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /LLM Settings/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Appearance/i })).toBeInTheDocument();
+  });
+
+  it('saves appearance preferences independently from Git and LLM settings', async () => {
+    const user = userEvent.setup();
+    render(
+      <SettingsModal
+        novelPath="/tmp/novel"
+        theme="light"
+        seasonalThemePreference="off"
+        onSaveAppearance={mockSaveAppearance}
+      />
+    );
+    await openSettings(user);
+    await user.click(screen.getByRole('button', { name: /Appearance/i }));
+
+    expect(screen.getByTestId('appearance-theme-select')).toHaveValue('light');
+    expect(screen.getByTestId('appearance-seasonal-theme-select')).toHaveValue('off');
+
+    await user.selectOptions(screen.getByTestId('appearance-theme-select'), 'dark');
+    await user.selectOptions(screen.getByTestId('appearance-seasonal-theme-select'), 'automatic');
+    await user.click(screen.getByTestId('settings-save'));
+
+    expect(mockSaveAppearance).toHaveBeenCalledWith({
+      theme: 'dark',
+      seasonalThemePreference: 'automatic',
+    });
+    expect(mockGitSaveConfig).not.toHaveBeenCalled();
+    expect(mockLlmSaveConfig).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('settings-dialog')).not.toBeInTheDocument();
+  });
+
+  it('does not discard unsaved Git edits when saving changed Appearance preferences', async () => {
+    const user = userEvent.setup();
+    render(
+      <SettingsModal
+        novelPath="/tmp/novel"
+        theme="light"
+        seasonalThemePreference="off"
+        onSaveAppearance={mockSaveAppearance}
+      />
+    );
+    await openSettings(user);
+
+    const remoteInput = await screen.findByDisplayValue('git@github.com:test/repo.git');
+    await user.clear(remoteInput);
+    await user.type(remoteInput, 'git@github.com:updated/repo.git');
+    await user.click(screen.getByRole('button', { name: /Appearance/i }));
+    await user.selectOptions(screen.getByTestId('appearance-seasonal-theme-select'), 'automatic');
+    await user.click(screen.getByTestId('settings-save'));
+
+    await waitFor(() => {
+      expect(mockGitSaveConfig).toHaveBeenCalledWith('/tmp/novel', expect.objectContaining({
+        remoteUrl: 'git@github.com:updated/repo.git',
+      }));
+    });
+    expect(mockSaveAppearance).toHaveBeenCalledWith({
+      theme: 'light',
+      seasonalThemePreference: 'automatic',
+    });
   });
 
   it('loads and displays git settings', async () => {

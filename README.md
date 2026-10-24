@@ -118,9 +118,10 @@ This list reflects what is currently wired in the app code.
 
 ## Release Notes
 
-### Unreleased
+### v3.5.0
 
 - Security hardening for shared novels: git remote/branch validation (blocks `ext::` RCE and `--upload-pack` injection), push trust-on-first-use confirmation, wiki embed path traversal fix, symlink containment across file operations
+- Added optional automatic seasonal appearance themes for Halloween, Christmas, and Lunar New Year, with matching accents and seasonal glyphs.
 
 ### v3.3.0
 
@@ -158,7 +159,7 @@ This list reflects what is currently wired in the app code.
 - Added artifact-level release validation: local release now smoke-tests both the packaged `.app` bundle and the mounted `.dmg` artifact before publish
 - Added checksum generation in the local mac release flow for uploaded DMG verification
 
-For full release details, see `docs/release-notes-v3.3.0.md`, `docs/release-notes-v3.1.3.md`, `docs/release-notes-v3.1.2.md`, `docs/release-notes-v3.1.0.md`, and `docs/release-notes-v2.0.1.md`.
+For full release details, see `docs/release-notes-v3.5.0.md`, `docs/release-notes-v3.3.0.md`, `docs/release-notes-v3.1.3.md`, `docs/release-notes-v3.1.2.md`, `docs/release-notes-v3.1.0.md`, and `docs/release-notes-v2.0.1.md`.
 
 ## AI Foundation
 

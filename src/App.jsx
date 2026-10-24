@@ -6,6 +6,8 @@ import { ExportDialog } from './components/ExportDialog'
 import { NovelSelector } from './components/Navigation/NovelSelector'
 import { PushButton } from './components/PushButton'
 import { SettingsModal } from './components/SettingsModal'
+import { SeasonalEffects } from './components/SeasonalEffects'
+import { useSeasonalTheme } from './hooks/useSeasonalTheme'
 import { DiagnosticsPanel } from './components/DiagnosticsPanel'
 import { SnapshotButton } from './components/SnapshotButton'
 
@@ -68,6 +70,15 @@ export default function App(){
       return 'light';
     }
   });
+  const [seasonalTheme, setSeasonalTheme] = useState(() => {
+    try {
+      const stored = window.localStorage.getItem('zuojia-seasonal-theme');
+      return stored === 'automatic' ? 'automatic' : 'off';
+    } catch {
+      return 'off';
+    }
+  });
+  const activeSeasonalTheme = useSeasonalTheme(60000, seasonalTheme);
   // ── Tiling layout ──
   // wikiPct = % of the main-grid width given to the wiki pane (0–100).
   // 0 = manuscript only, 100 = wiki only, anything in between = split.
@@ -195,6 +206,20 @@ export default function App(){
       // Ignore storage failures.
     }
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-seasonal-theme', activeSeasonalTheme);
+    try {
+      window.localStorage.setItem('zuojia-seasonal-theme', seasonalTheme);
+    } catch {
+      // Ignore storage failures.
+    }
+  }, [activeSeasonalTheme, seasonalTheme]);
+
+  const handleSaveAppearance = ({ theme: nextTheme, seasonalThemePreference }) => {
+    setTheme(nextTheme === 'dark' ? 'dark' : 'light');
+    setSeasonalTheme(seasonalThemePreference === 'automatic' ? 'automatic' : 'off');
+  };
 
   useEffect(() => {
     try {
@@ -594,6 +619,7 @@ export default function App(){
       <div className="app-shell" data-testid="app-shell">
         <header className="topbar" data-testid="topbar">
           <div className="brand">作家</div>
+          <SeasonalEffects seasonalTheme={activeSeasonalTheme} />
           <div className="top-actions">
             <button
               type="button"
@@ -630,6 +656,7 @@ export default function App(){
     <div className="app-shell" data-testid="app-shell">
       <header className="topbar" data-testid="topbar">
         <div className="brand">作家</div>
+        <SeasonalEffects seasonalTheme={activeSeasonalTheme} />
         <div className="top-actions">
           <div className="font-size-controls" data-testid="font-size-controls">
             <button
@@ -693,7 +720,12 @@ export default function App(){
             onRestored={handleRestored}
             onBeforeRestore={prepareEditorForRestore}
           />
-          <SettingsModal novelPath={novelPath} />
+          <SettingsModal
+            novelPath={novelPath}
+            theme={theme}
+            seasonalThemePreference={seasonalTheme}
+            onSaveAppearance={handleSaveAppearance}
+          />
           <div className="layout-controls" data-testid="layout-controls" role="group" aria-label="Workspace layout">
             <button
               type="button"

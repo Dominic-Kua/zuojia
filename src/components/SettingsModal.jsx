@@ -24,7 +24,12 @@ const DEFAULT_LLM_SETTINGS = {
   maxTokens: LLM_MAX_TOKENS,
 };
 
-export function SettingsModal({ novelPath }) {
+export function SettingsModal({
+  novelPath,
+  theme = 'light',
+  seasonalThemePreference = 'off',
+  onSaveAppearance = () => {},
+}) {
   const [showDialog, setShowDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -33,6 +38,8 @@ export function SettingsModal({ novelPath }) {
   const [llmSettings, setLlmSettings] = useState(DEFAULT_LLM_SETTINGS);
   const [llmStatus, setLlmStatus] = useState('stopped');
   const [activeTab, setActiveTab] = useState('git');
+  const [appearanceSettings, setAppearanceSettings] = useState({ theme, seasonalThemePreference });
+  const [dirtySettings, setDirtySettings] = useState({ git: false, llm: false, appearance: false });
 
   useEffect(() => {
     const checkLlmStatus = async () => {
@@ -60,6 +67,8 @@ export function SettingsModal({ novelPath }) {
     setShowDialog(true);
     setIsLoading(true);
     setError(null);
+    setAppearanceSettings({ theme, seasonalThemePreference });
+    setDirtySettings({ git: false, llm: false, appearance: false });
     try {
       const [loadedGit, loadedLlm] = await Promise.allSettled([
         gitHandlers.getConfig(novelPath),
@@ -93,6 +102,7 @@ export function SettingsModal({ novelPath }) {
       ...current,
       [field]: event.target.value,
     }));
+    setDirtySettings((current) => ({ ...current, git: true }));
   };
 
   // Numeric LLM fields are kept as local strings so clearing the input works;
@@ -104,36 +114,53 @@ export function SettingsModal({ novelPath }) {
       return;
     }
 
+    if (dirtySettings.appearance) {
+      onSaveAppearance(appearanceSettings);
+      setDirtySettings((current) => ({ ...current, appearance: false }));
+    }
+
+    const pendingSaves = [];
+    if (dirtySettings.git) {
+      pendingSaves.push({ kind: 'git', save: () => gitHandlers.saveConfig(novelPath, settings) });
+    }
+
+    const parsedLlmSettings = { ...llmSettings };
+    if (dirtySettings.llm) {
+      for (const field of NUMERIC_LLM_FIELDS) {
+        const parsed = Number(parsedLlmSettings[field]);
+        if (!Number.isFinite(parsed)) {
+          setError(`${field} must be a valid number`);
+          return;
+        }
+        parsedLlmSettings[field] = parsed;
+      }
+      pendingSaves.push({ kind: 'llm', save: () => llmHandlers.saveConfig(parsedLlmSettings) });
+    }
+
+    if (pendingSaves.length === 0) {
+      setShowDialog(false);
+      return;
+    }
+
     setIsSaving(true);
     setError(null);
 
-    const parsedLlmSettings = { ...llmSettings };
-    for (const field of NUMERIC_LLM_FIELDS) {
-      const parsed = Number(parsedLlmSettings[field]);
-      if (!Number.isFinite(parsed)) {
-        setError(`${field} must be a valid number`);
-        setIsSaving(false);
-        return;
-      }
-      parsedLlmSettings[field] = parsed;
-    }
-
     try {
-      // Save BOTH configs unconditionally so switching tabs never leaves one
-      // side's edits silently unsaved.
-      const results = await Promise.allSettled([
-        gitHandlers.saveConfig(novelPath, settings),
-        llmHandlers.saveConfig(parsedLlmSettings),
-      ]);
-
-      const firstRejection = results.find((result) => result.status === 'rejected');
-      if (firstRejection) {
-        throw firstRejection.reason;
+      const results = await Promise.allSettled(pendingSaves.map(({ save }) => save()));
+      const failedIndex = results.findIndex((result) =>
+        result.status === 'rejected' || result.value?.status === 'error'
+      );
+      if (failedIndex !== -1) {
+        const failed = results[failedIndex];
+        const reason = failed.status === 'rejected' ? failed.reason : failed.value;
+        throw new Error(reason?.message || 'Failed to save settings');
       }
 
-      if (results[0].status === 'fulfilled' && results[0].value) {
-        setSettings({ ...DEFAULT_SETTINGS, ...results[0].value });
+      const gitResultIndex = pendingSaves.findIndex(({ kind }) => kind === 'git');
+      if (gitResultIndex !== -1 && results[gitResultIndex].value) {
+        setSettings({ ...DEFAULT_SETTINGS, ...results[gitResultIndex].value });
       }
+      setDirtySettings({ git: false, llm: false, appearance: false });
       setShowDialog(false);
     } catch (err) {
       setError(err.message || 'Failed to save settings');
@@ -173,6 +200,7 @@ export function SettingsModal({ novelPath }) {
       ...prev,
       [field]: event.target.value
     }));
+    setDirtySettings((current) => ({ ...current, llm: true }));
   };
 
   const handleLlmNumberChange = (field) => (event) => {
@@ -182,6 +210,7 @@ export function SettingsModal({ novelPath }) {
       ...prev,
       [field]: event.target.value
     }));
+    setDirtySettings((current) => ({ ...current, llm: true }));
   };
 
   return (
@@ -209,13 +238,19 @@ export function SettingsModal({ novelPath }) {
               >
                 Git Settings
               </button>
-              <button
-                className={`settings-tab ${activeTab === 'llm' ? 'active' : ''}`}
-                onClick={() => setActiveTab('llm')}
-              >
-                LLM Settings
-              </button>
-            </div>
+                <button
+                  className={`settings-tab ${activeTab === 'llm' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('llm')}
+                >
+                  LLM Settings
+                </button>
+                <button
+                  className={`settings-tab ${activeTab === 'appearance' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('appearance')}
+                >
+                  Appearance
+                </button>
+              </div>
 
             {activeTab === 'git' && (
               <div className="settings-section" data-testid="git-settings-section">
@@ -395,22 +430,65 @@ export function SettingsModal({ novelPath }) {
                </div>
              )}
 
-            <div className="snapshot-dialog-actions">
-              <button className="btn ghost" data-testid="settings-cancel" onClick={handleClose} disabled={isSaving}>
-                Cancel
-              </button>
-              <button
-                className="btn primary"
-                data-testid="settings-save"
-                onClick={handleSave}
-                disabled={isLoading || isSaving}
-              >
-                {isSaving ? 'Saving...' : 'Save Settings'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
+              {activeTab === 'appearance' && (
+                <div className="settings-section" data-testid="appearance-settings-section">
+                  <h4>Appearance</h4>
+
+                  <label className="settings-field" htmlFor="appearance-theme-select">
+                    <span>Theme</span>
+                    <select
+                      id="appearance-theme-select"
+                      data-testid="appearance-theme-select"
+                      className="snapshot-label-input"
+                       value={appearanceSettings.theme}
+                       onChange={(event) => {
+                         setAppearanceSettings((current) => ({ ...current, theme: event.target.value }));
+                         setDirtySettings((current) => ({ ...current, appearance: true }));
+                       }}
+                    >
+                      <option value="light">Light</option>
+                      <option value="dark">Dark</option>
+                    </select>
+                  </label>
+
+                  <label className="settings-field" htmlFor="appearance-seasonal-theme-select">
+                    <span>Seasonal Themes</span>
+                    <select
+                      id="appearance-seasonal-theme-select"
+                      data-testid="appearance-seasonal-theme-select"
+                      className="snapshot-label-input"
+                       value={appearanceSettings.seasonalThemePreference}
+                       onChange={(event) => {
+                         setAppearanceSettings((current) => ({
+                           ...current,
+                           seasonalThemePreference: event.target.value,
+                         }));
+                         setDirtySettings((current) => ({ ...current, appearance: true }));
+                       }}
+                    >
+                      <option value="off">Off</option>
+                      <option value="automatic">Automatic</option>
+                    </select>
+                  </label>
+                </div>
+              )}
+
+             <div className="snapshot-dialog-actions">
+               <button className="btn ghost" data-testid="settings-cancel" onClick={handleClose} disabled={isSaving}>
+                 Cancel
+               </button>
+               <button
+                 className="btn primary"
+                  data-testid="settings-save"
+                  onClick={handleSave}
+                  disabled={(isLoading && activeTab !== 'appearance') || isSaving}
+                >
+                 {isSaving ? 'Saving...' : 'Save Settings'}
+               </button>
+             </div>
+           </div>
+         </div>
+       )}
+     </>
+   );
 }

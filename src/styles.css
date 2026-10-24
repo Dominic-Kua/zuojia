@@ -107,6 +107,12 @@
   --shadow-md: 0 2px 8px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.25);
   --shadow-lg: 0 4px 12px rgba(0,0,0,0.35), 0 16px 48px rgba(0,0,0,0.45);
 }
+:root[data-seasonal-theme='halloween']{--accent:#C56A2D;--accent-strong:#A94F1B;--accent-soft:#F4DFC9;--muted-accent:#E8C5A8}
+:root[data-seasonal-theme='christmas']{--accent:#3E8062;--accent-strong:#2E684D;--accent-soft:#DDECE2;--muted-accent:#B9D2C1}
+:root[data-seasonal-theme='cny']{--accent:#C2453D;--accent-strong:#A8322C;--accent-soft:#F4DDDA;--muted-accent:#E7B8B2}
+:root[data-theme='dark'][data-seasonal-theme='halloween']{--accent:#E79558;--accent-strong:#F0A976;--accent-soft:#493426;--muted-accent:#6B4A32}
+:root[data-theme='dark'][data-seasonal-theme='christmas']{--accent:#7EB795;--accent-strong:#9ACDAB;--accent-soft:#263B31;--muted-accent:#3A5846}
+:root[data-theme='dark'][data-seasonal-theme='cny']{--accent:#E87970;--accent-strong:#F2948C;--accent-soft:#482B2A;--muted-accent:#653937}
 *{box-sizing:border-box}
 
 body{
@@ -347,6 +353,9 @@ body{
 .snapshot-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--accent-strong);color:var(--on-accent);padding:10px 20px;border-radius:var(--radius-pill);font-size:13.5px;font-weight:500;box-shadow:var(--shadow-lg);z-index:200;animation:toast-in 0.3s var(--ease-out)}
 @keyframes toast-in{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 .settings-dialog{width:480px}
+.seasonal-theme-glyph{display:inline-flex;align-items:center;margin-left:8px;font-size:22px;line-height:1;pointer-events:none;animation:seasonal-glyph-float 3s ease-in-out infinite}
+@keyframes seasonal-glyph-float{0%,100%{transform:translateY(0)}50%{transform:translateY(5px)}}
+@media (prefers-reduced-motion:reduce){.seasonal-theme-glyph{animation:none}}
 .settings-section{display:flex;flex-direction:column;gap:12px}
 .settings-section h4{margin:0;font-size:14px}
 .settings-field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--text-primary)}
