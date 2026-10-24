@@ -111,9 +111,9 @@ This list reflects what is currently wired in the app code.
 
 ### Export
 
-- PDF export from the top-bar `Export` button
+- PDF, DOCX, and EPUB export from the top-bar `Export` button
 - Export dialog with title, author, and publication date metadata
-- Chapter-order export driven by the manuscript index
+- Select and reorder chapters; choose document style, chapter breaks, and table-of-contents options
 - Export logs written under `meta/logs/`
 
 ## Release Notes
@@ -196,7 +196,7 @@ See `docs/llm-mcp-foundation.md` for full architecture, configuration, and schem
 - Node.js and npm
 - Git available in your shell
 - Electron runtime dependencies installed via npm
-- Pandoc and a TeX engine (`xelatex` or `pdflatex`) for PDF export
+- Pandoc for DOCX/EPUB export; Pandoc and `xelatex` for PDF export
 
 ### AI Features (optional)
 

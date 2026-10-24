@@ -5,7 +5,15 @@ function getToolVersion(command) {
   return execFileSync(command, ['--version'], { encoding: 'utf-8' }).split('\n')[0].trim();
 }
 
-export async function validateExportDependencies() {
+export async function validateExportDependencies(format = 'pdf') {
+  if (!['pdf', 'docx', 'epub'].includes(format)) {
+    return createError(
+      'UNSUPPORTED_EXPORT_FORMAT',
+      `Unsupported export format: ${format}`,
+      'Choose PDF, DOCX, or EPUB'
+    );
+  }
+
   let pandocVersion;
   const enginesTried = [];
 
@@ -20,12 +28,24 @@ export async function validateExportDependencies() {
     );
   }
 
+  if (format !== 'pdf') {
+    return {
+      status: 'ok',
+      data: {
+        format,
+        pandoc: { available: true, version: pandocVersion },
+      },
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   try {
     enginesTried.push('xelatex');
     const version = getToolVersion('xelatex');
     return {
       status: 'ok',
       data: {
+        format,
         pandoc: { available: true, version: pandocVersion },
         tex: { available: true, engine: 'xelatex', version },
         enginesTried,

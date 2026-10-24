@@ -8,6 +8,7 @@ const originalConsoleError = console.error;
 
 vi.mock('../../../src/lib/ipc-client', () => ({
   exportHandlers: {
+    manuscript: vi.fn(),
     pdf: vi.fn(),
     getLogs: vi.fn(),
     validateDeps: vi.fn(),
@@ -118,7 +119,7 @@ describe('ExportDialog', () => {
     indexHandlers.getIndex.mockResolvedValue({
       chapters: [{ filename: 'chapter-01.md', title: 'Chapter 1' }],
     });
-    exportHandlers.pdf.mockResolvedValue({ outputPath: '/tmp/novel.pdf' });
+    exportHandlers.manuscript.mockResolvedValue({ outputPath: '/tmp/novel.pdf' });
 
     const user = userEvent.setup();
     render(<ExportDialog novelPath={novelPath} />);
@@ -138,14 +139,59 @@ describe('ExportDialog', () => {
     });
 
     await waitFor(() => {
-      expect(exportHandlers.pdf).toHaveBeenCalledWith(
+      expect(exportHandlers.manuscript).toHaveBeenCalledWith(
         novelPath,
         expect.objectContaining({
+          format: 'pdf',
           title: 'My Novel',
           author: 'Dom',
           date: expect.any(String),
         })
       );
+    });
+  });
+
+  it('exports EPUB without requiring TeX and submits its style and structure options', async () => {
+    const { indexHandlers, exportHandlers } = await import('../../../src/lib/ipc-client');
+    indexHandlers.getIndex.mockResolvedValue({
+      chapters: [
+        { filename: 'chapter-01.md', title: 'Chapter 1' },
+        { filename: 'chapter-02.md', title: 'Chapter 2' },
+      ],
+    });
+    exportHandlers.validateDeps.mockImplementation(async (format) => {
+      if (format === 'epub') {
+        return { pandoc: { available: true, version: 'pandoc 3.1.0' } };
+      }
+      return {
+        pandoc: { available: true, version: 'pandoc 3.1.0' },
+        tex: { available: true, engine: 'xelatex', version: 'XeTeX 3.14' },
+      };
+    });
+    exportHandlers.manuscript.mockResolvedValue({ outputPath: '/tmp/novel.epub' });
+
+    const user = userEvent.setup();
+    render(<ExportDialog novelPath={novelPath} />);
+    await user.click(screen.getByTestId('export-button'));
+    await screen.findByText('Chapter 1');
+    await user.selectOptions(screen.getByTestId('export-format-select'), 'epub');
+    await waitFor(() => expect(exportHandlers.validateDeps).toHaveBeenLastCalledWith('epub'));
+
+    expect(screen.getByTestId('export-preflight-ready')).toHaveTextContent('pandoc 3.1.0');
+    await user.selectOptions(screen.getByTestId('export-style-select'), 'reader');
+    await user.click(screen.getByTestId('export-chapter-breaks'));
+    await user.click(screen.getByTestId('export-toc'));
+    await user.click(screen.getByRole('checkbox', { name: /Chapter 2/ }));
+    await user.click(screen.getByTestId('export-confirm'));
+
+    await waitFor(() => {
+      expect(exportHandlers.manuscript).toHaveBeenCalledWith(novelPath, expect.objectContaining({
+        format: 'epub',
+        style: 'reader',
+        chapterBreaks: false,
+        includeTableOfContents: false,
+        chapterOrder: [{ filename: 'chapter-01.md', title: 'Chapter 1' }],
+      }));
     });
   });
 
@@ -156,7 +202,7 @@ describe('ExportDialog', () => {
     });
     const error = new Error('TeX is not installed');
     error.suggestion = 'Install via: brew install --cask mactex-no-gui';
-    exportHandlers.pdf.mockRejectedValue(error);
+    exportHandlers.manuscript.mockRejectedValue(error);
 
     const user = userEvent.setup();
     render(<ExportDialog novelPath={novelPath} />);
@@ -233,7 +279,7 @@ describe('ExportDialog', () => {
         { filename: 'chapter-03.md', title: 'Chapter 3' },
       ],
     });
-    exportHandlers.pdf.mockResolvedValue({ outputPath: '/tmp/novel.pdf' });
+    exportHandlers.manuscript.mockResolvedValue({ outputPath: '/tmp/novel.pdf' });
 
     const user = userEvent.setup();
     render(<ExportDialog novelPath={novelPath} />);
@@ -253,9 +299,10 @@ describe('ExportDialog', () => {
     });
 
     await waitFor(() => {
-      expect(exportHandlers.pdf).toHaveBeenCalledWith(
+      expect(exportHandlers.manuscript).toHaveBeenCalledWith(
         novelPath,
         expect.objectContaining({
+          format: 'pdf',
           chapterOrder: [
             { filename: 'chapter-01.md', title: 'Chapter 1' },
             { filename: 'chapter-03.md', title: 'Chapter 3' },
@@ -273,7 +320,7 @@ describe('ExportDialog', () => {
         { filename: 'chapter-02.md', title: 'Chapter 2' },
       ],
     });
-    exportHandlers.pdf.mockResolvedValue({ outputPath: '/tmp/novel.pdf' });
+    exportHandlers.manuscript.mockResolvedValue({ outputPath: '/tmp/novel.pdf' });
 
     const user = userEvent.setup();
     render(<ExportDialog novelPath={novelPath} />);
@@ -296,9 +343,10 @@ describe('ExportDialog', () => {
     });
 
     await waitFor(() => {
-      expect(exportHandlers.pdf).toHaveBeenCalledWith(
+      expect(exportHandlers.manuscript).toHaveBeenCalledWith(
         novelPath,
         expect.objectContaining({
+          format: 'pdf',
           chapterOrder: [
             { filename: 'chapter-02.md', title: 'Chapter 2' },
             { filename: 'chapter-01.md', title: 'Chapter 1' },

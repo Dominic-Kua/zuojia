@@ -6,6 +6,10 @@ function getDefaultMetadata() {
     title: '',
     author: '',
     date: new Date().toISOString().slice(0, 10),
+    format: 'pdf',
+    style: 'manuscript',
+    chapterBreaks: true,
+    includeTableOfContents: true,
   };
 }
 
@@ -22,11 +26,37 @@ export function ExportDialog({ novelPath, onBeforeExport }) {
   const [logError, setLogError] = useState(null);
   const [dependencyError, setDependencyError] = useState(null);
   const [dependencyStatus, setDependencyStatus] = useState(null);
+  const [isCheckingDependencies, setIsCheckingDependencies] = useState(false);
   const [toast, setToast] = useState(null);
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState([]);
   const [isLogsLoading, setIsLogsLoading] = useState(false);
   const dragIndexRef = useRef(null);
+  const dependencyRequestRef = useRef(0);
+
+  const checkDependencies = async (format) => {
+    const requestId = ++dependencyRequestRef.current;
+    setIsCheckingDependencies(true);
+    setDependencyError(null);
+    setDependencyStatus(null);
+    try {
+      const status = await exportHandlers.validateDeps(format);
+      if (requestId === dependencyRequestRef.current) {
+        setDependencyStatus(status);
+      }
+    } catch (err) {
+      if (requestId === dependencyRequestRef.current) {
+        setDependencyError({
+          message: err.message || 'Export dependencies are unavailable',
+          suggestion: err.suggestion || 'Install Pandoc and the dependencies for the selected format, then try again.',
+        });
+      }
+    } finally {
+      if (requestId === dependencyRequestRef.current) {
+        setIsCheckingDependencies(false);
+      }
+    }
+  };
 
   useEffect(() => {
     if (!toast) {
@@ -57,7 +87,8 @@ export function ExportDialog({ novelPath, onBeforeExport }) {
     setDependencyStatus(null);
     setShowLogs(false);
     setLogs([]);
-    setMetadata(getDefaultMetadata());
+    const defaultMetadata = getDefaultMetadata();
+    setMetadata(defaultMetadata);
     try {
       // Flush any pending editor autosave before reading chapters from disk.
       if (onBeforeExport) {
@@ -71,16 +102,7 @@ export function ExportDialog({ novelPath, onBeforeExport }) {
         ...current,
         title: current.title || novelPath.split(/[\\/]/).filter(Boolean).at(-1) || '',
       }));
-
-      try {
-        const status = await exportHandlers.validateDeps();
-        setDependencyStatus(status);
-      } catch (err) {
-        setDependencyError({
-          message: err.message || 'Export dependencies are unavailable',
-          suggestion: err.suggestion || 'Install Pandoc and a TeX engine, then try again.',
-        });
-      }
+      await checkDependencies(defaultMetadata.format);
     } catch (err) {
       setError({
         message: err.message || 'Failed to load chapters for export',
@@ -97,10 +119,19 @@ export function ExportDialog({ novelPath, onBeforeExport }) {
     if (isExporting) {
       return;
     }
+    dependencyRequestRef.current += 1;
+    setIsCheckingDependencies(false);
     setShowDialog(false);
     setError(null);
     setLogError(null);
     setShowLogs(false);
+  };
+
+  const handleFormatChange = (event) => {
+    const format = event.target.value;
+    setError(null);
+    setMetadata((current) => ({ ...current, format }));
+    checkDependencies(format);
   };
 
   const handleViewLogs = async () => {
@@ -156,7 +187,7 @@ export function ExportDialog({ novelPath, onBeforeExport }) {
   const displayError = error || dependencyError;
 
   const handleExport = async () => {
-    if (isExporting || dependencyError) {
+    if (isExporting || isCheckingDependencies || dependencyError) {
       return;
     }
 
@@ -171,14 +202,14 @@ export function ExportDialog({ novelPath, onBeforeExport }) {
         .filter((c) => selectedFilenames.has(c.filename))
         .map(({ filename, title }) => ({ filename, title }));
 
-      const result = await exportHandlers.pdf(novelPath, { ...metadata, chapterOrder });
-      const engine = result.texEngine ? ` (${result.texEngine})` : '';
-      setToast(`PDF exported${engine}: ${result.outputPath}`);
+      const result = await exportHandlers.manuscript(novelPath, { ...metadata, chapterOrder });
+      const engine = metadata.format === 'pdf' && result.texEngine ? ` (${result.texEngine})` : '';
+      setToast(`${metadata.format.toUpperCase()} exported${engine}: ${result.outputPath}`);
       setShowDialog(false);
     } catch (err) {
       setError({
-        message: err.message || 'PDF export failed',
-        suggestion: err.suggestion || 'Review the export log and your local dependencies.',
+        message: err.message || `${metadata.format.toUpperCase()} export failed`,
+        suggestion: err.suggestion || 'Review the export log and the dependencies for the selected format.',
       });
     } finally {
       setIsExporting(false);
@@ -201,13 +232,28 @@ export function ExportDialog({ novelPath, onBeforeExport }) {
             aria-labelledby="export-dialog-title"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3 id="export-dialog-title">Export PDF</h3>
-            <p>Create a publication-ready PDF from your current manuscript.</p>
+            <h3 id="export-dialog-title">Export {metadata.format.toUpperCase()}</h3>
+            <p>Prepare selected manuscript chapters for publication or sharing.</p>
 
             {isLoading ? (
               <div className="commit-loading" data-testid="export-loading">Loading chapters...</div>
             ) : (
               <>
+                <label className="settings-field" htmlFor="export-format-select">
+                  <span>Format</span>
+                  <select
+                    id="export-format-select"
+                    data-testid="export-format-select"
+                    className="snapshot-label-input"
+                    value={metadata.format}
+                    onChange={handleFormatChange}
+                  >
+                    <option value="pdf">PDF</option>
+                    <option value="docx">DOCX</option>
+                    <option value="epub">EPUB</option>
+                  </select>
+                </label>
+
                 <label className="settings-field" htmlFor="export-title-input">
                   <span>Title</span>
                   <input
@@ -244,6 +290,54 @@ export function ExportDialog({ novelPath, onBeforeExport }) {
                   />
                 </label>
 
+                {metadata.format !== 'pdf' && (
+                  <>
+                    <label className="settings-field" htmlFor="export-style-select">
+                      <span>Output style</span>
+                      <select
+                        id="export-style-select"
+                        data-testid="export-style-select"
+                        className="snapshot-label-input"
+                        value={metadata.style}
+                        onChange={handleChange('style')}
+                      >
+                        <option value="manuscript">Manuscript</option>
+                        <option value="reader">Reader-friendly</option>
+                      </select>
+                    </label>
+
+                    <label className="commit-file-option" htmlFor="export-chapter-breaks">
+                      <input
+                        id="export-chapter-breaks"
+                        data-testid="export-chapter-breaks"
+                        type="checkbox"
+                        checked={metadata.chapterBreaks}
+                        onChange={(event) => setMetadata((current) => ({
+                          ...current,
+                          chapterBreaks: event.target.checked,
+                        }))}
+                      />
+                      {metadata.format === 'docx'
+                        ? 'Start each chapter on a new page'
+                        : 'Split each chapter into its own section'}
+                    </label>
+
+                    <label className="commit-file-option" htmlFor="export-toc">
+                      <input
+                        id="export-toc"
+                        data-testid="export-toc"
+                        type="checkbox"
+                        checked={metadata.includeTableOfContents}
+                        onChange={(event) => setMetadata((current) => ({
+                          ...current,
+                          includeTableOfContents: event.target.checked,
+                        }))}
+                      />
+                      Include a table of contents
+                    </label>
+                  </>
+                )}
+
                 <div className="settings-field">
                   <span>Chapters included</span>
                   <div className="export-chapter-list" data-testid="export-chapter-list">
@@ -274,9 +368,14 @@ export function ExportDialog({ novelPath, onBeforeExport }) {
                   </div>
                 </div>
 
-                {dependencyStatus && !dependencyError && (
+                {isCheckingDependencies && (
+                  <div className="commit-loading" data-testid="export-deps-loading">Checking export dependencies...</div>
+                )}
+                {dependencyStatus && !dependencyError && !isCheckingDependencies && (
                   <div className="push-guidance export-guidance" data-testid="export-preflight-ready">
-                    Ready to export with {dependencyStatus.tex.engine} ({dependencyStatus.pandoc.version})
+                    {metadata.format === 'pdf'
+                      ? `Ready to export with ${dependencyStatus.tex?.engine} (${dependencyStatus.pandoc.version})`
+                      : `Ready to export with ${dependencyStatus.pandoc.version}`}
                   </div>
                 )}
               </>
@@ -300,9 +399,9 @@ export function ExportDialog({ novelPath, onBeforeExport }) {
                 className="btn primary"
                 data-testid="export-confirm"
                 onClick={handleExport}
-                disabled={isLoading || isExporting || selectedCount === 0 || Boolean(dependencyError)}
+                disabled={isLoading || isExporting || isCheckingDependencies || selectedCount === 0 || Boolean(dependencyError)}
               >
-                {isExporting ? 'Exporting...' : 'Export to PDF'}
+                {isExporting ? 'Exporting...' : `Export to ${metadata.format.toUpperCase()}`}
               </button>
             </div>
 

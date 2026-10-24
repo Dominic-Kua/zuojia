@@ -1,15 +1,22 @@
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
+import { randomUUID } from 'crypto';
 import { fileURLToPath } from 'url';
 import { createError } from '../util/error.js';
 import { validateExportDependencies } from './validate-deps.js';
-import { buildPdfExportCommand } from './command-builder.js';
+import { buildDocumentExportCommand, buildPdfExportCommand } from './command-builder.js';
 import { runSubprocess } from '../util/subprocess.js';
 import { getIndex } from '../index/get.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LATEX_TEMPLATE_PATH = path.join(__dirname, 'latex-template.tex');
+const REFERENCE_DOCS_PATH = path.join(__dirname, 'reference-docs');
+const EPUB_STYLES = {
+  manuscript: `body { font-family: serif; line-height: 1.45; margin: 5%; }\np { text-indent: 1.2em; margin: 0 0 0.55em; }\nh1 { text-align: center; }`,
+  reader: `body { font-family: sans-serif; line-height: 1.7; margin: 8%; }\np { text-indent: 0; margin: 0 0 0.9em; }\nh1 { text-align: left; }`,
+};
+const DOCX_CHAPTER_BREAK_FILTER = `function Header(header)\n  if header.level == 1 then\n    return { pandoc.RawBlock('openxml', '<w:p><w:r><w:br w:type="page"/></w:r></w:p>'), header }\n  end\nend`;
 
 function toFileTimestamp(date = new Date()) {
   return date.toISOString().replace(/[:.]/g, '-');
@@ -87,15 +94,26 @@ async function pruneExportLogs(logsDir, maxLogs = 10) {
   );
 }
 
-export async function exportManuscriptToPdf(novelPath, metadata = {}) {
+export async function exportManuscriptToFormat(novelPath, metadata = {}) {
+  if (!metadata || typeof metadata !== 'object') {
+    metadata = {};
+  }
+  const format = metadata.format || 'pdf';
   try {
     if (!novelPath || !fs.existsSync(novelPath)) {
       return createError('INVALID_NOVEL_PATH', 'Novel path does not exist');
     }
+    if (!['pdf', 'docx', 'epub'].includes(format)) {
+      return createError(
+        'UNSUPPORTED_EXPORT_FORMAT',
+        `Unsupported export format: ${format}`,
+        'Choose PDF, DOCX, or EPUB'
+      );
+    }
     // Resolve once so all derived chapter/output/log paths are absolute
     novelPath = path.resolve(novelPath);
 
-    const depsResult = await validateExportDependencies();
+    const depsResult = await validateExportDependencies(format);
     if (depsResult.status === 'error') {
       return depsResult;
     }
@@ -144,7 +162,7 @@ export async function exportManuscriptToPdf(novelPath, metadata = {}) {
     await fsPromises.mkdir(exportsDir, { recursive: true });
     await fsPromises.mkdir(logsDir, { recursive: true });
 
-    const outputPath = path.join(exportsDir, `${path.basename(novelPath)}-${timestamp}.pdf`);
+    const outputPath = path.join(exportsDir, `${path.basename(novelPath)}-${timestamp}.${format}`);
     const logPath = path.join(logsDir, `export-${timestamp}.log`);
     const chapterPaths = exportChapters.map((chapter) => path.join(novelPath, 'manuscript', chapter.filename));
 
@@ -157,17 +175,62 @@ export async function exportManuscriptToPdf(novelPath, metadata = {}) {
       );
     }
 
-    const templatePath = fs.existsSync(LATEX_TEMPLATE_PATH) ? LATEX_TEMPLATE_PATH : null;
+    let command;
+    let subprocessResult;
+    const temporaryAssets = [];
+    try {
+      if (format === 'pdf') {
+        const templatePath = fs.existsSync(LATEX_TEMPLATE_PATH) ? LATEX_TEMPLATE_PATH : null;
+        command = buildPdfExportCommand({
+          chapterPaths,
+          metadata: metadataValue,
+          outputPath,
+          pdfEngine: depsResult.data.tex.engine,
+          templatePath,
+        });
+      } else {
+        const style = metadata.style === 'reader' ? 'reader' : 'manuscript';
+        let epubStylePath;
+        let pageBreakFilterPath;
+        let referenceDocPath;
 
-    const command = buildPdfExportCommand({
-      chapterPaths,
-      metadata: metadataValue,
-      outputPath,
-      pdfEngine: depsResult.data.tex.engine,
-      templatePath,
-    });
+        if (format === 'epub') {
+          epubStylePath = path.join(exportsDir, `.export-${randomUUID()}.css`);
+          temporaryAssets.push(epubStylePath);
+          await fsPromises.writeFile(epubStylePath, EPUB_STYLES[style], 'utf-8');
+        }
+        if (format === 'docx' && metadata.chapterBreaks !== false) {
+          pageBreakFilterPath = path.join(exportsDir, `.export-${randomUUID()}.lua`);
+          temporaryAssets.push(pageBreakFilterPath);
+          await fsPromises.writeFile(pageBreakFilterPath, DOCX_CHAPTER_BREAK_FILTER, 'utf-8');
+        }
+        if (format === 'docx') {
+          const resourcePath = process.resourcesPath
+            ? path.join(process.resourcesPath, 'helper', 'src', 'export', 'reference-docs', `${style}.docx`)
+            : null;
+          const sourcePath = path.join(REFERENCE_DOCS_PATH, `${style}.docx`);
+          referenceDocPath = resourcePath && fs.existsSync(resourcePath) ? resourcePath : sourcePath;
+        }
 
-    const subprocessResult = await runSubprocess(command.command, command.args, { cwd: novelPath });
+        command = buildDocumentExportCommand({
+          chapterPaths,
+          metadata: metadataValue,
+          outputPath,
+          format,
+          style,
+          includeTableOfContents: metadata.includeTableOfContents !== false,
+          chapterBreaks: metadata.chapterBreaks !== false,
+          epubStylePath,
+          pageBreakFilterPath,
+          referenceDocPath,
+        });
+      }
+
+      subprocessResult = await runSubprocess(command.command, command.args, { cwd: novelPath });
+    } finally {
+      await Promise.all(temporaryAssets.map((assetPath) => fsPromises.unlink(assetPath).catch(() => {})));
+    }
+
     await fsPromises.writeFile(
       logPath,
       createExportLog({
@@ -180,11 +243,14 @@ export async function exportManuscriptToPdf(novelPath, metadata = {}) {
     await pruneExportLogs(logsDir);
 
     if (subprocessResult.exitCode !== 0) {
+      const pdf = format === 'pdf';
       return createError(
-        'PDF_EXPORT_FAILED',
-        'PDF export failed',
-        'Review the export log and confirm Pandoc and TeX are installed correctly',
-        { logPath, stderr: subprocessResult.stderr }
+        pdf ? 'PDF_EXPORT_FAILED' : 'MANUSCRIPT_EXPORT_FAILED',
+        `${format.toUpperCase()} export failed`,
+        pdf
+          ? 'Review the export log and confirm Pandoc and TeX are installed correctly'
+          : 'Review the export log and confirm Pandoc is installed correctly',
+        { logPath, stderr: subprocessResult.stderr, format }
       );
     }
 
@@ -193,19 +259,25 @@ export async function exportManuscriptToPdf(novelPath, metadata = {}) {
       data: {
         outputPath,
         logPath,
+        format,
         durationMs: subprocessResult.durationMs,
-        texEngine: depsResult.data.tex.engine,
+        ...(format === 'pdf' ? { texEngine: depsResult.data.tex.engine } : {}),
         chapterCount: exportChapters.length,
         skippedChapters,
       },
       timestamp: new Date().toISOString(),
     };
   } catch (error) {
+    const isPdf = format === 'pdf';
     return createError(
-      'PDF_EXPORT_FAILED',
-      'PDF export failed',
+      isPdf ? 'PDF_EXPORT_FAILED' : 'MANUSCRIPT_EXPORT_FAILED',
+      isPdf ? 'PDF export failed' : `${format.toUpperCase()} export failed`,
       'Review the export configuration and dependencies, then try again',
-      { error: error.message }
+      { error: error.message, format }
     );
   }
+}
+
+export async function exportManuscriptToPdf(novelPath, metadata = {}) {
+  return exportManuscriptToFormat(novelPath, { ...metadata, format: 'pdf' });
 }

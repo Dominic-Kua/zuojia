@@ -54,6 +54,22 @@ describe('validateExportDependencies', () => {
     expect(result.data.enginesTried).toEqual(['xelatex']);
   });
 
+  it.each(['docx', 'epub'])('requires only Pandoc for %s export', async (format) => {
+    execFileSync.mockImplementation((cmd, args) => {
+      if (cmd === 'pandoc' && args[0] === '--version') {
+        return 'pandoc 3.1.0';
+      }
+      throw new Error(`unexpected command ${cmd} ${args.join(' ')}`);
+    });
+
+    const result = await validateExportDependencies(format);
+
+    expect(result.status).toBe('ok');
+    expect(result.data.pandoc.version).toBe('pandoc 3.1.0');
+    expect(execFileSync).toHaveBeenCalledTimes(1);
+    expect(execFileSync).not.toHaveBeenCalledWith('xelatex', expect.anything(), expect.anything());
+  });
+
   it('does not fall back to pdflatex (cannot render CJK)', async () => {
     execFileSync.mockImplementation((cmd, args) => {
       if (cmd === 'pandoc' && args[0] === '--version') {

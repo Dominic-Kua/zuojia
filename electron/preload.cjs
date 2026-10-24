@@ -33,6 +33,7 @@ const ALLOWED_INVOKE_CHANNELS = new Set([
   'helper:git:syncStatus',
   // Export
   'helper:export:pdf',
+  'helper:export:manuscript',
   'helper:export:validateDeps',
   'helper:export:getLogs',
   // Stats
