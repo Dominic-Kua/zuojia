@@ -138,10 +138,8 @@ Ignore patterns only prevent *new* files; tracked files keep being committed. Al
 SIGTERM to `npm` doesn't kill the vite grandchild (port 5173 held); `strictPort: false` lets Vite drift ports while launchers assume fixed 5173; "port in use" treated as "ready".
 **Fix:** process-group kill or spawn vite directly; set `strictPort: true`; verify the responder is actually Vite.
 
-### H17. Tautology/placeholder tests green-wash suites; whole LLM suites skipped
-**Files:** `tests/unit/mcp-types.test.js:10-14`; `tests/e2e/smoke.spec.js:3-7`; `tests/unit/electron/llm-config.test.js:9`; `tests/unit/electron/llm-runtime.test.js:6,51`
-`expect(true).toBe(true)` placeholder specs provide zero coverage; two entire LLM test suites are `describe.skip`ed with no tracking issue.
-**Fix:** delete placeholders; ticket or reinstate skipped suites.
+### H17. LLM runtime/configuration suites were skipped; placeholder specs were reported
+**Status (2026-10-24):** The LLM runtime and configuration suites are re-enabled with expectations for current behavior. The previously cited placeholder files (`tests/unit/mcp-types.test.js` and `tests/e2e/smoke.spec.js`) are no longer present, and no `expect(true).toBe(true)` tests remain. The separate weak Playwright locator assertion is tracked under H62.
 
 ---
 
