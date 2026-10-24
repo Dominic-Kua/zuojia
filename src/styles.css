@@ -216,10 +216,30 @@ body{
   display:flex;
   flex-direction:column;
 }
-.manuscript-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.manuscript-meta{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:16px}
 .chapter-select{font-family:Inter;padding:6px 10px;border-radius:var(--radius-sm);border:1px solid var(--divider-strong);background:var(--manuscript-surface);color:var(--text-primary);font-size:13px}
-.wordcounts{display:flex;gap:12px}
+.wordcounts{display:flex;gap:12px;flex-wrap:wrap}
 .wordcounts span{color:var(--text-secondary);font-size:12.5px;font-variant-numeric:tabular-nums;padding:4px 10px;background:color-mix(in srgb, var(--accent) 5%, transparent);border-radius:var(--radius-pill)}
+.writing-goals-widget{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0}
+.writing-goal-summary{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0;color:var(--text-secondary);font-size:12px;font-variant-numeric:tabular-nums}
+.writing-goal-summary progress{width:72px;height:8px;accent-color:var(--accent)}
+.writing-goals-dialog{max-height:82vh;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+.writing-goals-dialog h3,.writing-goals-dialog p{margin:0}
+.writing-goals-dialog p{font-size:13px;color:var(--text-secondary)}
+.writing-goal-fieldset{margin:0;padding:10px 12px;border:1px solid var(--divider);border-radius:var(--radius-md)}
+.writing-goal-fieldset legend{padding:0 4px;font-size:13px;color:var(--text-secondary)}
+.writing-goal-weekdays{display:flex;flex-wrap:wrap;gap:8px}
+.writing-goal-day-off-input{display:flex;align-items:center;gap:8px}
+.writing-goal-days-off,.writing-goal-history ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.writing-goal-days-off li,.writing-goal-history li{display:flex;align-items:center;gap:8px;font-size:12px}
+.writing-goal-days-off li{justify-content:space-between}
+.writing-goal-pace{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:var(--radius-md);background:var(--info-soft);color:var(--text-secondary);font-size:13px}
+.writing-goal-history{display:flex;flex-direction:column;gap:8px;padding-top:4px}
+.writing-goal-history>strong{font-size:13px}
+.writing-goal-history li time{width:88px;color:var(--text-secondary)}
+.writing-goal-history li>span:last-child{width:48px;text-align:right;font-variant-numeric:tabular-nums}
+.writing-goal-history-bar{height:8px;flex:1;overflow:hidden;border-radius:var(--radius-pill);background:var(--divider)}
+.writing-goal-history-bar span{display:block;height:100%;border-radius:inherit;background:var(--accent)}
 .editor{font-family:'Merriweather', Georgia, serif;font-size:18px;line-height:1.75;color:var(--text-primary);min-height:0;flex:1;overflow:auto;padding-bottom:16px;white-space:pre-wrap;caret-color:var(--accent)}
 .editor:focus{outline:none}
 .sidebar{padding-top:8px;flex:0 0 auto;min-width:0;height:calc(100vh - 56px - 48px)}

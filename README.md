@@ -99,6 +99,7 @@ This list reflects what is currently wired in the app code.
 - Chapter word count
 - Manuscript word count
 - "Words written today" count (from git history helper)
+- Optional manuscript word-count goals with target dates, writing-day schedules, planned days off, daily pace, and recent progress history
 
 ### Git and Backup Helpers
 

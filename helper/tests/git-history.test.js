@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { getWordsWrittenToday } from '../src/git/history.js';
+import { getWritingHistory } from '../src/stats/writing-goals.js';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -48,6 +49,20 @@ describe('getWordsWrittenToday', () => {
     );
     const count = await getWordsWrittenToday(testDir);
     expect(count).toBe(5); // 10 words - 5 baseline = 5 net
+  });
+
+  it('records daily progress for the writing history view', async () => {
+    await writeBaseline(testDir, 5);
+    await fs.writeFile(
+      path.join(testDir, 'manuscript', 'chapter-1.md'),
+      'Initial five words in file. Added five more words here.'
+    );
+
+    await getWordsWrittenToday(testDir);
+    const history = await getWritingHistory(testDir, 1);
+
+    expect(history.status).toBe('ok');
+    expect(history.data.at(-1).wordsWritten).toBe(5);
   });
 
   it('returns 0 when current word count matches baseline', async () => {

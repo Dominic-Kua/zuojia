@@ -6,6 +6,7 @@
 import path from 'path';
 import fs from 'fs';
 import { calculateWordCount } from '../stats/word-count.js';
+import { recordWritingProgress } from '../stats/writing-goals.js';
 
 /**
  * Get words written today by comparing current manuscript state to today's baseline
@@ -29,6 +30,12 @@ export async function getWordsWrittenToday(novelPath) {
     // Get or initialize baseline
     const metaDir = path.join(novelPath, 'meta');
     const baselineFile = path.join(metaDir, 'today-baseline.json');
+    const recordProgress = async (date, wordsWritten) => {
+      const result = await recordWritingProgress(novelPath, date, wordsWritten);
+      if (result.status === 'error') {
+        console.error('Error recording writing history:', result.error.message);
+      }
+    };
 
     let baseline = {
       date: createDateString(new Date()),
@@ -53,6 +60,7 @@ export async function getWordsWrittenToday(novelPath) {
             fs.mkdirSync(metaDir, { recursive: true });
           }
           fs.writeFileSync(baselineFile, JSON.stringify(baseline, null, 2), 'utf-8');
+          await recordProgress(today, 0);
           return 0;
         }
       } else {
@@ -65,6 +73,7 @@ export async function getWordsWrittenToday(novelPath) {
           fs.mkdirSync(metaDir, { recursive: true });
         }
         fs.writeFileSync(baselineFile, JSON.stringify(baseline, null, 2), 'utf-8');
+        await recordProgress(baseline.date, 0);
         return 0;
       }
     } catch (err) {
@@ -75,6 +84,7 @@ export async function getWordsWrittenToday(novelPath) {
 
     // Return the difference (current - baseline)
     const todayWordCount = Math.max(0, currentWordCount - baseline.wordCount);
+    await recordProgress(baseline.date, todayWordCount);
     return todayWordCount;
   } catch (err) {
     console.error('Error calculating today word count:', err);

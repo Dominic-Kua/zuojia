@@ -5,6 +5,7 @@ import { useSpellcheck } from '../hooks/useSpellcheck'
 import { useWordCount } from '../hooks/useWordCount'
 import { useWikiLinks } from '../hooks/useWikiLinks'
 import { WikiLinkPopover } from './WikiLinkPopover'
+import { WritingGoals } from './WritingGoals'
 import { findSpellingIssues, replaceMisspelledWord, escapeRegExp as escapeForRegex } from '../lib/spellcheck.js'
 import { indexHandlers, wikiHandlers } from '../lib/ipc-client'
 
@@ -909,6 +910,7 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
           <span>Open chapter: {chapterCount.toLocaleString()}</span>
           <span>Today: {todayCount.toLocaleString()}</span>
         </div>
+        <WritingGoals novelPath={novelPath} manuscriptCount={manuscriptCount} todayCount={todayCount} />
       </div>
       <article
         className="editor"

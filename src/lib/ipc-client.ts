@@ -94,6 +94,9 @@ export const statsHandlers = {
   wordCount: (content) => invokeHandler('helper:stats:word-count', { content }),
   manuscriptCount: (novelPath) => invokeHandler('helper:stats:manuscript-count', { novelPath }),
   todayCount: (novelPath) => invokeHandler('helper:stats:today-count', { novelPath }),
+  writingGoal: (novelPath) => invokeHandler('helper:stats:writing-goal:get', { novelPath }),
+  saveWritingGoal: (novelPath, goal) => invokeHandler('helper:stats:writing-goal:save', { novelPath, goal }),
+  writingHistory: (novelPath, days = 14) => invokeHandler('helper:stats:writing-history', { novelPath, days }),
 };
 
 export const exportHandlers = {

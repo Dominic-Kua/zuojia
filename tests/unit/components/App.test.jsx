@@ -60,8 +60,12 @@ vi.mock('../../../src/lib/ipc-client', () => ({
     wordCount: vi.fn().mockResolvedValue({ wordCount: 0 }),
     manuscriptCount: vi.fn().mockResolvedValue(0),
     todayCount: vi.fn().mockResolvedValue(0),
+    writingGoal: vi.fn().mockResolvedValue(null),
+    saveWritingGoal: vi.fn().mockResolvedValue({}),
+    writingHistory: vi.fn().mockResolvedValue([]),
   },
   exportHandlers: {
+    manuscript: vi.fn().mockResolvedValue({}),
     pdf: vi.fn().mockResolvedValue({}),
     validateDeps: vi.fn().mockResolvedValue({}),
     getLogs: vi.fn().mockResolvedValue([]),
