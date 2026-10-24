@@ -3,6 +3,29 @@ import { llmHandlers, mcpHandlers } from '../lib/ipc-client';
 
 const NEO4J_SEARCH_TIMEOUT = 180000;
 const WIKI_SEARCH_TIMEOUT = 30000;
+const CHAT_POSITION_STORAGE_KEY = 'zuojia-llm-chat-position';
+
+function clampChatPosition(position) {
+  const maxX = Math.max(8, window.innerWidth - 80);
+  const maxY = Math.max(8, window.innerHeight - 56);
+  return {
+    x: Math.round(Math.max(8, Math.min(position.x, maxX))),
+    y: Math.round(Math.max(8, Math.min(position.y, maxY))),
+  };
+}
+
+function getInitialChatPosition() {
+  const defaultPosition = { x: window.innerWidth - 464, y: 80 };
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(CHAT_POSITION_STORAGE_KEY));
+    if (Number.isFinite(saved?.x) && Number.isFinite(saved?.y)) {
+      return clampChatPosition(saved);
+    }
+  } catch {
+    // Use the default position when storage is unavailable or invalid.
+  }
+  return clampChatPosition(defaultPosition);
+}
 
 function ServiceStatusBadge({ label, status }) {
   const s = status?.status || 'unknown';
@@ -17,6 +40,8 @@ function ServiceStatusBadge({ label, status }) {
 export function LlmChatWindow({ novelPath, servicesStatus, servicesLoading }) {
   const [showWindow, setShowWindow] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [chatPosition, setChatPosition] = useState(getInitialChatPosition);
+  const [isDragging, setIsDragging] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -26,6 +51,72 @@ export function LlmChatWindow({ novelPath, servicesStatus, servicesLoading }) {
   const [isQueryingWiki, setIsQueryingWiki] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const dragStartRef = useRef(null);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(CHAT_POSITION_STORAGE_KEY, JSON.stringify(chatPosition));
+    } catch {
+      // Position remains usable for this session when storage is unavailable.
+    }
+  }, [chatPosition]);
+
+  useEffect(() => {
+    if (!isDragging) {
+      return undefined;
+    }
+
+    const handleMouseMove = (event) => {
+      const dragStart = dragStartRef.current;
+      if (!dragStart) return;
+      setChatPosition(clampChatPosition({
+        x: dragStart.x + event.clientX - dragStart.clientX,
+        y: dragStart.y + event.clientY - dragStart.clientY,
+      }));
+    };
+
+    const handleMouseUp = () => {
+      dragStartRef.current = null;
+      setIsDragging(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
+  const handleHeaderMouseDown = (event) => {
+    if (event.button !== 0 || event.target.closest?.('button')) {
+      return;
+    }
+    dragStartRef.current = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      ...chatPosition,
+    };
+    setIsDragging(true);
+  };
+
+  const handleHeaderKeyDown = (event) => {
+    if (event.target.closest?.('button')) return;
+    const step = event.shiftKey ? 32 : 16;
+    const offsets = {
+      ArrowLeft: [-step, 0],
+      ArrowRight: [step, 0],
+      ArrowUp: [0, -step],
+      ArrowDown: [0, step],
+    };
+    const offset = offsets[event.key];
+    if (!offset) return;
+    event.preventDefault();
+    setChatPosition((current) => clampChatPosition({
+      x: current.x + offset[0],
+      y: current.y + offset[1],
+    }));
+  };
 
   // Poll service health only while the chat window is open — background
   // polling wasted IPC round-trips every 5 seconds for a hidden dialog.
@@ -319,16 +410,25 @@ export function LlmChatWindow({ novelPath, servicesStatus, servicesLoading }) {
       </div>
 
       {showWindow && (
-        <div className="llm-chat-overlay" data-testid="llm-chat-overlay" onClick={() => setShowWindow(false)}>
+        <div className="llm-chat-overlay" data-testid="llm-chat-overlay">
           <div
             className={`llm-chat-window${isCollapsed ? ' collapsed' : ''}`}
             data-testid="llm-chat-window"
             role="dialog"
-            aria-modal="true"
+            aria-modal="false"
             aria-labelledby="llm-chat-title"
-            onClick={(e) => e.stopPropagation()}
+            style={{ left: `${chatPosition.x}px`, top: `${chatPosition.y}px` }}
           >
-            <div className="llm-chat-header">
+            <div
+              className={`llm-chat-header${isDragging ? ' dragging' : ''}`}
+              data-testid="llm-chat-header"
+              role="group"
+              aria-label="Move LLM Chat window"
+              aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
+              tabIndex={0}
+              onMouseDown={handleHeaderMouseDown}
+              onKeyDown={handleHeaderKeyDown}
+            >
               <h3 id="llm-chat-title">LLM Chat</h3>
                <div className="llm-chat-header-actions">
                  <div className="llm-status-indicator" data-status={llmStatus}>
