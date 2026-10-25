@@ -184,6 +184,37 @@ export function createMcpRuntimeManager({
       ? toolExecutor(novelPath, toolName, args)
       : executeWikiTool(novelPath, toolName, args, neo4jRuntime);
 
+  // Synapse answers with graph-derived snippets, so pair them with the page
+  // text stored in Neo4j — the LLM needs the content, not just the shape.
+  async function mergeLocalWikiSearch(synapseResult, novelPath, args) {
+    let localResult;
+    try {
+      localResult = await executeLocalTool(novelPath, 'wiki_neo4j_search', args);
+    } catch {
+      return synapseResult;
+    }
+
+    const localPages = localResult?.status === 'ok' ? localResult.data?.results || [] : [];
+    if (localPages.length === 0) {
+      return synapseResult;
+    }
+
+    const synapseResults = synapseResult?.status === 'ok' ? synapseResult.data?.results || [] : [];
+    const seen = new Set();
+    const results = [];
+    for (const entry of [...localPages, ...synapseResults]) {
+      const key = String(entry?.slug || entry?.title || '').toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      results.push(entry);
+    }
+
+    return {
+      status: 'ok',
+      data: { query: args?.query ?? '', results, count: results.length },
+    };
+  }
+
   let processRef = null;
   let startTime = null;
   let runtimeNovelPath = null;
@@ -545,6 +576,9 @@ export function createMcpRuntimeManager({
           ]);
 
           result = responseNormalizer.normalize(toolName, synapseResult);
+          if (toolName === 'wiki_neo4j_search') {
+            result = await mergeLocalWikiSearch(result, runtimeNovelPath, args);
+          }
           pushLog({
             timestamp: new Date().toISOString(),
             type: 'mcp_debug',

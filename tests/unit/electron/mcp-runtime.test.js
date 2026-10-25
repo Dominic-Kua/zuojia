@@ -54,6 +54,7 @@ vi.mock('../../../helper/src/mcp/tool-mapper.js', () => ({
 
 vi.mock('../../../helper/src/mcp/argument-transformer.js', () => ({
   createArgumentTransformer: vi.fn(() => ({
+    transform: vi.fn((toolName, args) => args),
     transformArgs: vi.fn((args) => args),
   })),
 }));
@@ -227,6 +228,50 @@ describe('mcp-runtime', () => {
 
       expect(neo4jRuntime.naturalLanguageSearch).toHaveBeenCalledWith('Who is Freya?', 5);
       expect(result.data.results).toEqual([{ slug: 'freya', title: 'Freya' }]);
+    });
+
+    it('adds page content from Neo4j to Synapse search results', async () => {
+      instantTimers = false;
+      const { createToolMapper } = await import('../../../helper/src/mcp/tool-mapper.js');
+      createToolMapper.mockReturnValueOnce({
+        hasMapping: () => true,
+        getMapping: () => 'query_knowledge',
+        mapTool: () => 'query_knowledge',
+      });
+      mockMcpClient.callTool.mockResolvedValueOnce({
+        status: 'ok',
+        data: { query: 'Who is Freya?', results: [{ slug: 'freya', title: 'Freya', snippet: 'graph hit' }], count: 1 },
+      });
+      const neo4jRuntime = {
+        naturalLanguageSearch: vi.fn().mockResolvedValue({
+          status: 'ok',
+          data: {
+            query: 'Who is Freya?',
+            results: [{ slug: 'freya', title: 'Freya', content: 'Freya studies magnetars.' }],
+            count: 1,
+          },
+        }),
+      };
+      const mergedManager = createMcpRuntimeManager({
+        neo4jRuntime,
+        spawnFn: vi.fn(() => mcpProcess),
+        nowFn: () => 1000,
+        setTimeoutFn: (cb, ms) => instantTimers ? (cb(), 0) : setTimeout(cb, ms),
+        clearTimeoutFn: (id) => clearTimeout(id),
+      });
+      const startResult = await mergedManager.start({ novelPath: '/tmp/novel' });
+      expect(startResult.usingSynapse).toBe(true);
+
+      const result = await mergedManager.callTool({
+        toolName: 'wiki_neo4j_search',
+        args: { query: 'Who is Freya?', limit: 5 },
+      });
+
+      expect(result.data.results).toHaveLength(1);
+      expect(result.data.results[0]).toMatchObject({
+        slug: 'freya',
+        content: 'Freya studies magnetars.',
+      });
     });
   });
 

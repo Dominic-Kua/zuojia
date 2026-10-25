@@ -213,8 +213,30 @@ describe('orchestrator', () => {
       expect(result.ingest.status).toBe('ok');
       expect(result.ingest.filesIngested).toBe(1);
       expect(result.ingest.totalFiles).toBe(1);
-      expect(mockNeo4jRuntime.importWikiData).not.toHaveBeenCalled();
+      expect(result.ingest.neo4j).toMatchObject({ status: 'ok' });
+      expect(mockNeo4jRuntime.importWikiData).toHaveBeenCalledOnce();
       expect(mockMcpRuntime.callTool).toHaveBeenCalledWith(expect.objectContaining({ toolName: 'ingest_text' }));
+    });
+
+    it('still ingests into Synapse when the local Neo4j import fails', async () => {
+      const fsp = await import('fs/promises');
+      fsp.default.access.mockImplementation((filePath) => {
+        if (String(filePath).includes('wiki')) return Promise.resolve();
+        throw new Error('ENOENT');
+      });
+      fsp.default.readdir.mockResolvedValue([
+        { name: 'hero.md', isDirectory: () => false, isFile: () => true },
+      ]);
+      fsp.default.readFile.mockResolvedValue('# Hero\nSome content');
+      mockNeo4jRuntime.hasWikiData.mockResolvedValue(false);
+      mockNeo4jRuntime.importWikiData.mockRejectedValue(new Error('Neo4j import failed'));
+      mockMcpRuntime.start.mockResolvedValue({ status: 'running', pid: 1002, usingSynapse: true });
+      mockMcpRuntime.callTool.mockResolvedValue({ status: 'ok' });
+
+      const result = await orchestrator.startAll({ novelPath: '/tmp/novel' });
+
+      expect(result.ingest.filesIngested).toBe(1);
+      expect(result.ingest.neo4j).toMatchObject({ status: 'error', error: 'Neo4j import failed' });
     });
 
     it('skips empty wiki files during ingest', async () => {

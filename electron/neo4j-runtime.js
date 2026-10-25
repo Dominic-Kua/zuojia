@@ -21,6 +21,7 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const MAX_SEARCH_CONTENT_CHARS = 4000;
 const SEARCH_STOP_WORDS = new Set([
   'a', 'an', 'and', 'are', 'about', 'be', 'been', 'being', 'can', 'could', 'did', 'do', 'does',
   'for', 'from', 'how', 'in', 'is', 'me', 'my', 'of', 'on', 'or', 'please', 'should', 'that',
@@ -427,10 +428,10 @@ dbms.security.auth_enabled=false
     }
     const session = driver.session();
     try {
-      // Check for WikiPage nodes — must stay consistent with the skip-check
-      // in importWikiData (which counts WikiPage nodes)
+      // Page content is what the LLM reasons over, so graphs with only node
+      // metadata count as empty and must be re-imported.
       const countResult = await session.run(
-        'MATCH (p:WikiPage) RETURN count(p) AS count'
+        "MATCH (p:WikiPage) WHERE coalesce(p.content, '') <> '' RETURN count(p) AS count"
       );
       const count = countResult.records[0]?.get('count') || 0;
       return count > 0;
@@ -451,10 +452,12 @@ dbms.security.auth_enabled=false
         message: 'Importing wiki data into Neo4j...',
       });
 
-      // Check if data already exists — skip import if so
+      // Only skip when page text is present; older imports stored metadata alone
       const session = driver.session();
       try {
-        const countResult = await session.run('MATCH (p:WikiPage) RETURN count(p) AS count');
+        const countResult = await session.run(
+          "MATCH (p:WikiPage) WHERE coalesce(p.content, '') <> '' RETURN count(p) AS count"
+        );
         const existingCount = countResult.records[0]?.get('count') || 0;
 
         if (existingCount > 0) {
@@ -470,7 +473,7 @@ dbms.security.auth_enabled=false
       }
 
       // Get wiki graph data using existing wiki-tools
-      const graphResult = await buildWikiKnowledgeGraphForMcp(runtimeNovelPath, 5000);
+      const graphResult = await buildWikiKnowledgeGraphForMcp(runtimeNovelPath, 5000, { includeContent: true });
       
       if (graphResult.status !== 'ok') {
         throw new Error(`Failed to build wiki graph: ${graphResult.error?.message || 'Unknown error'}`);
@@ -503,14 +506,17 @@ dbms.security.auth_enabled=false
              ON CREATE SET
                p.title = $title,
                p.tags = $tags,
+               p.content = $content,
                p.createdAt = datetime()
              ON MATCH SET
                p.title = $title,
-               p.tags = $tags`,
+               p.tags = $tags,
+               p.content = $content`,
             {
               id: node.id,
               title: node.label || node.id,
               tags: node.tags || [],
+              content: node.content || '',
             }
           );
         }
@@ -622,10 +628,12 @@ dbms.security.auth_enabled=false
          WITH p, [term IN $terms WHERE
            toLower(coalesce(p.id, '')) CONTAINS term OR
            toLower(coalesce(p.title, '')) CONTAINS term OR
-           ANY(tag IN coalesce(p.tags, []) WHERE toLower(tag) CONTAINS term)
+           ANY(tag IN coalesce(p.tags, []) WHERE toLower(tag) CONTAINS term) OR
+           toLower(coalesce(p.content, '')) CONTAINS term
          ] AS matchedTerms
          WHERE size(matchedTerms) > 0
-         RETURN p.id AS slug, p.title AS title, p.tags AS tags, size(matchedTerms) AS score
+         RETURN p.id AS slug, p.title AS title, p.tags AS tags,
+                coalesce(p.content, '') AS content, size(matchedTerms) AS score
          ORDER BY score DESC, title ASC
          LIMIT $limit`,
         {
@@ -638,6 +646,7 @@ dbms.security.auth_enabled=false
         slug: record.get('slug'),
         title: record.get('title'),
         tags: record.get('tags'),
+        content: String(record.get('content') || '').slice(0, MAX_SEARCH_CONTENT_CHARS),
         score: record.get('score')?.toNumber?.() ?? record.get('score') ?? 1.0,
       }));
 

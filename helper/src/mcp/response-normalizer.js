@@ -280,6 +280,10 @@ export class ResponseNormalizer {
                 title: r.title || r.slug || r.id,
                 snippet: r.snippet || r.excerpt || '',
               };
+              const content = r.content ?? r.text ?? r.statement;
+              if (typeof content === 'string' && content.length > 0) {
+                entry.content = content;
+              }
               // Only include a score when the server actually provided one
               const providedScore = r.score ?? r.relevance;
               if (providedScore !== undefined && Number.isFinite(Number(providedScore))) {
@@ -295,19 +299,24 @@ export class ResponseNormalizer {
       // Not JSON, parse as text
     }
 
-    const lines = textContent
-      .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
-
-    const results = lines.slice(0, 50).map((line) => ({
-      slug: line,
-      title: line,
-    }));
+    // Synapse returns a markdown answer (facts, insights, wiki links). Keep it
+    // whole: splitting it into lines drops the surrounding context the LLM needs.
+    const answer = textContent.trim();
+    if (!answer) {
+      return { status: 'ok', data: { results: [], count: 0 } };
+    }
 
     return {
       status: 'ok',
-      data: { results, count: results.length },
+      data: {
+        results: [{
+          slug: 'synapse-knowledge',
+          title: 'Knowledge query results',
+          snippet: answer.slice(0, 4000),
+          content: answer.slice(0, 4000),
+        }],
+        count: 1,
+      },
     };
   }
 

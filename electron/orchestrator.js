@@ -224,22 +224,26 @@ export function createOrchestrator(neo4jRuntime, mcpRuntime, llmRuntime, app) {
             }
 
             if (!hasData) {
+              log('Wiki exists but Neo4j has no page text — importing wiki pages into Neo4j');
+              let localImport;
+              try {
+                localImport = await neo4jRuntime.importWikiData();
+                log(
+                  `Local Neo4j import done: ${localImport.nodesImported || 0} pages, ` +
+                  `${localImport.edgesImported || 0} links`
+                );
+              } catch (err) {
+                logError('Local Neo4j wiki import failed', err);
+                localImport = { status: 'error', error: err.message };
+              }
+
               if (result.mcp.usingSynapse) {
-                log('Wiki exists but Neo4j is empty — ingesting via Synapse...');
-                result.ingest = await ingestWikiViaSynapse(mcpRuntime, wikiDir, log, logError);
-                log(`Synapse wiki ingest done: ${result.ingest.filesIngested} files, ${result.ingest.errors} errors`);
+                log('Ingesting wiki into Synapse for semantic search...');
+                const synapseIngest = await ingestWikiViaSynapse(mcpRuntime, wikiDir, log, logError);
+                log(`Synapse wiki ingest done: ${synapseIngest.filesIngested} files, ${synapseIngest.errors} errors`);
+                result.ingest = { ...synapseIngest, neo4j: localImport };
               } else {
-                log('Synapse is unavailable — importing the wiki directly into Neo4j');
-                try {
-                  result.ingest = await neo4jRuntime.importWikiData();
-                  log(
-                    `Local Neo4j import done: ${result.ingest.nodesImported || 0} pages, ` +
-                    `${result.ingest.edgesImported || 0} links`
-                  );
-                } catch (err) {
-                  logError('Local Neo4j wiki import failed', err);
-                  result.ingest = { status: 'error', error: err.message };
-                }
+                result.ingest = localImport;
               }
             } else {
               log('Neo4j already has wiki data — skipping ingest');

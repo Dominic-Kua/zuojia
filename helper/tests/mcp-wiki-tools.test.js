@@ -108,6 +108,20 @@ describe('mcp wiki tools', () => {
     );
   });
 
+  it('includes page content when building the graph for Neo4j import', async () => {
+    const result = await buildWikiKnowledgeGraphForMcp(testDir, 50, { includeContent: true });
+
+    const alice = result.data.nodes.find((node) => node.id === 'alice');
+    expect(alice.content).toContain('Mentor is [[mentor]]');
+  });
+
+  it('omits page content from graph payloads by default', async () => {
+    const result = await buildWikiKnowledgeGraphForMcp(testDir, 50);
+
+    const alice = result.data.nodes.find((node) => node.id === 'alice');
+    expect(alice).not.toHaveProperty('content');
+  });
+
   it('traverses graph relationships with shortest path output', async () => {
     const result = await traverseWikiKnowledgeGraphForMcp(testDir, {
       startSlug: 'alice',
