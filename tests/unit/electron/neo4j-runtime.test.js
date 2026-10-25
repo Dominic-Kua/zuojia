@@ -315,6 +315,28 @@ describe('neo4j-runtime', () => {
       expect(result.data.results).toHaveLength(1);
       expect(result.data.results[0].slug).toBe('hero');
     });
+
+    it('searches Neo4j by meaningful terms from a natural-language question', async () => {
+      await manager.start({ novelPath: '/tmp/novel' });
+      mockSession.run.mockResolvedValue({
+        records: [{
+          get: (key) => ({
+            slug: 'freya-ramirez-wang',
+            title: 'Freya Ramirez Wang',
+            tags: ['astrophysicist'],
+            score: 1,
+          })[key] ?? null,
+        }],
+      });
+
+      const result = await manager.naturalLanguageSearch('Who is Freya?', 5);
+
+      expect(mockSession.run).toHaveBeenCalledWith(expect.stringContaining('$terms'), {
+        terms: ['freya'],
+        limit: 5,
+      });
+      expect(result.data.results[0].slug).toBe('freya-ramirez-wang');
+    });
   });
 
   describe('getLogs', () => {

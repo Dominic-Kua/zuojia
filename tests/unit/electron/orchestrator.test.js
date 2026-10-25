@@ -8,6 +8,7 @@ const mockNeo4jRuntime = {
   stop: vi.fn(),
   health: vi.fn(),
   hasWikiData: vi.fn(),
+  importWikiData: vi.fn(),
 };
 
 const mockMcpRuntime = {
@@ -66,6 +67,7 @@ describe('orchestrator', () => {
     mockMcpRuntime.stop.mockResolvedValue({ status: 'stopped' });
     mockLlmRuntime.stop.mockResolvedValue({ status: 'stopped' });
     mockNeo4jRuntime.hasWikiData.mockResolvedValue(false);
+    mockNeo4jRuntime.importWikiData.mockResolvedValue({ status: 'ok', nodesImported: 0, edgesImported: 0 });
 
     orchestrator = createOrchestrator(mockNeo4jRuntime, mockMcpRuntime, mockLlmRuntime, mockApp);
   });
@@ -176,6 +178,22 @@ describe('orchestrator', () => {
       expect(result.ingest.reason).toBe('already_has_data');
     });
 
+    it('imports wiki directly into Neo4j when Synapse is unavailable', async () => {
+      const fsp = await import('fs/promises');
+      fsp.default.access.mockImplementation((filePath) => {
+        if (String(filePath).includes('wiki')) return Promise.resolve();
+        throw new Error('ENOENT');
+      });
+      mockMcpRuntime.start.mockResolvedValue({ status: 'running', pid: 1002, usingSynapse: false });
+      mockNeo4jRuntime.importWikiData.mockResolvedValue({ status: 'ok', nodesImported: 2, edgesImported: 1 });
+
+      const result = await orchestrator.startAll({ novelPath: '/tmp/novel' });
+
+      expect(mockNeo4jRuntime.importWikiData).toHaveBeenCalledOnce();
+      expect(mockMcpRuntime.callTool).not.toHaveBeenCalled();
+      expect(result.ingest).toMatchObject({ status: 'ok', nodesImported: 2, edgesImported: 1 });
+    });
+
     it('ingests wiki data when wiki dir exists and Neo4j is empty', async () => {
       const fsp = await import('fs/promises');
       // wiki dir exists
@@ -189,11 +207,14 @@ describe('orchestrator', () => {
       fsp.default.readFile.mockResolvedValue('# Hero\nSome content');
       mockNeo4jRuntime.hasWikiData.mockResolvedValue(false);
       mockMcpRuntime.callTool.mockResolvedValue({ status: 'ok' });
+      mockMcpRuntime.start.mockResolvedValue({ status: 'running', pid: 1002, usingSynapse: true });
 
       const result = await orchestrator.startAll({ novelPath: '/tmp/novel' });
       expect(result.ingest.status).toBe('ok');
       expect(result.ingest.filesIngested).toBe(1);
       expect(result.ingest.totalFiles).toBe(1);
+      expect(mockNeo4jRuntime.importWikiData).not.toHaveBeenCalled();
+      expect(mockMcpRuntime.callTool).toHaveBeenCalledWith(expect.objectContaining({ toolName: 'ingest_text' }));
     });
 
     it('skips empty wiki files during ingest', async () => {
@@ -207,10 +228,25 @@ describe('orchestrator', () => {
       ]);
       fsp.default.readFile.mockResolvedValue('   '); // empty content
       mockNeo4jRuntime.hasWikiData.mockResolvedValue(false);
+      mockMcpRuntime.start.mockResolvedValue({ status: 'running', pid: 1002, usingSynapse: true });
 
       const result = await orchestrator.startAll({ novelPath: '/tmp/novel' });
       expect(result.ingest.filesIngested).toBe(0);
       expect(result.ingest.errors).toBe(0);
+    });
+
+    it('reports local Neo4j import failures when Synapse is unavailable', async () => {
+      const fsp = await import('fs/promises');
+      fsp.default.access.mockImplementation((filePath) => {
+        if (String(filePath).includes('wiki')) return Promise.resolve();
+        throw new Error('ENOENT');
+      });
+      mockMcpRuntime.start.mockResolvedValue({ status: 'running', pid: 1002, usingSynapse: false });
+      mockNeo4jRuntime.importWikiData.mockRejectedValue(new Error('Neo4j import failed'));
+
+      const result = await orchestrator.startAll({ novelPath: '/tmp/novel' });
+
+      expect(result.ingest).toMatchObject({ status: 'error', error: 'Neo4j import failed' });
     });
 
     it('counts ingest errors but continues', async () => {
@@ -228,6 +264,7 @@ describe('orchestrator', () => {
         return Promise.resolve('content');
       });
       mockNeo4jRuntime.hasWikiData.mockResolvedValue(false);
+      mockMcpRuntime.start.mockResolvedValue({ status: 'running', pid: 1002, usingSynapse: true });
       mockMcpRuntime.callTool
         .mockResolvedValueOnce({ status: 'ok' })
         .mockRejectedValueOnce(new Error('ingest fail'));
@@ -253,6 +290,7 @@ describe('orchestrator', () => {
       ]);
       fsp.default.readFile.mockResolvedValue('# Page');
       mockNeo4jRuntime.hasWikiData.mockResolvedValue(false);
+      mockMcpRuntime.start.mockResolvedValue({ status: 'running', pid: 1002, usingSynapse: true });
       mockMcpRuntime.callTool.mockResolvedValue({ status: 'ok' });
 
       const result = await orchestrator.startAll({ novelPath: '/tmp/novel' });
@@ -272,6 +310,7 @@ describe('orchestrator', () => {
       ]);
       fsp.default.readFile.mockResolvedValue('# Page');
       mockNeo4jRuntime.hasWikiData.mockResolvedValue(false);
+      mockMcpRuntime.start.mockResolvedValue({ status: 'running', pid: 1002, usingSynapse: true });
       mockMcpRuntime.callTool.mockResolvedValue({ status: 'ok' });
 
       const result = await orchestrator.startAll({ novelPath: '/tmp/novel' });
@@ -289,6 +328,7 @@ describe('orchestrator', () => {
       ]);
       fsp.default.readFile.mockResolvedValue('# Page');
       mockNeo4jRuntime.hasWikiData.mockRejectedValue(new Error('driver closed'));
+      mockMcpRuntime.start.mockResolvedValue({ status: 'running', pid: 1002, usingSynapse: true });
       mockMcpRuntime.callTool.mockResolvedValue({ status: 'ok' });
 
       const result = await orchestrator.startAll({ novelPath: '/tmp/novel' });

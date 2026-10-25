@@ -21,6 +21,16 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const SEARCH_STOP_WORDS = new Set([
+  'a', 'an', 'and', 'are', 'about', 'be', 'been', 'being', 'can', 'could', 'did', 'do', 'does',
+  'for', 'from', 'how', 'in', 'is', 'me', 'my', 'of', 'on', 'or', 'please', 'should', 'that',
+  'the', 'this', 'to', 'was', 'were', 'what', 'when', 'where', 'which', 'who', 'why', 'with', 'would',
+]);
+
+function getSearchTerms(query) {
+  const terms = String(query || '').toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+  return [...new Set(terms.filter((term) => !SEARCH_STOP_WORDS.has(term)))];
+}
 
 export function createNeo4jRuntimeManager({
   spawnFn = spawn,
@@ -599,21 +609,28 @@ dbms.security.auth_enabled=false
       throw new Error('Neo4j runtime is not running');
     }
 
-    // Simple keyword-based search for Neo4j
-    // In a real implementation, this would use Synapse's natural language capabilities
+    const terms = getSearchTerms(query);
+    if (terms.length === 0) {
+      return { status: 'ok', data: { query, results: [], count: 0 } };
+    }
+
     const session = driver.session();
-    
+
     try {
       const result = await session.run(
         `MATCH (p:WikiPage)
-         WHERE p.id CONTAINS $query 
-            OR p.title CONTAINS $query 
-            OR ANY(tag IN p.tags WHERE tag CONTAINS $query)
-         RETURN p.id AS slug, p.title AS title, p.tags AS tags
+         WITH p, [term IN $terms WHERE
+           toLower(coalesce(p.id, '')) CONTAINS term OR
+           toLower(coalesce(p.title, '')) CONTAINS term OR
+           ANY(tag IN coalesce(p.tags, []) WHERE toLower(tag) CONTAINS term)
+         ] AS matchedTerms
+         WHERE size(matchedTerms) > 0
+         RETURN p.id AS slug, p.title AS title, p.tags AS tags, size(matchedTerms) AS score
+         ORDER BY score DESC, title ASC
          LIMIT $limit`,
         {
-          query: query.toLowerCase(),
-          limit: Math.min(limit, 100),
+          terms,
+          limit: Math.max(1, Math.min(Math.trunc(Number(limit) || 10), 100)),
         }
       );
 
@@ -621,7 +638,7 @@ dbms.security.auth_enabled=false
         slug: record.get('slug'),
         title: record.get('title'),
         tags: record.get('tags'),
-        score: 1.0, // Simple scoring
+        score: record.get('score')?.toNumber?.() ?? record.get('score') ?? 1.0,
       }));
 
       return {

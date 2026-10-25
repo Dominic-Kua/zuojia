@@ -42,7 +42,7 @@ vi.mock('../../../helper/src/mcp/mcp-client.js', () => ({
 }));
 
 vi.mock('../../../helper/src/mcp/mcp-transport.js', () => ({
-  McpTransport: vi.fn().mockImplementation(() => ({})),
+  McpTransport: vi.fn(function MockMcpTransport() { return {}; }),
 }));
 
 vi.mock('../../../helper/src/mcp/tool-mapper.js', () => ({
@@ -199,6 +199,34 @@ describe('mcp-runtime', () => {
       const result = await manager.callTool({ toolName: 'wiki_list_pages', args: { limit: 5 } });
       expect(result).toBeDefined();
       expect(result.status).toBe('ok');
+    });
+
+    it('uses the running Neo4j runtime for local search when Synapse is unavailable', async () => {
+      instantTimers = false;
+      const neo4jRuntime = {
+        naturalLanguageSearch: vi.fn().mockResolvedValue({
+          status: 'ok',
+          data: { query: 'Who is Freya?', results: [{ slug: 'freya', title: 'Freya' }], count: 1 },
+        }),
+      };
+      mockMcpClient.initialize.mockRejectedValueOnce(new Error('Synapse handshake failed'));
+      const neo4jBackedManager = createMcpRuntimeManager({
+        neo4jRuntime,
+        spawnFn: vi.fn(() => mcpProcess),
+        nowFn: () => 1000,
+        setTimeoutFn: (cb, ms) => instantTimers ? (cb(), 0) : setTimeout(cb, ms),
+        clearTimeoutFn: (id) => clearTimeout(id),
+      });
+      const startResult = await neo4jBackedManager.start({ novelPath: '/tmp/novel' });
+      expect(startResult).toMatchObject({ usingSynapse: false, synapseError: 'Synapse handshake failed' });
+
+      const result = await neo4jBackedManager.callTool({
+        toolName: 'wiki_neo4j_search',
+        args: { query: 'Who is Freya?', limit: 5 },
+      });
+
+      expect(neo4jRuntime.naturalLanguageSearch).toHaveBeenCalledWith('Who is Freya?', 5);
+      expect(result.data.results).toEqual([{ slug: 'freya', title: 'Freya' }]);
     });
   });
 

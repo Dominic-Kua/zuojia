@@ -42,7 +42,7 @@ export function createOrchestrator(neo4jRuntime, mcpRuntime, llmRuntime, app) {
     } catch {}
   }
 
-  async function ingestWikiViaSynapse(mcpRuntime, novelPath, wikiDir, log, logError) {
+  async function ingestWikiViaSynapse(mcpRuntime, wikiDir, log, logError) {
     let filesIngested = 0;
     let errors = 0;
 
@@ -191,7 +191,10 @@ export function createOrchestrator(neo4jRuntime, mcpRuntime, llmRuntime, app) {
         try {
           log('Step 4: Starting MCP server...');
           result.mcp = await mcpRuntime.start({ novelPath });
-          log(`MCP started: pid=${result.mcp.pid}, synapse=${result.mcp.usingSynapse}`);
+          const synapseDetails = result.mcp.usingSynapse
+            ? ''
+            : `, reason=${result.mcp.synapseError || 'initialization failed'}`;
+          log(`MCP started: pid=${result.mcp.pid}, synapse=${result.mcp.usingSynapse}${synapseDetails}`);
         } catch (err) {
           logError('MCP start failed', err);
           result.mcp = { status: 'error', error: err.message };
@@ -221,9 +224,23 @@ export function createOrchestrator(neo4jRuntime, mcpRuntime, llmRuntime, app) {
             }
 
             if (!hasData) {
-              log('Wiki exists but Neo4j is empty — ingesting via Synapse...');
-              result.ingest = await ingestWikiViaSynapse(mcpRuntime, novelPath, wikiDir, log, logError);
-              log(`Wiki ingest done: ${result.ingest.filesIngested} files, ${result.ingest.errors} errors`);
+              if (result.mcp.usingSynapse) {
+                log('Wiki exists but Neo4j is empty — ingesting via Synapse...');
+                result.ingest = await ingestWikiViaSynapse(mcpRuntime, wikiDir, log, logError);
+                log(`Synapse wiki ingest done: ${result.ingest.filesIngested} files, ${result.ingest.errors} errors`);
+              } else {
+                log('Synapse is unavailable — importing the wiki directly into Neo4j');
+                try {
+                  result.ingest = await neo4jRuntime.importWikiData();
+                  log(
+                    `Local Neo4j import done: ${result.ingest.nodesImported || 0} pages, ` +
+                    `${result.ingest.edgesImported || 0} links`
+                  );
+                } catch (err) {
+                  logError('Local Neo4j wiki import failed', err);
+                  result.ingest = { status: 'error', error: err.message };
+                }
+              }
             } else {
               log('Neo4j already has wiki data — skipping ingest');
               result.ingest = { status: 'skipped', reason: 'already_has_data' };
