@@ -77,6 +77,7 @@ This list reflects what is currently wired in the app code.
 - Top-bar presets: `Manuscript` (editor only), `Split` (50/50), `Wiki` (wiki only)
 - `Reset UI` button restores the default layout, re-docks the wiki, and resets the floating panel position/size
 - Layout choice persists across sessions; double-clicking the divider also resets
+- `Focus` mode hides the topbar, wiki, chapter tools, and spellcheck panel; toggle it with `Ctrl/Cmd+Shift+F`, exit with the floating `Exit focus` control or `Esc`, and the editor keeps its chapter and caret
 
 ### Story Map
 

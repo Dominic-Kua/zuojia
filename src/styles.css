@@ -206,6 +206,23 @@ body{
 .layout-controls .btn-sm{padding:4px 10px;font-size:12px}
 .layout-controls .btn-sm[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--muted-accent)}
 .pane-restore{align-self:center;flex:0 0 auto;white-space:nowrap}
+/* Focus mode: hide surrounding chrome but keep it mounted so layout,
+   chat, and editor state survive; nothing here is persisted. */
+.app-shell.focus-mode .topbar,
+.app-shell.focus-mode .sidebar,
+.app-shell.focus-mode .sidebar-resizer,
+.app-shell.focus-mode .pane-restore,
+.app-shell.focus-mode .wiki-panel,
+.app-shell.focus-mode .manuscript-meta,
+.app-shell.focus-mode .spellcheck-panel,
+.app-shell.focus-mode .spellcheck-resize-handle{display:none !important}
+.app-shell.focus-mode .main-grid{padding:24px;min-height:100vh;gap:0}
+.app-shell.focus-mode .manuscript{display:block !important;flex:1 1 100% !important;height:calc(100vh - 48px)}
+.app-shell.focus-mode .manuscript-inner{height:100%}
+.app-shell.focus-mode .editor{max-width:860px;width:100%;margin:0 auto}
+.focus-mode-exit{position:fixed;right:20px;bottom:20px;z-index:1100;opacity:.4;transition:opacity var(--speed-fast) var(--ease-out)}
+.focus-mode-exit:hover,.focus-mode-exit:focus-visible{opacity:1}
+@media (prefers-reduced-motion: reduce){.focus-mode-exit{transition:none}}
 .manuscript-inner{
   background:var(--manuscript-surface);
   padding:32px 36px;

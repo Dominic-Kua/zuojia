@@ -319,4 +319,69 @@ describe('App', () => {
     render(<App />);
     expect(screen.getByTestId('ai-toggle-button')).toHaveTextContent('AI Off');
   });
+  describe('focus mode', () => {
+    const openNovel = async (user) => {
+      await user.click(screen.getByText('Open Novel'));
+      await waitFor(() => {
+        expect(screen.getByTestId('manuscript-mock')).toBeInTheDocument();
+      });
+    };
+
+    it('enters focus mode from the topbar control and exits from the floating control', async () => {
+      const user = userEvent.setup();
+      render(<App />);
+      await openNovel(user);
+
+      const toggle = screen.getByTestId('focus-mode-toggle');
+      expect(toggle).toHaveAttribute('aria-pressed', 'false');
+
+      await user.click(toggle);
+
+      expect(screen.getByTestId('app-shell')).toHaveClass('focus-mode');
+      expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByTestId('focus-mode-exit')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('focus-mode-exit'));
+
+      expect(screen.getByTestId('app-shell')).not.toHaveClass('focus-mode');
+      expect(toggle).toHaveAttribute('aria-pressed', 'false');
+      expect(screen.queryByTestId('focus-mode-exit')).not.toBeInTheDocument();
+    });
+
+    it('toggles with the keyboard shortcut and exits with Escape', async () => {
+      const user = userEvent.setup();
+      render(<App />);
+      await openNovel(user);
+
+      fireEvent.keyDown(window, { key: 'f', ctrlKey: true, shiftKey: true });
+      expect(screen.getByTestId('app-shell')).toHaveClass('focus-mode');
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(screen.getByTestId('app-shell')).not.toHaveClass('focus-mode');
+
+      fireEvent.keyDown(window, { key: 'F', metaKey: true, shiftKey: true });
+      expect(screen.getByTestId('app-shell')).toHaveClass('focus-mode');
+    });
+
+    it('keeps the manuscript mounted and does not restart services while toggling', async () => {
+      const user = userEvent.setup();
+      render(<App />);
+      await openNovel(user);
+
+      const manuscript = screen.getByTestId('manuscript-mock');
+      await user.click(screen.getByTestId('focus-mode-toggle'));
+      expect(screen.getByTestId('manuscript-mock')).toBe(manuscript);
+
+      await user.click(screen.getByTestId('focus-mode-exit'));
+      expect(screen.getByTestId('manuscript-mock')).toBe(manuscript);
+      expect(mockStartNovelServices).toHaveBeenCalledTimes(1);
+      expect(mockStopNovelServices).not.toHaveBeenCalled();
+    });
+
+    it('ignores the shortcut when no novel is open', () => {
+      render(<App />);
+      fireEvent.keyDown(window, { key: 'f', ctrlKey: true, shiftKey: true });
+      expect(screen.getByTestId('app-shell')).not.toHaveClass('focus-mode');
+    });
+  });
 });

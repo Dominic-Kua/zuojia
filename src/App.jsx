@@ -62,6 +62,10 @@ export default function App(){
     }
     return () => handlers.resumeSaves?.();
   }, []);
+  // Focus mode hides the topbar, wiki, chapter tools, and spellcheck panel
+  // without touching the saved layout or remounting the editor, so the
+  // chapter and caret survive entering and leaving it.
+  const [focusMode, setFocusMode] = useState(false);
   const [theme, setTheme] = useState(() => {
     try {
       const stored = window.localStorage.getItem('zuojia-theme');
@@ -435,6 +439,7 @@ export default function App(){
       setNovelPath(null);
       setServicesStatus(null);
       setWikiDetached(false);
+      setFocusMode(false);
     }
   };
 
@@ -492,6 +497,46 @@ export default function App(){
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
+
+  // Both controls move focus out of the editor, so return it there after the
+  // toggle to keep the caret ready for typing.
+  const focusEditor = () => {
+    window.requestAnimationFrame?.(() => {
+      document.querySelector('[data-testid="manuscript-editor"]')?.focus({ preventScroll: true });
+    });
+  };
+
+  const exitFocusMode = () => {
+    setFocusMode(false);
+    focusEditor();
+  };
+
+  const toggleFocusMode = () => {
+    if (focusMode) {
+      exitFocusMode();
+      return;
+    }
+    setFocusMode(true);
+    focusEditor();
+  };
+
+  useEffect(() => {
+    if (!novelPath) return undefined;
+
+    const handleKeyDown = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'f') {
+        event.preventDefault();
+        toggleFocusMode();
+        return;
+      }
+      if (event.key === 'Escape' && focusMode) {
+        exitFocusMode();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [novelPath, focusMode]);
 
   const decreaseFontSize = () => {
     setEditorFontSize((prev) => Math.max(14, prev - 1));
@@ -653,7 +698,7 @@ export default function App(){
 
   // Show main editor interface when novel is loaded
   return (
-    <div className="app-shell" data-testid="app-shell">
+    <div className={`app-shell${focusMode ? ' focus-mode' : ''}`} data-testid="app-shell">
       <header className="topbar" data-testid="topbar">
         <div className="brand">作家</div>
         <SeasonalEffects seasonalTheme={activeSeasonalTheme} />
@@ -770,6 +815,17 @@ export default function App(){
           {wikiDetached && (
             <button className="btn ghost" data-testid="topbar-dock-wiki-button" onClick={() => setWikiDetached(false)}>Dock Wiki</button>
           )}
+          <button
+            type="button"
+            className="btn ghost"
+            data-testid="focus-mode-toggle"
+            aria-pressed={focusMode}
+            aria-keyshortcuts="Control+Shift+F Meta+Shift+F"
+            title="Distraction-free writing (Ctrl/Cmd+Shift+F)"
+            onClick={toggleFocusMode}
+          >
+            Focus
+          </button>
           <button
             type="button"
             className="btn ghost"
@@ -941,6 +997,18 @@ export default function App(){
             onDoubleClick={resetLayout}
           />
         </div>
+      )}
+      {focusMode && (
+        <button
+          type="button"
+          className="btn ghost focus-mode-exit"
+          data-testid="focus-mode-exit"
+          title="Exit focus mode (Esc)"
+          aria-keyshortcuts="Escape"
+          onClick={exitFocusMode}
+        >
+          Exit focus
+        </button>
       )}
       {/* Drag / resize overlay for floating panel */}
       <div style={{ display: 'contents' }}>
