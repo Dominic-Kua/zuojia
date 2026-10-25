@@ -115,6 +115,7 @@ This list reflects what is currently wired in the app code.
 - Export dialog with title, author, and publication date metadata
 - Select and reorder chapters; choose document style, chapter breaks, and table-of-contents options
 - Export logs written under `meta/logs/`
+- DOCX styles come from the Pandoc reference documents `helper/src/export/reference-docs/manuscript.docx` and `reader.docx`; replace one to change that style's Word formatting
 
 ## Release Notes
 
