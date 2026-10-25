@@ -40,6 +40,9 @@ const ALLOWED_INVOKE_CHANNELS = new Set([
   'helper:stats:word-count',
   'helper:stats:manuscript-count',
   'helper:stats:today-count',
+  'helper:stats:writing-goal:get',
+  'helper:stats:writing-goal:save',
+  'helper:stats:writing-history',
   // Wiki
   'helper:wiki:create',
   'helper:wiki:read',

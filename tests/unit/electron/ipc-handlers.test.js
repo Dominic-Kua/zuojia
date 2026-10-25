@@ -85,6 +85,13 @@ vi.mock('../../../helper/src/stats/word-count.js', () => mockWordCount);
 const mockManuscriptCount = { getManuscriptWordCount: vi.fn() };
 vi.mock('../../../helper/src/stats/manuscript-count.js', () => mockManuscriptCount);
 
+const mockWritingGoals = {
+  getWritingGoal: vi.fn(),
+  saveWritingGoal: vi.fn(),
+  getWritingHistory: vi.fn(),
+};
+vi.mock('../../../helper/src/stats/writing-goals.js', () => mockWritingGoals);
+
 const mockHistory = { getWordsWrittenToday: vi.fn() };
 vi.mock('../../../helper/src/git/history.js', () => mockHistory);
 
@@ -230,6 +237,7 @@ describe('ipc-handlers', () => {
         'helper:git:getConfig', 'helper:git:saveConfig', 'helper:git:history', 'helper:git:push',
         'helper:export:pdf', 'helper:export:manuscript', 'helper:export:validateDeps', 'helper:export:getLogs',
         'helper:stats:word-count', 'helper:stats:manuscript-count', 'helper:stats:today-count',
+        'helper:stats:writing-goal:get', 'helper:stats:writing-goal:save', 'helper:stats:writing-history',
         'helper:wiki:create', 'helper:wiki:read', 'helper:wiki:update', 'helper:wiki:delete',
         'helper:wiki:rename', 'helper:wiki:list',
         'helper:wiki:rebuildDict', 'helper:wiki:getSpellcheckDict', 'helper:wiki:addToDict',
@@ -438,6 +446,29 @@ describe('ipc-handlers', () => {
       const result = await callHandler('helper:stats:today-count', { novelPath: '/tmp/novel' });
       expect(result.status).toBe('error');
       expect(result.error.code).toBe('TODAY_COUNT_ERROR');
+    });
+
+    it('loads a novel writing goal', async () => {
+      mockWritingGoals.getWritingGoal.mockResolvedValue({ status: 'ok', data: null });
+      const result = await callHandler('helper:stats:writing-goal:get', { novelPath: '/tmp/novel' });
+      expect(mockWritingGoals.getWritingGoal).toHaveBeenCalledWith('/tmp/novel');
+      expect(result).toEqual({ status: 'ok', data: null });
+    });
+
+    it('saves a novel writing goal', async () => {
+      const goal = { targetWords: 50000, targetDate: '2026-12-31', writingDays: [1, 2, 3, 4, 5], plannedDaysOff: [] };
+      mockWritingGoals.saveWritingGoal.mockResolvedValue({ status: 'ok', data: goal });
+      const result = await callHandler('helper:stats:writing-goal:save', { novelPath: '/tmp/novel', goal });
+      expect(mockWritingGoals.saveWritingGoal).toHaveBeenCalledWith('/tmp/novel', goal);
+      expect(result.data).toEqual(goal);
+    });
+
+    it('loads recent writing history', async () => {
+      const history = [{ date: '2026-10-24', wordsWritten: 125 }];
+      mockWritingGoals.getWritingHistory.mockResolvedValue({ status: 'ok', data: history });
+      const result = await callHandler('helper:stats:writing-history', { novelPath: '/tmp/novel', days: 7 });
+      expect(mockWritingGoals.getWritingHistory).toHaveBeenCalledWith('/tmp/novel', 7);
+      expect(result.data).toEqual(history);
     });
   });
 

@@ -10,6 +10,7 @@ import { pushToRemote } from '../helper/src/git/push.js';
 import { isGitRepo, getGitStatus, getSyncStatus, pullFromRemote } from '../helper/src/git/status.js';
 import { calculateWordCount } from '../helper/src/stats/word-count.js';
 import { getManuscriptWordCount } from '../helper/src/stats/manuscript-count.js';
+import { getWritingGoal, getWritingHistory, saveWritingGoal } from '../helper/src/stats/writing-goals.js';
 import { getWordsWrittenToday } from '../helper/src/git/history.js';
 import { exportManuscriptToFormat, exportManuscriptToPdf } from '../helper/src/export/pdf.js';
 import { validateExportDependencies } from '../helper/src/export/validate-deps.js';
@@ -486,6 +487,21 @@ export function registerHandlers() {
         };
       }
     })
+  );
+
+  ipcMain.handle(
+    'helper:stats:writing-goal:get',
+    wrapHandler(async ({ novelPath }) => getWritingGoal(novelPath))
+  );
+
+  ipcMain.handle(
+    'helper:stats:writing-goal:save',
+    wrapHandler(async ({ novelPath, goal }) => saveWritingGoal(novelPath, goal))
+  );
+
+  ipcMain.handle(
+    'helper:stats:writing-history',
+    wrapHandler(async ({ novelPath, days }) => getWritingHistory(novelPath, days))
   );
 
   // Wiki handlers
