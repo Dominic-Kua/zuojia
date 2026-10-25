@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { calculateWritingGoalProgress } from '../../../src/lib/writing-goals.js';
+import { WEEKDAY_OPTIONS, calculateWritingGoalProgress } from '../../../src/lib/writing-goals.js';
+
+describe('WEEKDAY_OPTIONS', () => {
+  it('orders the week starting on Monday while keeping Date#getDay values', () => {
+    expect(WEEKDAY_OPTIONS.map(({ label }) => label)).toEqual([
+      'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun',
+    ]);
+    expect(WEEKDAY_OPTIONS.map(({ value }) => value)).toEqual([1, 2, 3, 4, 5, 6, 0]);
+  });
+});
 
 describe('calculateWritingGoalProgress', () => {
   it('calculates a daily pace using scheduled writing days and planned days off', () => {
