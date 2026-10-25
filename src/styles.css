@@ -335,7 +335,8 @@ body{
 .top-actions{display:flex;align-items:center;gap:8px}
 .font-size-controls{display:flex;align-items:center;gap:4px}
 .font-size-controls .btn{padding:6px 10px;min-width:32px;line-height:1}
-.snapshot-overlay,.llm-chat-overlay,.modal-overlay{position:fixed;inset:0;background:rgba(20,21,17,0.42);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:100;animation:overlay-in var(--speed-normal) var(--ease-out)}
+.snapshot-overlay,.modal-overlay{position:fixed;inset:0;background:rgba(20,21,17,0.42);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:100;animation:overlay-in var(--speed-normal) var(--ease-out)}
+.llm-chat-overlay{position:fixed;inset:0;z-index:100;pointer-events:none}
 @keyframes overlay-in{from{opacity:0}to{opacity:1}}
 .snapshot-dialog,.modal-dialog{background:var(--manuscript-surface);border:1px solid var(--divider);border-radius:var(--radius-lg);color:var(--text-primary);padding:24px;width:400px;max-width:90vw;box-shadow:var(--shadow-lg);animation:dialog-in var(--speed-normal) var(--ease-out)}
 @keyframes dialog-in{from{opacity:0;transform:translateY(6px) scale(0.985)}to{opacity:1;transform:none}}
@@ -394,16 +395,19 @@ body{
 
 /* LLM Chat Window Styles */
 .llm-chat-window {
+  position: absolute;
   background: var(--manuscript-surface);
   border: 1px solid var(--divider);
   border-radius: var(--radius-lg);
-  width: 600px;
-  max-width: 90vw;
-  max-height: 80vh;
+  width: 440px;
+  max-width: calc(100vw - 16px);
+  height: min(680px, calc(100vh - 32px));
+  max-height: calc(100vh - 32px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-shadow: var(--shadow-lg);
+  pointer-events: auto;
 }
 
 .llm-chat-window.collapsed {
@@ -419,6 +423,17 @@ body{
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+.llm-chat-header.dragging {
+  cursor: grabbing;
+}
+
+.llm-chat-header button {
+  cursor: pointer;
 }
 
 .llm-chat-header h3 {

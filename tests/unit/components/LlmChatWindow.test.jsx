@@ -41,10 +41,22 @@ import { LlmChatWindow } from '../../../src/components/LlmChatWindow';
 
 describe('LlmChatWindow', () => {
   const novelPath = '/tmp/test-novel';
+  const positionStorageKey = 'zuojia-llm-chat-position';
 
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers({ shouldAdvanceTime: true });
+    const localStorage = new Map();
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (key) => localStorage.get(key) ?? null,
+        setItem: (key, value) => localStorage.set(key, String(value)),
+        removeItem: (key) => localStorage.delete(key),
+        clear: () => localStorage.clear(),
+      },
+    });
+    window.localStorage.removeItem(positionStorageKey);
     mockLlmHealth.mockResolvedValue({ status: 'stopped' });
     mockMcpHealth.mockResolvedValue({ status: 'stopped' });
   });
@@ -81,24 +93,73 @@ describe('LlmChatWindow', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
-  it('closes chat window when overlay is clicked', async () => {
+  it('keeps the manuscript interactive while chat is open', async () => {
     const { llmHandlers } = await import('../../../src/lib/ipc-client');
     llmHandlers.health.mockResolvedValue({ status: 'stopped', uptimeMs: 0 });
 
     const user = userEvent.setup();
-    render(<LlmChatWindow novelPath={novelPath} />);
+    const onManuscriptAction = vi.fn();
+    render(
+      <>
+        <button type="button" data-testid="manuscript-action" onClick={onManuscriptAction}>
+          Manuscript action
+        </button>
+        <LlmChatWindow novelPath={novelPath} />
+      </>
+    );
 
     await act(async () => {
       await user.click(screen.getByTestId('llm-chat-button'));
     });
 
-    expect(screen.getByTestId('llm-chat-overlay')).toBeInTheDocument();
+    expect(screen.getByTestId('llm-chat-window')).toHaveAttribute('aria-modal', 'false');
 
     await act(async () => {
-      await user.click(screen.getByTestId('llm-chat-overlay'));
+      await user.click(screen.getByTestId('manuscript-action'));
     });
 
-    expect(screen.queryByTestId('llm-chat-overlay')).not.toBeInTheDocument();
+    expect(onManuscriptAction).toHaveBeenCalledOnce();
+    expect(screen.getByTestId('llm-chat-window')).toBeInTheDocument();
+  });
+
+  it('moves the chat window and persists its position', async () => {
+    const { llmHandlers } = await import('../../../src/lib/ipc-client');
+    llmHandlers.health.mockResolvedValue({ status: 'stopped', uptimeMs: 0 });
+
+    render(<LlmChatWindow novelPath={novelPath} />);
+    fireEvent.click(screen.getByTestId('llm-chat-button'));
+
+    const chatWindow = screen.getByTestId('llm-chat-window');
+    const header = screen.getByTestId('llm-chat-header');
+    const initialLeft = Number.parseInt(chatWindow.style.left, 10);
+    const initialTop = Number.parseInt(chatWindow.style.top, 10);
+
+    fireEvent.mouseDown(header, {
+      button: 0,
+      clientX: initialLeft + 10,
+      clientY: initialTop + 10,
+    });
+    fireEvent.mouseMove(window, {
+      clientX: initialLeft + 70,
+      clientY: initialTop + 50,
+    });
+    fireEvent.mouseUp(window);
+
+    expect(chatWindow.style.left).toBe(`${initialLeft + 60}px`);
+    expect(chatWindow.style.top).toBe(`${initialTop + 40}px`);
+    expect(JSON.parse(window.localStorage.getItem(positionStorageKey))).toEqual({
+      x: initialLeft + 60,
+      y: initialTop + 40,
+    });
+  });
+
+  it('restores the saved chat window position', async () => {
+    window.localStorage.setItem(positionStorageKey, JSON.stringify({ x: 120, y: 140 }));
+
+    render(<LlmChatWindow novelPath={novelPath} />);
+    fireEvent.click(screen.getByTestId('llm-chat-button'));
+
+    expect(screen.getByTestId('llm-chat-window')).toHaveStyle({ left: '120px', top: '140px' });
   });
 
   it('shows LLM status indicator', async () => {
@@ -632,14 +693,14 @@ describe('LlmChatWindow', () => {
     expect(screen.getByTestId('llm-chat-messages')).toBeInTheDocument();
   });
 
-  it('closes chat window when clicking overlay', async () => {
+  it('closes chat window with the close button', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     render(
       <LlmChatWindow novelPath="/tmp/novel" servicesStatus={null} servicesLoading={false} />
     );
     await user.click(screen.getByTestId('llm-chat-button'));
     expect(screen.getByTestId('llm-chat-window')).toBeInTheDocument();
-    await user.click(screen.getByTestId('llm-chat-overlay'));
+    await user.click(screen.getByLabelText('Close chat'));
     expect(screen.queryByTestId('llm-chat-window')).not.toBeInTheDocument();
   });
 
