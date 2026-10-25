@@ -93,6 +93,8 @@ This list reflects what is currently wired in the app code.
 - The top-bar `AI On` / `AI Off` switch is a master on/off for all AI features (on by default)
 - Switching AI off stops the novel services (Neo4j, MCP/Synapse, LLM runtime) and hides the LLM chat; switching on starts them again
 - The preference persists across sessions, so opening a novel with AI off never starts services
+- Drag the LLM chat by its header to move it; the position persists across sessions
+- Wiki answers come from Neo4j page text merged with Synapse results; if Synapse is unavailable, the app imports the wiki into Neo4j directly
 
 ### Statistics
 
@@ -119,6 +121,13 @@ This list reflects what is currently wired in the app code.
 - DOCX styles come from the Pandoc reference documents `helper/src/export/reference-docs/manuscript.docx` and `reader.docx`; replace one to change that style's Word formatting
 
 ## Release Notes
+
+### v3.6.0
+
+- Added DOCX and EPUB export with manuscript/reader styles, chapter selection, and Pandoc-only dependencies.
+- Added writing goals with target dates, writing-day schedules, planned days off, daily pace, and progress history.
+- The LLM chat window can now be dragged and remembers its position.
+- Wiki pages are imported into Neo4j with their full text, and searches return page content; answers merge Neo4j text with Synapse results and fall back to direct import when Synapse is unavailable.
 
 ### v3.5.2
 
@@ -169,7 +178,7 @@ This list reflects what is currently wired in the app code.
 - Added artifact-level release validation: local release now smoke-tests both the packaged `.app` bundle and the mounted `.dmg` artifact before publish
 - Added checksum generation in the local mac release flow for uploaded DMG verification
 
-For full release details, see `docs/release-notes-v3.5.2.md`, `docs/release-notes-v3.5.1.md`, `docs/release-notes-v3.5.0.md`, `docs/release-notes-v3.3.0.md`, `docs/release-notes-v3.1.3.md`, `docs/release-notes-v3.1.2.md`, `docs/release-notes-v3.1.0.md`, and `docs/release-notes-v2.0.1.md`.
+For full release details, see `docs/release-notes-v3.6.0.md`, `docs/release-notes-v3.5.2.md`, `docs/release-notes-v3.5.1.md`, `docs/release-notes-v3.5.0.md`, `docs/release-notes-v3.3.0.md`, `docs/release-notes-v3.1.3.md`, `docs/release-notes-v3.1.2.md`, `docs/release-notes-v3.1.0.md`, and `docs/release-notes-v2.0.1.md`.
 
 ## AI Foundation
 
