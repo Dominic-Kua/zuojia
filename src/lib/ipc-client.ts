@@ -97,9 +97,11 @@ export const statsHandlers = {
 };
 
 export const exportHandlers = {
+  manuscript: (novelPath, metadata) =>
+    invokeHandler('helper:export:manuscript', { novelPath, metadata }),
   pdf: (novelPath, metadata) =>
     invokeHandler('helper:export:pdf', { novelPath, metadata }),
-  validateDeps: () => invokeHandler('helper:export:validateDeps'),
+  validateDeps: (format) => invokeHandler('helper:export:validateDeps', { format }),
   getLogs: (novelPath, limit = 10) =>
     invokeHandler('helper:export:getLogs', { novelPath, limit }),
 };

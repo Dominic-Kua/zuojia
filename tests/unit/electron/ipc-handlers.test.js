@@ -88,7 +88,10 @@ vi.mock('../../../helper/src/stats/manuscript-count.js', () => mockManuscriptCou
 const mockHistory = { getWordsWrittenToday: vi.fn() };
 vi.mock('../../../helper/src/git/history.js', () => mockHistory);
 
-const mockPdf = { exportManuscriptToPdf: vi.fn() };
+const mockPdf = {
+  exportManuscriptToPdf: vi.fn(),
+  exportManuscriptToFormat: vi.fn(),
+};
 vi.mock('../../../helper/src/export/pdf.js', () => mockPdf);
 
 const mockValidateDeps = { validateExportDependencies: vi.fn() };
@@ -225,7 +228,7 @@ describe('ipc-handlers', () => {
         'helper:chapter:read', 'helper:chapter:write',
         'helper:git:commit', 'helper:git:listChanges', 'helper:git:manualCommit',
         'helper:git:getConfig', 'helper:git:saveConfig', 'helper:git:history', 'helper:git:push',
-        'helper:export:pdf', 'helper:export:validateDeps', 'helper:export:getLogs',
+        'helper:export:pdf', 'helper:export:manuscript', 'helper:export:validateDeps', 'helper:export:getLogs',
         'helper:stats:word-count', 'helper:stats:manuscript-count', 'helper:stats:today-count',
         'helper:wiki:create', 'helper:wiki:read', 'helper:wiki:update', 'helper:wiki:delete',
         'helper:wiki:rename', 'helper:wiki:list',
@@ -364,11 +367,25 @@ describe('ipc-handlers', () => {
       expect(result).toEqual({ outputPath: '/tmp/out.pdf' });
     });
 
+    it('helper:export:manuscript delegates format and options to exportManuscriptToFormat', async () => {
+      const metadata = { format: 'epub', style: 'reader' };
+      mockPdf.exportManuscriptToFormat.mockResolvedValue({ outputPath: '/tmp/out.epub' });
+      const result = await callHandler('helper:export:manuscript', { novelPath: '/tmp/novel', metadata });
+      expect(mockPdf.exportManuscriptToFormat).toHaveBeenCalledWith('/tmp/novel', metadata);
+      expect(result).toEqual({ outputPath: '/tmp/out.epub' });
+    });
+
     it('helper:export:validateDeps delegates to validateExportDependencies', async () => {
       mockValidateDeps.validateExportDependencies.mockResolvedValue({ ok: true });
       const result = await callHandler('helper:export:validateDeps', {});
-      expect(mockValidateDeps.validateExportDependencies).toHaveBeenCalled();
+      expect(mockValidateDeps.validateExportDependencies).toHaveBeenCalledWith(undefined);
       expect(result).toEqual({ ok: true });
+    });
+
+    it('helper:export:validateDeps forwards the selected format', async () => {
+      mockValidateDeps.validateExportDependencies.mockResolvedValue({ ok: true });
+      await callHandler('helper:export:validateDeps', { format: 'docx' });
+      expect(mockValidateDeps.validateExportDependencies).toHaveBeenCalledWith('docx');
     });
 
     it('helper:export:getLogs delegates to getExportLogs', async () => {

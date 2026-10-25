@@ -11,7 +11,7 @@ import { isGitRepo, getGitStatus, getSyncStatus, pullFromRemote } from '../helpe
 import { calculateWordCount } from '../helper/src/stats/word-count.js';
 import { getManuscriptWordCount } from '../helper/src/stats/manuscript-count.js';
 import { getWordsWrittenToday } from '../helper/src/git/history.js';
-import { exportManuscriptToPdf } from '../helper/src/export/pdf.js';
+import { exportManuscriptToFormat, exportManuscriptToPdf } from '../helper/src/export/pdf.js';
 import { validateExportDependencies } from '../helper/src/export/validate-deps.js';
 import { getExportLogs } from '../helper/src/export/logs.js';
 import { createWikiPage, readWikiPage, updateWikiPage, deleteWikiPage, renameWikiPage } from '../helper/src/wiki/crud.js';
@@ -398,9 +398,16 @@ export function registerHandlers() {
   );
 
   ipcMain.handle(
+    'helper:export:manuscript',
+    wrapHandler(async ({ novelPath, metadata }) => {
+      return await exportManuscriptToFormat(novelPath, metadata);
+    })
+  );
+
+  ipcMain.handle(
     'helper:export:validateDeps',
-    wrapHandler(async () => {
-      return await validateExportDependencies();
+    wrapHandler(async ({ format } = {}) => {
+      return await validateExportDependencies(format);
     })
   );
 

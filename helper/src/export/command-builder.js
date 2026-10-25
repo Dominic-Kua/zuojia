@@ -30,3 +30,49 @@ export function buildPdfExportCommand({ chapterPaths, metadata, outputPath, pdfE
     args,
   };
 }
+
+export function buildDocumentExportCommand({
+  chapterPaths,
+  metadata,
+  outputPath,
+  format,
+  style = 'manuscript',
+  includeTableOfContents = true,
+  chapterBreaks = true,
+  epubStylePath,
+  pageBreakFilterPath,
+  referenceDocPath,
+}) {
+  const pandocFormat = format === 'epub' ? 'epub3' : 'docx';
+  const args = [...chapterPaths, '--from=markdown', `--to=${pandocFormat}`, '--standalone'];
+
+  for (const field of ['title', 'author', 'date']) {
+    if (metadata[field]) {
+      args.push('--metadata', `${field}:${metadata[field]}`);
+    }
+  }
+
+  if (includeTableOfContents) {
+    args.push('--toc', '--toc-depth=2');
+  }
+  if (style === 'manuscript') {
+    args.push('--number-sections');
+  }
+
+  if (format === 'epub') {
+    args.push(`--split-level=${chapterBreaks ? 1 : 0}`);
+    if (epubStylePath) {
+      args.push(`--css=${epubStylePath}`);
+    }
+  } else {
+    if (referenceDocPath) {
+      args.push(`--reference-doc=${referenceDocPath}`);
+    }
+    if (chapterBreaks && pageBreakFilterPath) {
+      args.push(`--lua-filter=${pageBreakFilterPath}`);
+    }
+  }
+
+  args.push('-o', outputPath);
+  return { command: 'pandoc', args };
+}

@@ -64,6 +64,10 @@
       {
         "from": "helper/src/mcp/project-synapse-bridge.js",
         "to": "helper/src/mcp/project-synapse-bridge.js"
+      },
+      {
+        "from": "helper/src/export/reference-docs",
+        "to": "helper/src/export/reference-docs"
       }
     ],
     "mac": {

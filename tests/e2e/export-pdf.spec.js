@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import { execFileSync } from 'child_process';
 import { closeElectronApp, launchElectronApp } from './helpers/electron-launcher.js';
 
-test.describe('Story 5.1: PDF Export', () => {
+test.describe('Manuscript Export', () => {
   let app;
   let page;
   let testNovelName;
@@ -87,5 +87,21 @@ test.describe('Story 5.1: PDF Export', () => {
 
     await expect(page.getByTestId('export-error')).toContainText('xelatex');
     await expect(page.getByTestId('export-error')).toContainText('basictex');
+  });
+
+  test('exports DOCX and EPUB without requiring TeX', async () => {
+    for (const format of ['docx', 'epub']) {
+      await page.getByTestId('export-button').click();
+      await expect(page.getByTestId('export-dialog')).toBeVisible({ timeout: 5000 });
+      await page.getByTestId('export-format-select').selectOption(format);
+      await expect(page.getByTestId('export-preflight-ready')).toContainText('pandoc');
+      await page.getByTestId('export-style-select').selectOption('reader');
+      await page.getByTestId('export-confirm').click();
+      await expect(page.getByTestId('export-toast')).toContainText(`${format.toUpperCase()} exported`);
+    }
+
+    const exportedFiles = await fs.readdir(path.join(testNovelPath, 'meta', 'exports'));
+    expect(exportedFiles.some((filename) => filename.endsWith('.docx'))).toBe(true);
+    expect(exportedFiles.some((filename) => filename.endsWith('.epub'))).toBe(true);
   });
 });
