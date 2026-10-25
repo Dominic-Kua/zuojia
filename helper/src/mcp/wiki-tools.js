@@ -231,25 +231,31 @@ export async function getWikiBacklinksForMcp(novelPath, slug, limit = 200) {
   };
 }
 
-export async function buildWikiKnowledgeGraphForMcp(novelPath, maxEdges = 500) {
+export async function buildWikiKnowledgeGraphForMcp(novelPath, maxEdges = 500, { includeContent = false } = {}) {
   const listed = await listWikiPages(novelPath);
   if (listed.status !== 'ok') {
     return listed;
   }
 
-  const nodes = listed.data.pages.map((page) => ({
-    id: page.slug,
-    label: page.title,
-    tags: page.tags,
-  }));
-
-  const slugSet = new Set(nodes.map((node) => node.id));
-  const edges = [];
-
   const pageReads = await mapWithConcurrency(listed.data.pages, 16, async (page) => ({
     page,
     pageResult: await readWikiPage(novelPath, page.slug),
   }));
+
+  const nodes = pageReads.map(({ page, pageResult }) => {
+    const node = {
+      id: page.slug,
+      label: page.title,
+      tags: page.tags,
+    };
+    if (includeContent) {
+      node.content = pageResult.status === 'ok' ? pageResult.data.content : '';
+    }
+    return node;
+  });
+
+  const slugSet = new Set(nodes.map((node) => node.id));
+  const edges = [];
 
   for (const { page, pageResult } of pageReads) {
     if (edges.length >= maxEdges) {

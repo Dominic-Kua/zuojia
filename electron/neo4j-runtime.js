@@ -21,6 +21,17 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const MAX_SEARCH_CONTENT_CHARS = 4000;
+const SEARCH_STOP_WORDS = new Set([
+  'a', 'an', 'and', 'are', 'about', 'be', 'been', 'being', 'can', 'could', 'did', 'do', 'does',
+  'for', 'from', 'how', 'in', 'is', 'me', 'my', 'of', 'on', 'or', 'please', 'should', 'that',
+  'the', 'this', 'to', 'was', 'were', 'what', 'when', 'where', 'which', 'who', 'why', 'with', 'would',
+]);
+
+function getSearchTerms(query) {
+  const terms = String(query || '').toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+  return [...new Set(terms.filter((term) => !SEARCH_STOP_WORDS.has(term)))];
+}
 
 export function createNeo4jRuntimeManager({
   spawnFn = spawn,
@@ -417,10 +428,10 @@ dbms.security.auth_enabled=false
     }
     const session = driver.session();
     try {
-      // Check for WikiPage nodes — must stay consistent with the skip-check
-      // in importWikiData (which counts WikiPage nodes)
+      // Page content is what the LLM reasons over, so graphs with only node
+      // metadata count as empty and must be re-imported.
       const countResult = await session.run(
-        'MATCH (p:WikiPage) RETURN count(p) AS count'
+        "MATCH (p:WikiPage) WHERE coalesce(p.content, '') <> '' RETURN count(p) AS count"
       );
       const count = countResult.records[0]?.get('count') || 0;
       return count > 0;
@@ -441,10 +452,12 @@ dbms.security.auth_enabled=false
         message: 'Importing wiki data into Neo4j...',
       });
 
-      // Check if data already exists — skip import if so
+      // Only skip when page text is present; older imports stored metadata alone
       const session = driver.session();
       try {
-        const countResult = await session.run('MATCH (p:WikiPage) RETURN count(p) AS count');
+        const countResult = await session.run(
+          "MATCH (p:WikiPage) WHERE coalesce(p.content, '') <> '' RETURN count(p) AS count"
+        );
         const existingCount = countResult.records[0]?.get('count') || 0;
 
         if (existingCount > 0) {
@@ -460,7 +473,7 @@ dbms.security.auth_enabled=false
       }
 
       // Get wiki graph data using existing wiki-tools
-      const graphResult = await buildWikiKnowledgeGraphForMcp(runtimeNovelPath, 5000);
+      const graphResult = await buildWikiKnowledgeGraphForMcp(runtimeNovelPath, 5000, { includeContent: true });
       
       if (graphResult.status !== 'ok') {
         throw new Error(`Failed to build wiki graph: ${graphResult.error?.message || 'Unknown error'}`);
@@ -493,14 +506,17 @@ dbms.security.auth_enabled=false
              ON CREATE SET
                p.title = $title,
                p.tags = $tags,
+               p.content = $content,
                p.createdAt = datetime()
              ON MATCH SET
                p.title = $title,
-               p.tags = $tags`,
+               p.tags = $tags,
+               p.content = $content`,
             {
               id: node.id,
               title: node.label || node.id,
               tags: node.tags || [],
+              content: node.content || '',
             }
           );
         }
@@ -599,21 +615,30 @@ dbms.security.auth_enabled=false
       throw new Error('Neo4j runtime is not running');
     }
 
-    // Simple keyword-based search for Neo4j
-    // In a real implementation, this would use Synapse's natural language capabilities
+    const terms = getSearchTerms(query);
+    if (terms.length === 0) {
+      return { status: 'ok', data: { query, results: [], count: 0 } };
+    }
+
     const session = driver.session();
-    
+
     try {
       const result = await session.run(
         `MATCH (p:WikiPage)
-         WHERE p.id CONTAINS $query 
-            OR p.title CONTAINS $query 
-            OR ANY(tag IN p.tags WHERE tag CONTAINS $query)
-         RETURN p.id AS slug, p.title AS title, p.tags AS tags
+         WITH p, [term IN $terms WHERE
+           toLower(coalesce(p.id, '')) CONTAINS term OR
+           toLower(coalesce(p.title, '')) CONTAINS term OR
+           ANY(tag IN coalesce(p.tags, []) WHERE toLower(tag) CONTAINS term) OR
+           toLower(coalesce(p.content, '')) CONTAINS term
+         ] AS matchedTerms
+         WHERE size(matchedTerms) > 0
+         RETURN p.id AS slug, p.title AS title, p.tags AS tags,
+                coalesce(p.content, '') AS content, size(matchedTerms) AS score
+         ORDER BY score DESC, title ASC
          LIMIT $limit`,
         {
-          query: query.toLowerCase(),
-          limit: Math.min(limit, 100),
+          terms,
+          limit: Math.max(1, Math.min(Math.trunc(Number(limit) || 10), 100)),
         }
       );
 
@@ -621,7 +646,8 @@ dbms.security.auth_enabled=false
         slug: record.get('slug'),
         title: record.get('title'),
         tags: record.get('tags'),
-        score: 1.0, // Simple scoring
+        content: String(record.get('content') || '').slice(0, MAX_SEARCH_CONTENT_CHARS),
+        score: record.get('score')?.toNumber?.() ?? record.get('score') ?? 1.0,
       }));
 
       return {

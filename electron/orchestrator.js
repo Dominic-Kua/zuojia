@@ -42,7 +42,7 @@ export function createOrchestrator(neo4jRuntime, mcpRuntime, llmRuntime, app) {
     } catch {}
   }
 
-  async function ingestWikiViaSynapse(mcpRuntime, novelPath, wikiDir, log, logError) {
+  async function ingestWikiViaSynapse(mcpRuntime, wikiDir, log, logError) {
     let filesIngested = 0;
     let errors = 0;
 
@@ -191,7 +191,10 @@ export function createOrchestrator(neo4jRuntime, mcpRuntime, llmRuntime, app) {
         try {
           log('Step 4: Starting MCP server...');
           result.mcp = await mcpRuntime.start({ novelPath });
-          log(`MCP started: pid=${result.mcp.pid}, synapse=${result.mcp.usingSynapse}`);
+          const synapseDetails = result.mcp.usingSynapse
+            ? ''
+            : `, reason=${result.mcp.synapseError || 'initialization failed'}`;
+          log(`MCP started: pid=${result.mcp.pid}, synapse=${result.mcp.usingSynapse}${synapseDetails}`);
         } catch (err) {
           logError('MCP start failed', err);
           result.mcp = { status: 'error', error: err.message };
@@ -221,9 +224,27 @@ export function createOrchestrator(neo4jRuntime, mcpRuntime, llmRuntime, app) {
             }
 
             if (!hasData) {
-              log('Wiki exists but Neo4j is empty — ingesting via Synapse...');
-              result.ingest = await ingestWikiViaSynapse(mcpRuntime, novelPath, wikiDir, log, logError);
-              log(`Wiki ingest done: ${result.ingest.filesIngested} files, ${result.ingest.errors} errors`);
+              log('Wiki exists but Neo4j has no page text — importing wiki pages into Neo4j');
+              let localImport;
+              try {
+                localImport = await neo4jRuntime.importWikiData();
+                log(
+                  `Local Neo4j import done: ${localImport.nodesImported || 0} pages, ` +
+                  `${localImport.edgesImported || 0} links`
+                );
+              } catch (err) {
+                logError('Local Neo4j wiki import failed', err);
+                localImport = { status: 'error', error: err.message };
+              }
+
+              if (result.mcp.usingSynapse) {
+                log('Ingesting wiki into Synapse for semantic search...');
+                const synapseIngest = await ingestWikiViaSynapse(mcpRuntime, wikiDir, log, logError);
+                log(`Synapse wiki ingest done: ${synapseIngest.filesIngested} files, ${synapseIngest.errors} errors`);
+                result.ingest = { ...synapseIngest, neo4j: localImport };
+              } else {
+                result.ingest = localImport;
+              }
             } else {
               log('Neo4j already has wiki data — skipping ingest');
               result.ingest = { status: 'skipped', reason: 'already_has_data' };

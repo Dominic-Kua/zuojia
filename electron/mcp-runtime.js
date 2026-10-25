@@ -66,7 +66,7 @@ function createTimeoutError(toolName, timeoutMs) {
   return error;
 }
 
-async function executeWikiTool(novelPath, toolName, args = {}) {
+async function executeWikiTool(novelPath, toolName, args = {}, neo4jRuntime = null) {
   if (toolName === 'wiki_list_pages') {
     return listWikiPagesForMcp(novelPath, Number(args.limit || WIKI_DEFAULT_LIMIT));
   }
@@ -98,6 +98,9 @@ async function executeWikiTool(novelPath, toolName, args = {}) {
 
   // Fallback for Neo4j tools - map to basic wiki search
   if (toolName === 'wiki_neo4j_search' || toolName === 'wiki_neo4j_get_related' || toolName === 'wiki_neo4j_find_paths') {
+    if (toolName === 'wiki_neo4j_search' && neo4jRuntime?.naturalLanguageSearch) {
+      return neo4jRuntime.naturalLanguageSearch(String(args.query || ''), Number(args.limit || 10));
+    }
     return searchWikiPagesForMcp(novelPath, String(args.query || ''), Number(args.limit || 10));
   }
 
@@ -160,7 +163,8 @@ export function createMcpRuntimeManager({
   nowFn = () => Date.now(),
   setTimeoutFn = setTimeout,
   clearTimeoutFn = clearTimeout,
-  toolExecutor = executeWikiTool,
+  toolExecutor = null,
+  neo4jRuntime = null,
   config = createConfig(),
 } = {}) {
   const mcpClientConfig = config.mcpClient;
@@ -175,6 +179,41 @@ export function createMcpRuntimeManager({
     maxRetries: mcpClientConfig.maxRetries,
   };
   const toolTimeouts = config.toolTimeouts;
+  const executeLocalTool = (novelPath, toolName, args) =>
+    toolExecutor
+      ? toolExecutor(novelPath, toolName, args)
+      : executeWikiTool(novelPath, toolName, args, neo4jRuntime);
+
+  // Synapse answers with graph-derived snippets, so pair them with the page
+  // text stored in Neo4j — the LLM needs the content, not just the shape.
+  async function mergeLocalWikiSearch(synapseResult, novelPath, args) {
+    let localResult;
+    try {
+      localResult = await executeLocalTool(novelPath, 'wiki_neo4j_search', args);
+    } catch {
+      return synapseResult;
+    }
+
+    const localPages = localResult?.status === 'ok' ? localResult.data?.results || [] : [];
+    if (localPages.length === 0) {
+      return synapseResult;
+    }
+
+    const synapseResults = synapseResult?.status === 'ok' ? synapseResult.data?.results || [] : [];
+    const seen = new Set();
+    const results = [];
+    for (const entry of [...localPages, ...synapseResults]) {
+      const key = String(entry?.slug || entry?.title || '').toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      results.push(entry);
+    }
+
+    return {
+      status: 'ok',
+      data: { query: args?.query ?? '', results, count: results.length },
+    };
+  }
 
   let processRef = null;
   let startTime = null;
@@ -188,6 +227,7 @@ export function createMcpRuntimeManager({
   let argumentTransformer = null;
   let responseNormalizer = null;
   let isUsingSynapse = false;
+  let synapseError = null;
   let reconnectAttempts = 0;
   const MAX_RECONNECT_ATTEMPTS = synapseConfig.maxReconnectAttempts;
 
@@ -211,6 +251,7 @@ export function createMcpRuntimeManager({
   async function initializeMcpClient(child) {
     if (!synapseConfig.enabled) {
       isUsingSynapse = false;
+      synapseError = 'Synapse is disabled in configuration';
       pushLog({
         timestamp: new Date().toISOString(),
         type: 'mcp_client_init_skipped',
@@ -222,6 +263,7 @@ export function createMcpRuntimeManager({
     try {
       if (!child.stdout || !child.stdin) {
         isUsingSynapse = false;
+        synapseError = 'MCP bridge process is missing stdio pipes';
         pushLog({
           timestamp: new Date().toISOString(),
           type: 'mcp_client_init_failed',
@@ -244,6 +286,7 @@ export function createMcpRuntimeManager({
       responseNormalizer = createResponseNormalizer();
       
       isUsingSynapse = true;
+      synapseError = null;
       reconnectAttempts = 0;
       
       pushLog({
@@ -254,6 +297,7 @@ export function createMcpRuntimeManager({
       
       return true;
     } catch (error) {
+      synapseError = error.message;
       pushLog({
         timestamp: new Date().toISOString(),
         type: 'mcp_client_init_failed',
@@ -322,6 +366,8 @@ export function createMcpRuntimeManager({
         pid: processRef.pid,
         novelPath: runtimeNovelPath,
         startedAt: new Date(startTime).toISOString(),
+        usingSynapse: isUsingSynapse,
+        synapseError,
       };
     }
 
@@ -390,6 +436,7 @@ export function createMcpRuntimeManager({
     runtimeNovelPath = novelPath;
     startTime = nowFn();
     lastError = null;
+    synapseError = null;
 
     const initialized = await initializeMcpClient(child);
 
@@ -406,6 +453,7 @@ export function createMcpRuntimeManager({
       novelPath,
       startedAt: new Date(startTime).toISOString(),
       usingSynapse: isUsingSynapse,
+      synapseError,
     };
   }
 
@@ -528,6 +576,9 @@ export function createMcpRuntimeManager({
           ]);
 
           result = responseNormalizer.normalize(toolName, synapseResult);
+          if (toolName === 'wiki_neo4j_search') {
+            result = await mergeLocalWikiSearch(result, runtimeNovelPath, args);
+          }
           pushLog({
             timestamp: new Date().toISOString(),
             type: 'mcp_debug',
@@ -553,7 +604,7 @@ export function createMcpRuntimeManager({
 
               // Try local tool executor as fallback
               result = await Promise.race([
-                toolExecutor(runtimeNovelPath, toolName, args),
+                executeLocalTool(runtimeNovelPath, toolName, args),
                 timeoutPromise,
               ]);
             }
@@ -561,7 +612,7 @@ export function createMcpRuntimeManager({
         } else {
           // Fallback to local wiki tools
           result = await Promise.race([
-            toolExecutor(runtimeNovelPath, toolName, args),
+            executeLocalTool(runtimeNovelPath, toolName, args),
             timeoutPromise,
           ]);
           pushLog({
@@ -654,6 +705,7 @@ export function createMcpRuntimeManager({
         uptimeMs: 0,
         lastError,
         usingSynapse: false,
+        synapseError,
         reconnectAttempts,
       };
     }
@@ -665,6 +717,7 @@ export function createMcpRuntimeManager({
       uptimeMs: startTime ? Math.max(0, nowFn() - startTime) : 0,
       lastError,
       usingSynapse: isUsingSynapse,
+      synapseError,
       synapseTools: isUsingSynapse && mcpClient ? mcpClient.getTools().map(t => t.name) : [],
       reconnectAttempts,
     };

@@ -42,7 +42,7 @@ vi.mock('../../../helper/src/mcp/mcp-client.js', () => ({
 }));
 
 vi.mock('../../../helper/src/mcp/mcp-transport.js', () => ({
-  McpTransport: vi.fn().mockImplementation(() => ({})),
+  McpTransport: vi.fn(function MockMcpTransport() { return {}; }),
 }));
 
 vi.mock('../../../helper/src/mcp/tool-mapper.js', () => ({
@@ -54,6 +54,7 @@ vi.mock('../../../helper/src/mcp/tool-mapper.js', () => ({
 
 vi.mock('../../../helper/src/mcp/argument-transformer.js', () => ({
   createArgumentTransformer: vi.fn(() => ({
+    transform: vi.fn((toolName, args) => args),
     transformArgs: vi.fn((args) => args),
   })),
 }));
@@ -199,6 +200,78 @@ describe('mcp-runtime', () => {
       const result = await manager.callTool({ toolName: 'wiki_list_pages', args: { limit: 5 } });
       expect(result).toBeDefined();
       expect(result.status).toBe('ok');
+    });
+
+    it('uses the running Neo4j runtime for local search when Synapse is unavailable', async () => {
+      instantTimers = false;
+      const neo4jRuntime = {
+        naturalLanguageSearch: vi.fn().mockResolvedValue({
+          status: 'ok',
+          data: { query: 'Who is Freya?', results: [{ slug: 'freya', title: 'Freya' }], count: 1 },
+        }),
+      };
+      mockMcpClient.initialize.mockRejectedValueOnce(new Error('Synapse handshake failed'));
+      const neo4jBackedManager = createMcpRuntimeManager({
+        neo4jRuntime,
+        spawnFn: vi.fn(() => mcpProcess),
+        nowFn: () => 1000,
+        setTimeoutFn: (cb, ms) => instantTimers ? (cb(), 0) : setTimeout(cb, ms),
+        clearTimeoutFn: (id) => clearTimeout(id),
+      });
+      const startResult = await neo4jBackedManager.start({ novelPath: '/tmp/novel' });
+      expect(startResult).toMatchObject({ usingSynapse: false, synapseError: 'Synapse handshake failed' });
+
+      const result = await neo4jBackedManager.callTool({
+        toolName: 'wiki_neo4j_search',
+        args: { query: 'Who is Freya?', limit: 5 },
+      });
+
+      expect(neo4jRuntime.naturalLanguageSearch).toHaveBeenCalledWith('Who is Freya?', 5);
+      expect(result.data.results).toEqual([{ slug: 'freya', title: 'Freya' }]);
+    });
+
+    it('adds page content from Neo4j to Synapse search results', async () => {
+      instantTimers = false;
+      const { createToolMapper } = await import('../../../helper/src/mcp/tool-mapper.js');
+      createToolMapper.mockReturnValueOnce({
+        hasMapping: () => true,
+        getMapping: () => 'query_knowledge',
+        mapTool: () => 'query_knowledge',
+      });
+      mockMcpClient.callTool.mockResolvedValueOnce({
+        status: 'ok',
+        data: { query: 'Who is Freya?', results: [{ slug: 'freya', title: 'Freya', snippet: 'graph hit' }], count: 1 },
+      });
+      const neo4jRuntime = {
+        naturalLanguageSearch: vi.fn().mockResolvedValue({
+          status: 'ok',
+          data: {
+            query: 'Who is Freya?',
+            results: [{ slug: 'freya', title: 'Freya', content: 'Freya studies magnetars.' }],
+            count: 1,
+          },
+        }),
+      };
+      const mergedManager = createMcpRuntimeManager({
+        neo4jRuntime,
+        spawnFn: vi.fn(() => mcpProcess),
+        nowFn: () => 1000,
+        setTimeoutFn: (cb, ms) => instantTimers ? (cb(), 0) : setTimeout(cb, ms),
+        clearTimeoutFn: (id) => clearTimeout(id),
+      });
+      const startResult = await mergedManager.start({ novelPath: '/tmp/novel' });
+      expect(startResult.usingSynapse).toBe(true);
+
+      const result = await mergedManager.callTool({
+        toolName: 'wiki_neo4j_search',
+        args: { query: 'Who is Freya?', limit: 5 },
+      });
+
+      expect(result.data.results).toHaveLength(1);
+      expect(result.data.results[0]).toMatchObject({
+        slug: 'freya',
+        content: 'Freya studies magnetars.',
+      });
     });
   });
 

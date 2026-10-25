@@ -234,7 +234,7 @@ describe('neo4j-runtime', () => {
 
       const result = await manager.hasWikiData();
       expect(result).toBe(true);
-      expect(mockSession.run).toHaveBeenCalledWith('MATCH (p:WikiPage) RETURN count(p) AS count');
+      expect(mockSession.run).toHaveBeenCalledWith(expect.stringContaining('p.content'));
     });
 
     it('returns false when count is zero', async () => {
@@ -253,7 +253,7 @@ describe('neo4j-runtime', () => {
       await expect(manager.importWikiData()).rejects.toThrow('not running');
     });
 
-    it('skips import when data already exists', async () => {
+    it('skips import when data already exists with content', async () => {
       await manager.start({ novelPath: '/tmp/novel' });
       mockSession.run.mockResolvedValue({
         records: [{ get: () => 3 }],
@@ -262,6 +262,34 @@ describe('neo4j-runtime', () => {
       const result = await manager.importWikiData();
       expect(result.status).toBe('skipped');
       expect(result.reason).toBe('already_has_data');
+      expect(mockSession.run).toHaveBeenCalledWith(expect.stringContaining('p.content'));
+    });
+
+    it('stores page content so search can return the actual information', async () => {
+      await manager.start({ novelPath: '/tmp/novel' });
+      const { buildWikiKnowledgeGraphForMcp } = await import('../../../helper/src/mcp/wiki-tools.js');
+      buildWikiKnowledgeGraphForMcp.mockResolvedValueOnce({
+        status: 'ok',
+        data: {
+          nodes: [{ id: 'alice', label: 'Alice', tags: ['hero'], content: '# Alice\n\nMentor is [[mentor]].' }],
+          edges: [],
+        },
+      });
+      mockSession.run.mockImplementation((query) => {
+        if (query.includes('count(p)')) {
+          return Promise.resolve({ records: [{ get: () => 0 }] });
+        }
+        return Promise.resolve({ records: [] });
+      });
+
+      const result = await manager.importWikiData();
+
+      expect(result).toMatchObject({ status: 'ok', nodesImported: 1 });
+      expect(buildWikiKnowledgeGraphForMcp).toHaveBeenCalledWith('/tmp/novel', 5000, { includeContent: true });
+      expect(mockSession.run).toHaveBeenCalledWith(
+        expect.stringContaining('p.content = $content'),
+        expect.objectContaining({ id: 'alice', content: expect.stringContaining('Mentor is') })
+      );
     });
   });
 
@@ -314,6 +342,33 @@ describe('neo4j-runtime', () => {
       expect(result.status).toBe('ok');
       expect(result.data.results).toHaveLength(1);
       expect(result.data.results[0].slug).toBe('hero');
+    });
+
+    it('searches Neo4j by meaningful terms from a natural-language question', async () => {
+      await manager.start({ novelPath: '/tmp/novel' });
+      mockSession.run.mockResolvedValue({
+        records: [{
+          get: (key) => ({
+            slug: 'freya-ramirez-wang',
+            title: 'Freya Ramirez Wang',
+            tags: ['astrophysicist'],
+            content: '# Freya\n\nFreya studies magnetars at the Atacama array.',
+            score: 1,
+          })[key] ?? null,
+        }],
+      });
+
+      const result = await manager.naturalLanguageSearch('Who is Freya?', 5);
+
+      expect(mockSession.run).toHaveBeenCalledWith(expect.stringContaining('$terms'), {
+        terms: ['freya'],
+        limit: 5,
+      });
+      expect(mockSession.run).toHaveBeenCalledWith(expect.stringContaining('p.content'), expect.anything());
+      expect(result.data.results[0]).toMatchObject({
+        slug: 'freya-ramirez-wang',
+        content: expect.stringContaining('magnetars'),
+      });
     });
   });
 

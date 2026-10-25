@@ -134,7 +134,7 @@ describe('ResponseNormalizer', () => {
   describe('wiki_neo4j_search → query_knowledge', () => {
     it('should parse JSON response', () => {
       const synapseResult = {
-        content: [{ type: 'text', text: '{"results": [{"slug": "page1", "title": "Page 1", "score": 0.9, "snippet": "preview"}]}' }],
+        content: [{ type: 'text', text: '{"results": [{"slug": "page1", "title": "Page 1", "score": 0.9, "snippet": "preview", "content": "full page text"}]}' }],
       };
 
       const result = normalizer.normalize('wiki_neo4j_search', synapseResult);
@@ -146,19 +146,21 @@ describe('ResponseNormalizer', () => {
         title: 'Page 1',
         score: 0.9,
         snippet: 'preview',
+        content: 'full page text',
       });
       expect(result.data.count).toBe(1);
     });
 
-    it('should fall back to text parsing for non-JSON', () => {
+    it('keeps markdown knowledge answers intact instead of splitting them into fake results', () => {
       const synapseResult = {
-        content: [{ type: 'text', text: 'result1\nresult2' }],
+        content: [{ type: 'text', text: '🔍 **Knowledge Query Results**\n\n**📊 Factual Information:**\n\n- Freya studies magnetars.\n  *Source:* wiki/freya | *Score:* 0.5' }],
       };
 
       const result = normalizer.normalize('wiki_neo4j_search', synapseResult);
 
-      expect(result.data.results).toHaveLength(2);
-      expect(result.data.count).toBe(2);
+      expect(result.data.results).toHaveLength(1);
+      expect(result.data.results[0].content).toContain('Freya studies magnetars.');
+      expect(result.data.results[0].content).toContain('Source:');
     });
   });
 

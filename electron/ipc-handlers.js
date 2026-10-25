@@ -169,8 +169,8 @@ function wrapHandler(fn) {
 }
 
 const llmRuntime = createLlmRuntimeManager();
-const mcpRuntime = createMcpRuntimeManager();
 const neo4jRuntime = createNeo4jRuntimeManager();
+const mcpRuntime = createMcpRuntimeManager({ neo4jRuntime });
 const orchestrator = createOrchestrator(neo4jRuntime, mcpRuntime, llmRuntime, app);
 let handlersRegistered = false;
 let beforeQuitBound = false;
