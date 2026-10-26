@@ -123,6 +123,11 @@ This list reflects what is currently wired in the app code.
 
 ## Release Notes
 
+### v3.7.0
+
+- Added distraction-free focus mode: `Focus` button or `Ctrl/Cmd+Shift+F` hides the topbar, wiki, chapter tools, and spellcheck panel while keeping the chapter, caret, and saved layout intact.
+- Exit focus mode from the persistent `Exit focus` control or with `Esc`; a short on-entry hint explains both.
+
 ### v3.6.0
 
 - Added DOCX and EPUB export with manuscript/reader styles, chapter selection, and Pandoc-only dependencies.
@@ -179,7 +184,7 @@ This list reflects what is currently wired in the app code.
 - Added artifact-level release validation: local release now smoke-tests both the packaged `.app` bundle and the mounted `.dmg` artifact before publish
 - Added checksum generation in the local mac release flow for uploaded DMG verification
 
-For full release details, see `docs/release-notes-v3.6.0.md`, `docs/release-notes-v3.5.2.md`, `docs/release-notes-v3.5.1.md`, `docs/release-notes-v3.5.0.md`, `docs/release-notes-v3.3.0.md`, `docs/release-notes-v3.1.3.md`, `docs/release-notes-v3.1.2.md`, `docs/release-notes-v3.1.0.md`, and `docs/release-notes-v2.0.1.md`.
+For full release details, see `docs/release-notes-v3.7.0.md`, `docs/release-notes-v3.6.0.md`, `docs/release-notes-v3.5.2.md`, `docs/release-notes-v3.5.1.md`, `docs/release-notes-v3.5.0.md`, `docs/release-notes-v3.3.0.md`, `docs/release-notes-v3.1.3.md`, `docs/release-notes-v3.1.2.md`, `docs/release-notes-v3.1.0.md`, and `docs/release-notes-v2.0.1.md`.
 
 ## AI Foundation
 
