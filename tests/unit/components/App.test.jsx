@@ -339,13 +339,15 @@ describe('App', () => {
 
       expect(screen.getByTestId('app-shell')).toHaveClass('focus-mode');
       expect(toggle).toHaveAttribute('aria-pressed', 'true');
-      expect(screen.getByTestId('focus-mode-exit')).toBeInTheDocument();
+      expect(screen.getByTestId('focus-mode-exit')).toHaveTextContent('Esc');
+      expect(screen.getByTestId('focus-mode-hint')).toHaveTextContent('Esc');
 
       await user.click(screen.getByTestId('focus-mode-exit'));
 
       expect(screen.getByTestId('app-shell')).not.toHaveClass('focus-mode');
       expect(toggle).toHaveAttribute('aria-pressed', 'false');
       expect(screen.queryByTestId('focus-mode-exit')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('focus-mode-hint')).not.toBeInTheDocument();
     });
 
     it('toggles with the keyboard shortcut and exits with Escape', async () => {

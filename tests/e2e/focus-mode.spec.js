@@ -40,6 +40,9 @@ test.describe('Distraction-free focus mode', () => {
     await expect(page.getByTestId('sidebar-section')).toBeHidden();
     await expect(page.locator('.manuscript-meta')).toBeHidden();
     await expect(page.getByTestId('focus-mode-exit')).toBeVisible();
+    await expect(page.getByTestId('focus-mode-exit')).toContainText('Esc');
+    await expect(page.getByTestId('focus-mode-hint')).toContainText('Esc');
+    await expect(page.getByTestId('focus-mode-hint')).toBeHidden({ timeout: 6000 });
 
     await page.getByTestId('focus-mode-exit').click();
     await expect(page.getByTestId('topbar')).toBeVisible();

@@ -66,6 +66,7 @@ export default function App(){
   // without touching the saved layout or remounting the editor, so the
   // chapter and caret survive entering and leaving it.
   const [focusMode, setFocusMode] = useState(false);
+  const [focusHintVisible, setFocusHintVisible] = useState(false);
   const [theme, setTheme] = useState(() => {
     try {
       const stored = window.localStorage.getItem('zuojia-theme');
@@ -440,6 +441,7 @@ export default function App(){
       setServicesStatus(null);
       setWikiDetached(false);
       setFocusMode(false);
+      setFocusHintVisible(false);
     }
   };
 
@@ -508,6 +510,7 @@ export default function App(){
 
   const exitFocusMode = () => {
     setFocusMode(false);
+    setFocusHintVisible(false);
     focusEditor();
   };
 
@@ -517,8 +520,17 @@ export default function App(){
       return;
     }
     setFocusMode(true);
+    setFocusHintVisible(true);
     focusEditor();
   };
+
+  // The exit hint fades out on its own; keep the visible control permanent so
+  // there is always a way back without remembering the shortcut.
+  useEffect(() => {
+    if (!focusHintVisible) return undefined;
+    const timeout = window.setTimeout(() => setFocusHintVisible(false), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [focusHintVisible]);
 
   useEffect(() => {
     if (!novelPath) return undefined;
@@ -999,16 +1011,23 @@ export default function App(){
         </div>
       )}
       {focusMode && (
-        <button
-          type="button"
-          className="btn ghost focus-mode-exit"
-          data-testid="focus-mode-exit"
-          title="Exit focus mode (Esc)"
-          aria-keyshortcuts="Escape"
-          onClick={exitFocusMode}
-        >
-          Exit focus
-        </button>
+        <>
+          {focusHintVisible && (
+            <div className="focus-mode-hint" data-testid="focus-mode-hint" role="status">
+              Focus mode is on — press <kbd>Esc</kbd> or use <strong>Exit focus</strong> to return
+            </div>
+          )}
+          <button
+            type="button"
+            className="focus-mode-exit"
+            data-testid="focus-mode-exit"
+            title="Exit focus mode (Esc)"
+            aria-keyshortcuts="Escape"
+            onClick={exitFocusMode}
+          >
+            Exit focus <kbd>Esc</kbd>
+          </button>
+        </>
       )}
       {/* Drag / resize overlay for floating panel */}
       <div style={{ display: 'contents' }}>
