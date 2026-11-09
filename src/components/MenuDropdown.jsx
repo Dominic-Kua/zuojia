@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 
 export function MenuDropdown({
   label,
@@ -8,9 +8,36 @@ export function MenuDropdown({
   className = '',
 }) {
   const [open, setOpen] = useState(false);
+  const [resolvedAlign, setResolvedAlign] = useState(align);
   const rootRef = useRef(null);
   const triggerRef = useRef(null);
+  const panelRef = useRef(null);
   const menuId = useId();
+
+  useLayoutEffect(() => {
+    if (!open) {
+      setResolvedAlign(align);
+      return;
+    }
+
+    const updateAlign = () => {
+      const trigger = triggerRef.current;
+      const panel = panelRef.current;
+      if (!trigger || !panel) return;
+      const triggerRect = trigger.getBoundingClientRect();
+      const panelWidth = panel.offsetWidth || 220;
+      const padding = 8;
+      const overflowsRight = triggerRect.left + panelWidth > window.innerWidth - padding;
+      const overflowsLeft = triggerRect.right - panelWidth < padding;
+      if (overflowsRight && !overflowsLeft) setResolvedAlign('right');
+      else if (overflowsLeft && !overflowsRight) setResolvedAlign('left');
+      else setResolvedAlign(align);
+    };
+
+    updateAlign();
+    window.addEventListener('resize', updateAlign);
+    return () => window.removeEventListener('resize', updateAlign);
+  }, [open, align]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -56,8 +83,9 @@ export function MenuDropdown({
         {label}
       </button>
       <div
+        ref={panelRef}
         id={menuId}
-        className={`app-menu-panel${align === 'right' ? ' right' : ''}`}
+        className={`app-menu-panel${resolvedAlign === 'right' ? ' right' : ''}`}
         role="menu"
         aria-label={label}
         aria-hidden={!open}

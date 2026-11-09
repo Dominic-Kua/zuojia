@@ -828,7 +828,7 @@ export default function App(){
               )}
             </div>
           </MenuDropdown>
-          <MenuDropdown label="Novel" testId="novel-menu">
+          <MenuDropdown label="Novel" testId="novel-menu" align="right">
             <div className="app-menu-section">
               <div className="app-menu-heading">Work</div>
               <div className="app-menu-row" data-menu-close="true"><ExportDialog novelPath={novelPath} onBeforeExport={flushEditorBeforeDestructiveOp} /></div>
