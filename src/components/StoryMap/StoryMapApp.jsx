@@ -21,6 +21,7 @@ import { ViewControls } from './ViewControls';
 import { ArcPanel } from './ArcPanel';
 import { ArcManagementModal } from './ArcManagementModal';
 import { StoryMapActionDialog } from './StoryMapActionDialog';
+import { SceneOutlineView } from './SceneOutlineView';
 
 function getNovelPathFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -402,6 +403,15 @@ export function StoryMapApp() {
     }
   }, []);
 
+  const handleOpenChapter = useCallback(async (filename) => {
+    if (!filename) return;
+    try {
+      await storymapWindowHandlers.openChapter(filename);
+    } catch (err) {
+      console.error('Failed to open chapter from storymap:', err);
+    }
+  }, []);
+
   const handleHoverArc = useCallback((arcId, screenX, screenY) => {
     setHoveredArcId(arcId);
     if (arcId) {
@@ -495,6 +505,91 @@ export function StoryMapApp() {
     );
   }
 
+  const sharedOverlays = (
+    <>
+      {selectedScene && (
+        <SceneNotesPanel
+          scene={selectedScene}
+          chapters={chapters}
+          wikiPages={wikiPages}
+          isCurrent={storymap?.currentSceneId === selectedScene.id}
+          onMarkCurrent={() => handleMarkCurrent(selectedScene.id)}
+          onChange={handleSceneChange}
+          onClose={handleBackgroundClick}
+          onOpenWikiPage={handleOpenWikiPage}
+          onOpenChapter={handleOpenChapter}
+        />
+      )}
+      {showHelp && <KeyboardHelpOverlay onClose={() => setShowHelp(false)} />}
+      {activeDialog?.type === 'create-scene' && (
+        <StoryMapActionDialog
+          title="Add a scene"
+          mode="chronology"
+          description="Set when this scene happens relative to the start of the novel."
+          initialDay={0}
+          initialYear={0}
+          confirmLabel="Add Scene"
+          onConfirm={handleCreateScene}
+          onCancel={() => setActiveDialog(null)}
+        />
+      )}
+      {activeDialog?.type === 'delete-scene' && (
+        <StoryMapActionDialog
+          mode="confirm"
+          title="Remove scene?"
+          description={`Remove “${scenes.find((scene) => scene.id === activeDialog.sceneId)?.title || 'this scene'}” from the story map?`}
+          confirmLabel="Delete Scene"
+          onConfirm={() => handleDeleteScene(activeDialog.sceneId)}
+          onCancel={() => setActiveDialog(null)}
+        />
+      )}
+    </>
+  );
+
+  if (view === 'outline') {
+    return (
+      <StoryMapWindow>
+        <header className="storymap-topbar">
+          <div className="storymap-brand">Story Map</div>
+          <div className="storymap-meta">
+            {novelPath ? novelPath.split('/').pop() : 'No novel'}
+          </div>
+        </header>
+        <div className="storymap-outline-host">
+          <StoryMapToolbar
+            onAddScene={handleAddScene}
+            onShowHelp={() => setShowHelp(true)}
+            addSceneDisabled={loading || !storymap}
+            viewControls={
+              <ViewControls
+                view={view}
+                split={split}
+                onChangeView={setView}
+                onToggleSplit={() => setSplit((s) => !s)}
+              />
+            }
+          />
+          {loading && <div className="storymap-loading" role="status">Loading story map…</div>}
+          {!loading && scenes.length === 0 ? (
+            <EmptyCanvasState onAddScene={handleAddScene} />
+          ) : !loading ? (
+            <SceneOutlineView
+              novelPath={novelPath}
+              chapters={chapters}
+              scenes={scenes}
+              currentSceneId={storymap?.currentSceneId || null}
+              onSelectScene={(scene) => setSelectedSceneId(scene.id)}
+              onOpenChapter={handleOpenChapter}
+              onRefreshChapters={refreshNovelChapters}
+              updateStorymap={updateStorymap}
+            />
+          ) : null}
+          {sharedOverlays}
+        </div>
+      </StoryMapWindow>
+    );
+  }
+
   return (
     <StoryMapWindow>
       <header className="storymap-topbar">
@@ -538,18 +633,7 @@ export function StoryMapApp() {
         />
         {loading && <div className="storymap-loading" role="status">Loading story map…</div>}
         {!loading && scenes.length === 0 && <EmptyCanvasState onAddScene={handleAddScene} />}
-        {selectedScene && (
-          <SceneNotesPanel
-            scene={selectedScene}
-            chapters={chapters}
-            wikiPages={wikiPages}
-            isCurrent={storymap?.currentSceneId === selectedScene.id}
-            onMarkCurrent={() => handleMarkCurrent(selectedScene.id)}
-            onChange={handleSceneChange}
-            onClose={handleBackgroundClick}
-            onOpenWikiPage={handleOpenWikiPage}
-          />
-        )}
+        {sharedOverlays}
         {showArcPanel && (
           <ArcPanel
             arcs={arcs}
@@ -577,29 +661,6 @@ export function StoryMapApp() {
             onMerge={handleMergeArc}
             onSplit={handleSplitArc}
             onChangeColor={handleChangeArcColor}
-          />
-        )}
-        {showHelp && <KeyboardHelpOverlay onClose={() => setShowHelp(false)} />}
-        {activeDialog?.type === 'create-scene' && (
-          <StoryMapActionDialog
-            title="Add a scene"
-            mode="chronology"
-            description="Set when this scene happens relative to the start of the novel."
-            initialDay={0}
-            initialYear={0}
-            confirmLabel="Add Scene"
-            onConfirm={handleCreateScene}
-            onCancel={() => setActiveDialog(null)}
-          />
-        )}
-        {activeDialog?.type === 'delete-scene' && (
-          <StoryMapActionDialog
-            mode="confirm"
-            title="Remove scene?"
-            description={`Remove “${scenes.find((scene) => scene.id === activeDialog.sceneId)?.title || 'this scene'}” from the story map?`}
-            confirmLabel="Delete Scene"
-            onConfirm={() => handleDeleteScene(activeDialog.sceneId)}
-            onCancel={() => setActiveDialog(null)}
           />
         )}
         {hoverTooltip && (

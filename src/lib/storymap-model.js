@@ -139,6 +139,9 @@ export function createScene(options = {}) {
     characters = '',
     tension = '',
     notes = '',
+    pov = '',
+    status = 'planned',
+    sceneGoal = '',
   } = options;
 
   return {
@@ -152,5 +155,8 @@ export function createScene(options = {}) {
     characters,
     tension,
     notes,
+    pov,
+    status,
+    sceneGoal,
   };
 }
