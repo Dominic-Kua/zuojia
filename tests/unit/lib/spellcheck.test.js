@@ -87,15 +87,23 @@ describe('spellcheck helpers', () => {
     expect(updated).toBe('Alice met another Alice, but Malisen stayed behind.');
   });
 
-  it('replaces accented words using Unicode-aware boundaries', async () => {
+  it('replaces Unicode words (accents, Nordic, ligatures) using Unicode-aware boundaries', async () => {
     const { replaceMisspelledWord } = await import('../../../src/lib/spellcheck.js');
-    const updated = replaceMisspelledWord(
-      'Mbacké met Mbackéx and then Mbacké left.',
-      'Mbacké',
-      'Mbake'
-    );
 
-    expect(updated).toBe('Mbake met Mbackéx and then Mbake left.');
+    const cases = [
+      ['Mbacké met Mbackéx, then Mbacké.', 'Mbacké', 'Mbake', 'Mbake met Mbackéx, then Mbake.'],
+      ['Åse greeted Åsen, but Åse smiled.', 'Åse', 'Ase', 'Ase greeted Åsen, but Ase smiled.'],
+      ['Søren saw Sørensen and Søren left.', 'Søren', 'Soren', 'Soren saw Sørensen and Soren left.'],
+      ['Æthelred met Æthelreda; Æthelred ruled.', 'Æthelred', 'Aethelred', 'Aethelred met Æthelreda; Aethelred ruled.'],
+      ['Œuvre and Œuvres, but Œuvre stands.', 'Œuvre', 'Oeuvre', 'Oeuvre and Œuvres, but Oeuvre stands.'],
+      ['Þrúðr met Þrúðrx; Þrúðr spoke.', 'Þrúðr', 'Thrudr', 'Thrudr met Þrúðrx; Thrudr spoke.'],
+      ['Łukasz saw Łukasza, then Łukasz.', 'Łukasz', 'Lukasz', 'Lukasz saw Łukasza, then Lukasz.'],
+      ["O'Björk met O'Björkx; O'Björk sang.", "O'Björk", "O'Bjork", "O'Bjork met O'Björkx; O'Bjork sang."],
+    ];
+
+    for (const [text, original, replacement, expected] of cases) {
+      expect(replaceMisspelledWord(text, original, replacement), `replace "${original}"`).toBe(expected);
+    }
   });
 
   it('uses UK English dictionary conventions', async () => {
