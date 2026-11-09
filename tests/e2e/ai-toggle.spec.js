@@ -72,16 +72,19 @@ test.describe('AI Toggle E2E', () => {
     await expect(toggle).toHaveAttribute('aria-pressed', 'true');
 
     await openNovel(page);
+    await page.getByTestId('ai-menu').click();
     await expect(page.getByTestId('llm-chat-button')).toBeVisible({ timeout: 10000 });
   });
 
   test('toggling off hides chat and persists across reload', async () => {
     await openNovel(page);
 
+    await page.getByTestId('ai-menu').click();
     const toggle = page.getByTestId('ai-toggle-button');
     await toggle.click();
     await expect(toggle).toHaveText('AI Off');
-    await expect(page.getByTestId('llm-chat-button')).not.toBeVisible({ timeout: 5000 });
+    await page.getByTestId('ai-menu').click();
+    await expect(page.getByTestId('llm-chat-button')).toHaveCount(0, { timeout: 5000 });
 
     await page.reload();
     await page.waitForLoadState('domcontentloaded');
@@ -91,12 +94,16 @@ test.describe('AI Toggle E2E', () => {
   test('toggling back on restores chat', async () => {
     await openNovel(page);
 
+    await page.getByTestId('ai-menu').click();
     const toggle = page.getByTestId('ai-toggle-button');
     await toggle.click();
-    await expect(page.getByTestId('llm-chat-button')).not.toBeVisible({ timeout: 5000 });
+    await page.getByTestId('ai-menu').click();
+    await expect(page.getByTestId('llm-chat-button')).toHaveCount(0, { timeout: 5000 });
 
-    await toggle.click();
-    await expect(toggle).toHaveText('AI On');
+    await page.getByTestId('ai-menu').click();
+    await page.getByTestId('ai-toggle-button').click();
+    await expect(page.getByTestId('ai-toggle-button')).toHaveText('AI On');
+    await page.getByTestId('ai-menu').click();
     await expect(page.getByTestId('llm-chat-button')).toBeVisible({ timeout: 10000 });
   });
 });

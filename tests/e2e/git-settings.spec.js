@@ -46,6 +46,7 @@ test.describe('Story 4.5: Git Configuration', () => {
   });
 
   test('saves validated git settings to meta/config.yml', async () => {
+    await page.getByTestId('novel-menu').click();
     await page.getByTestId('settings-button').click();
     await expect(page.getByTestId('settings-dialog')).toBeVisible({ timeout: 5000 });
 

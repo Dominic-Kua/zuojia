@@ -87,6 +87,7 @@ test.describe('Story 7.2: Restore via DiagnosticsPanel', () => {
     expect(await fs.readFile(chapterFile, 'utf-8')).toContain('Modified content');
 
     // Open the Diagnostics panel
+    await page.getByTestId('novel-menu').click();
     const diagnosticsButton = page.getByTestId('diagnostics-button');
     await expect(diagnosticsButton).toBeVisible({ timeout: 5000 });
     await diagnosticsButton.click();
@@ -137,6 +138,7 @@ test.describe('Story 7.2: Restore via DiagnosticsPanel', () => {
     const { timestamp } = snapshotResult.data;
 
     // Open the Diagnostics panel and restore with safety backup
+    await page.getByTestId('novel-menu').click();
     await page.getByTestId('diagnostics-button').click();
     await expect(page.getByTestId('diagnostics-dialog')).toBeVisible({ timeout: 5000 });
 

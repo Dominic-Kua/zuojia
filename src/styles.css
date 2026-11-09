@@ -206,6 +206,22 @@ body{
 .layout-controls .btn-sm{padding:4px 10px;font-size:12px}
 .layout-controls .btn-sm[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--muted-accent)}
 .pane-restore{align-self:center;flex:0 0 auto;white-space:nowrap}
+.app-menu{position:relative}
+.app-menu-trigger{white-space:nowrap}
+.app-menu-panel{position:absolute;top:calc(100% + 8px);left:0;z-index:1200;min-width:220px;max-width:min(360px, calc(100vw - 24px));max-height:min(70vh, 560px);overflow:auto;padding:8px;border:1px solid var(--divider-strong);border-radius:var(--radius-md);background:var(--sidebar-surface);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;gap:4px}
+.app-menu-panel[hidden]{display:none}
+.app-menu-panel.right{left:auto;right:0}
+.app-menu-section{display:flex;flex-direction:column;gap:4px;padding:4px 0}
+.app-menu-section + .app-menu-section{border-top:1px solid var(--divider);margin-top:4px;padding-top:8px}
+.app-menu-heading{padding:2px 8px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint)}
+.app-menu-row{display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:var(--radius-sm)}
+.app-menu-row:hover{background:color-mix(in srgb, var(--accent) 6%, transparent)}
+.app-menu-panel .btn{width:100%;justify-content:flex-start;border-color:transparent;background:transparent;box-shadow:none}
+.app-menu-panel .btn:hover:not(:disabled){background:color-mix(in srgb, var(--accent) 8%, transparent);border-color:transparent}
+.app-menu-panel .btn.primary{color:var(--accent-strong)}
+.app-menu-panel .font-size-controls,.app-menu-panel .layout-controls{width:100%;justify-content:space-between;border-left:0;margin-left:0;padding:4px 8px}
+.app-menu-panel .layout-controls{flex-wrap:wrap;justify-content:flex-start}
+.app-menu-panel .layout-controls .btn,.app-menu-panel .font-size-controls .btn{width:auto}
 /* Focus mode: hide surrounding chrome but keep it mounted so layout,
    chat, and editor state survive; nothing here is persisted. */
 .app-shell.focus-mode .topbar,

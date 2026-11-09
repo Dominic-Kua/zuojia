@@ -29,15 +29,27 @@ export function SettingsModal({
   theme = 'light',
   seasonalThemePreference = 'off',
   onSaveAppearance = () => {},
+  open: controlledOpen,
+  onOpenChange,
+  hideTrigger = false,
+  initialTab = 'git',
 }) {
-  const [showDialog, setShowDialog] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const showDialog = isControlled ? controlledOpen : uncontrolledOpen;
+  const setShowDialog = (value) => {
+    const next = typeof value === 'function' ? value(showDialog) : value;
+    if (!isControlled) setUncontrolledOpen(next);
+    if (next === false) onOpenChange?.(false);
+    if (next === true) onOpenChange?.(true);
+  };
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [llmSettings, setLlmSettings] = useState(DEFAULT_LLM_SETTINGS);
   const [llmStatus, setLlmStatus] = useState('stopped');
-  const [activeTab, setActiveTab] = useState('git');
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [appearanceSettings, setAppearanceSettings] = useState({ theme, seasonalThemePreference });
   const [dirtySettings, setDirtySettings] = useState({ git: false, llm: false, appearance: false });
 
@@ -63,10 +75,10 @@ export function SettingsModal({
     return null;
   }
 
-  const handleOpen = async () => {
-    setShowDialog(true);
+  const loadDialog = async (tab = initialTab) => {
     setIsLoading(true);
     setError(null);
+    setActiveTab(tab);
     setAppearanceSettings({ theme, seasonalThemePreference });
     setDirtySettings({ git: false, llm: false, appearance: false });
     try {
@@ -74,9 +86,9 @@ export function SettingsModal({
         gitHandlers.getConfig(novelPath),
         llmHandlers.getConfig(),
       ]);
-      
+
       setSettings({ ...DEFAULT_SETTINGS, ...(loadedGit.status === 'fulfilled' ? loadedGit.value : {}) });
-      
+
       if (loadedLlm.status === 'fulfilled') {
         setLlmSettings({ ...DEFAULT_LLM_SETTINGS, ...loadedLlm.value });
       }
@@ -88,6 +100,19 @@ export function SettingsModal({
       setIsLoading(false);
     }
   };
+
+  const handleOpen = async () => {
+    setShowDialog(true);
+    await loadDialog(initialTab);
+  };
+
+  useEffect(() => {
+    if (showDialog) {
+      loadDialog(activeTab || initialTab);
+    }
+    // Only react to dialog opening/initial tab from parent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showDialog]);
 
   const handleClose = () => {
     if (isSaving) {
@@ -215,9 +240,11 @@ export function SettingsModal({
 
   return (
     <>
-      <button className="btn ghost" data-testid="settings-button" onClick={handleOpen}>
-        Settings
-      </button>
+      {!hideTrigger && (
+        <button className="btn ghost" data-testid="settings-button" onClick={handleOpen}>
+          Settings
+        </button>
+      )}
 
       {showDialog && (
         <div className="snapshot-overlay" data-testid="settings-overlay" onClick={handleClose}>

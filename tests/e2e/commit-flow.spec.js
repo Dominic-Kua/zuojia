@@ -66,6 +66,7 @@ test.describe('Story 4.2: Manual Commit Flow', () => {
       }
     ).toBe('ok');
 
+    await page.getByTestId('novel-menu').click();
     await page.getByTestId('commit-button').click();
     await expect(page.getByTestId('commit-dialog')).toBeVisible({ timeout: 5000 });
 

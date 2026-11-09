@@ -15,7 +15,8 @@ async function createNovelThroughUI(page, novelName) {
 
 async function openStorymap(app, page) {
   const windowPromise = app.waitForEvent('window', { timeout: 10000 });
-  await page.getByTestId('open-storymap-button').click();
+  await page.getByTestId('novel-menu').click();
+    await page.getByTestId('open-storymap-button').click();
   const storymapPage = await windowPromise;
   storymapPage.storymapRuntimeErrors = [];
   storymapPage.on('pageerror', (error) => storymapPage.storymapRuntimeErrors.push(error.message));
@@ -451,9 +452,11 @@ test.describe('Story Map E2E', () => {
     storymapPage = await openStorymap(app, page);
     await expect.poll(async () => storymapPage.locator('html').getAttribute('data-theme')).toBe('light');
 
+    await page.getByTestId('view-menu').click();
     await page.getByRole('button', { name: 'Dark Mode' }).click();
     await expect.poll(async () => storymapPage.locator('html').getAttribute('data-theme')).toBe('dark');
 
+    await page.getByTestId('view-menu').click();
     await page.getByRole('button', { name: 'Light Mode' }).click();
     await expect.poll(async () => storymapPage.locator('html').getAttribute('data-theme')).toBe('light');
   });
@@ -477,6 +480,7 @@ test.describe('Story Map E2E', () => {
     await expect.poll(() => canvasHasColorNear(storymapPage, scenePixel.x, scenePixel.y, '#fdfcf9', 15)).toBe(true);
     await expect.poll(() => canvasHasColorNear(storymapPage, arcPixel.x, arcPixel.y, lightArcColor, 40)).toBe(true);
 
+    await page.getByTestId('view-menu').click();
     await page.getByRole('button', { name: 'Dark Mode' }).click();
     await expect.poll(async () => storymapPage.locator('html').getAttribute('data-theme')).toBe('dark');
     data = await readStorymap(novelPath);
