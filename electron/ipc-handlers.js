@@ -3,7 +3,7 @@ import fs from 'fs'
 import { readdir, readFile, stat, writeFile } from 'fs/promises'
 import os from 'os'
 import path from 'path'
-import { createNovel, getIndex, validateNovel, rebuildIndex, readChapter, writeChapter } from '../helper/src/index/index.js'
+import { createNovel, getIndex, validateNovel, rebuildIndex, setChapterOrder, readChapter, writeChapter } from '../helper/src/index/index.js'
 import { commitChapter, createManualCommit, getCommitHistory, listChangedFiles } from '../helper/src/git/commit.js';
 import { getGitSettings, saveGitSettings } from '../helper/src/git/config.js';
 import { pushToRemote } from '../helper/src/git/push.js';
@@ -269,6 +269,20 @@ export function registerHandlers() {
     'helper:index:rebuild',
     wrapHandler(async ({ novelPath }) => {
       return await rebuildIndex(novelPath);
+    })
+  );
+
+  ipcMain.handle(
+    'helper:index:setChapterOrder',
+    wrapHandler(async ({ novelPath, orderedFilenames }) => {
+      if (!Array.isArray(orderedFilenames)) {
+        return {
+          status: 'error',
+          error: { code: 'INVALID_INPUT', message: 'orderedFilenames must be an array' },
+          timestamp: new Date().toISOString(),
+        };
+      }
+      return await setChapterOrder(novelPath, orderedFilenames);
     })
   );
 

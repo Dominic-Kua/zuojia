@@ -11,6 +11,7 @@ export function SceneNotesPanel({
   onChange,
   onClose,
   onOpenWikiPage,
+  onOpenChapter,
 }) {
   const panelRef = useRef(null);
   const charactersInputRef = useRef(null);
@@ -122,8 +123,8 @@ export function SceneNotesPanel({
           {isCurrent ? 'Current scene' : 'Mark as current'}
         </button>
         <label>
-          <span>Chapter</span>
-          <select value={scene.chapterId || ''} onChange={handleChapterChange}>
+          <span>Draft chapter</span>
+          <select value={scene.chapterId || ''} onChange={handleChapterChange} data-testid="scene-chapter-select">
             <option value="">Unassigned</option>
             {chapters.map((chapter) => (
               <option key={chapter.id} value={chapter.id}>
@@ -132,6 +133,16 @@ export function SceneNotesPanel({
             ))}
           </select>
         </label>
+        {scene.chapterId && typeof onOpenChapter === 'function' && (
+          <button
+            type="button"
+            className="btn ghost btn-sm"
+            data-testid="scene-open-draft"
+            onClick={() => onOpenChapter(scene.chapterId)}
+          >
+            Open draft in manuscript
+          </button>
+        )}
         <label>
           <span>Location</span>
           <input
@@ -172,6 +183,39 @@ export function SceneNotesPanel({
               ))}
             </ul>
           )}
+        </label>
+        <label>
+          <span>POV</span>
+          <input
+            type="text"
+            value={scene.pov || ''}
+            onChange={(event) => updateField('pov', event.target.value)}
+            placeholder="Point of view character"
+            data-testid="scene-pov-input"
+          />
+        </label>
+        <label>
+          <span>Status</span>
+          <select
+            value={scene.status || 'planned'}
+            onChange={(event) => updateField('status', event.target.value)}
+            data-testid="scene-status-select"
+          >
+            <option value="planned">Planned</option>
+            <option value="drafting">Drafting</option>
+            <option value="revised">Revised</option>
+            <option value="done">Done</option>
+          </select>
+        </label>
+        <label>
+          <span>Scene goal</span>
+          <input
+            type="text"
+            value={scene.sceneGoal || ''}
+            onChange={(event) => updateField('sceneGoal', event.target.value)}
+            placeholder="What should this scene accomplish?"
+            data-testid="scene-goal-input"
+          />
         </label>
         <label>
           <span>Tension</span>

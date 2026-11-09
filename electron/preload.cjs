@@ -11,11 +11,14 @@ const ALLOWED_INVOKE_CHANNELS = new Set([
   'helper:index:get',
   'helper:index:validate',
   'helper:index:rebuild',
+  'helper:index:setChapterOrder',
   // Storymap
   'helper:storymap:load',
   'helper:storymap:save',
   'storymap-window:open',
   'storymap:open-wiki-page',
+  'storymap:open-chapter',
+  'storymap:notify-index-updated',
   // Chapters
   'helper:chapter:read',
   'helper:chapter:write',

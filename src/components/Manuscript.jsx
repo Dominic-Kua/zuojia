@@ -850,6 +850,27 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
     }
   }, [applyEditorContent, chapters, handleBeforeSwitch, markContentSaved, novelPath, refresh, saveChapter, setCurrentChapter, updateContent])
 
+  useEffect(() => {
+    const handler = (event) => {
+      const filename = event.detail;
+      if (typeof filename === 'string' && filename) {
+        handleChapterSelect(filename);
+      }
+    };
+    window.addEventListener('zuojia:open-chapter', handler);
+    return () => window.removeEventListener('zuojia:open-chapter', handler);
+  }, [handleChapterSelect]);
+
+  useEffect(() => {
+    const handler = (event) => {
+      if (event.detail === novelPath && novelPath) {
+        refresh();
+      }
+    };
+    window.addEventListener('zuojia:index-updated', handler);
+    return () => window.removeEventListener('zuojia:index-updated', handler);
+  }, [novelPath, refresh]);
+
   const handleInput = (e) => {
     // Extract content from contentEditable, preserving wiki link markers and
     // line breaks, using the shared serializeEditorDom helper.

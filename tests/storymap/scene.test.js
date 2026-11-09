@@ -14,15 +14,24 @@ describe('storymap-model createScene', () => {
     expect(scene.chapterId).toBeNull();
     expect(scene.chronologyDate).toBe('Day 0 Year 0');
     expect(scene.tension).toBe('');
+    expect(scene.pov).toBe('');
+    expect(scene.status).toBe('planned');
+    expect(scene.sceneGoal).toBe('');
   });
 
   it('creates a scene with overrides', () => {
-    const scene = createScene({ title: 'Opening', x: 10, y: 20, chapterId: 'chapter-1', chronologyDate: 'Day -15 Year 3' });
+    const scene = createScene({
+      title: 'Opening', x: 10, y: 20, chapterId: 'chapter-1', chronologyDate: 'Day -15 Year 3',
+      pov: 'Alice', status: 'drafting', sceneGoal: 'Establish the stakes',
+    });
     expect(scene.title).toBe('Opening');
     expect(scene.x).toBe(10);
     expect(scene.y).toBe(20);
     expect(scene.chapterId).toBe('chapter-1');
     expect(scene.chronologyDate).toBe('Day -15 Year 3');
+    expect(scene.pov).toBe('Alice');
+    expect(scene.status).toBe('drafting');
+    expect(scene.sceneGoal).toBe('Establish the stakes');
   });
 
   it('parses signed relative chronology values from the beginning of the novel', () => {

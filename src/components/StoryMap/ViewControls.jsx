@@ -19,6 +19,15 @@ export function ViewControls({ view, split, onChangeView, onToggleSplit }) {
       >
         Temporal
       </button>
+      <button
+        type="button"
+        className={`btn btn-sm ${view === 'outline' ? 'primary' : 'ghost'}`}
+        aria-pressed={view === 'outline'}
+        data-testid="storymap-view-outline"
+        onClick={() => onChangeView('outline')}
+      >
+        Outline
+      </button>
       {view === 'temporal' && (
         <button
           type="button"

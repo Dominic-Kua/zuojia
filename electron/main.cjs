@@ -183,6 +183,34 @@ function registerWindowHandlers() {
     }
     return { status: 'ok', data: { sent: true } };
   });
+
+  ipcMain.handle('storymap:open-chapter', (event, filename) => {
+    if (typeof filename !== 'string' || filename.length === 0) {
+      return { status: 'error', error: { code: 'INVALID_INPUT', message: 'filename is required' } };
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const serialized = JSON.stringify(filename);
+      mainWindow.webContents.executeJavaScript(
+        `window.dispatchEvent(new CustomEvent('zuojia:open-chapter', { detail: ${serialized} }));`
+      ).catch((err) => console.error('[storymap] failed to dispatch chapter open request:', err));
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+    return { status: 'ok', data: { sent: true } };
+  });
+
+  ipcMain.handle('storymap:notify-index-updated', (event, novelPath) => {
+    if (typeof novelPath !== 'string' || novelPath.length === 0) {
+      return { status: 'error', error: { code: 'INVALID_INPUT', message: 'novelPath is required' } };
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const serialized = JSON.stringify(novelPath);
+      mainWindow.webContents.executeJavaScript(
+        `window.dispatchEvent(new CustomEvent('zuojia:index-updated', { detail: ${serialized} }));`
+      ).catch((err) => console.error('[storymap] failed to dispatch index update:', err));
+    }
+    return { status: 'ok', data: { sent: true } };
+  });
 }
 
 async function main() {

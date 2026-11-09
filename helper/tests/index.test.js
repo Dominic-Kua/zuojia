@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import { mkdir, rm, readFile, writeFile } from 'fs/promises';
-import { createNovel, getIndex, validateNovel, rebuildIndex, readChapter, writeChapter } from '../src/index/index.js';
+import { createNovel, getIndex, validateNovel, rebuildIndex, readChapter, writeChapter, setChapterOrder } from '../src/index/index.js';
 import { commitChapter } from '../src/git/commit.js';
 import { fileURLToPath } from 'url';
 
@@ -465,6 +465,74 @@ describe('Index Operations', () => {
       expect(absoluteResult.status).toEqual('error');
       expect(absoluteResult.error).toBeDefined();
       expect(fs.existsSync(absoluteFilename)).toBe(false);
+    });
+  });
+
+  describe('chapter order', () => {
+    it('rebuildIndex preserves existing chapter order and appends new chapters', async () => {
+      const novelName = 'order-preserve';
+      const novelPath = path.join(TEST_HOME, novelName);
+      await createNovel(novelName, TEST_HOME);
+      const manuscriptPath = path.join(novelPath, 'manuscript');
+      await writeFile(path.join(manuscriptPath, 'chapter-01.md'), '# One\n\nA');
+      await writeFile(path.join(manuscriptPath, 'chapter-02.md'), '# Two\n\nB');
+      await writeFile(path.join(manuscriptPath, 'chapter-03.md'), '# Three\n\nC');
+
+      await rebuildIndex(novelPath);
+      // Manually reorder to c,a,b to simulate user order.
+      const indexPath = path.join(novelPath, 'meta', 'index.json');
+      const index = JSON.parse(await readFile(indexPath, 'utf-8'));
+      index.chapters = [
+        index.chapters.find((c) => c.filename === 'chapter-03.md'),
+        index.chapters.find((c) => c.filename === 'chapter-01.md'),
+        index.chapters.find((c) => c.filename === 'chapter-02.md'),
+      ];
+      await writeFile(indexPath, JSON.stringify(index, null, 2));
+
+      // Add a new chapter file; rebuild should append it after preserved order.
+      await writeFile(path.join(manuscriptPath, 'chapter-04.md'), '# Four\n\nD');
+      const rebuilt = await rebuildIndex(novelPath);
+
+      expect(rebuilt.status).toBe('ok');
+      expect(rebuilt.data.chapters.map((c) => c.filename)).toEqual([
+        'chapter-03.md',
+        'chapter-01.md',
+        'chapter-02.md',
+        'chapter-04.md',
+      ]);
+    });
+
+    it('setChapterOrder writes chapters in the requested order and keeps unlisted files', async () => {
+      const novelName = 'set-order';
+      const novelPath = path.join(TEST_HOME, novelName);
+      await createNovel(novelName, TEST_HOME);
+      const manuscriptPath = path.join(novelPath, 'manuscript');
+      await writeFile(path.join(manuscriptPath, 'chapter-01.md'), '# One\n\nA');
+      await writeFile(path.join(manuscriptPath, 'chapter-02.md'), '# Two\n\nB');
+      await writeFile(path.join(manuscriptPath, 'chapter-03.md'), '# Three\n\nC');
+      await rebuildIndex(novelPath);
+
+      const result = await setChapterOrder(novelPath, ['chapter-03.md', 'chapter-01.md']);
+      expect(result.status).toBe('ok');
+      // chapter-02 was unlisted; it must still be present (appended) so markdown isn't hidden.
+      expect(result.data.chapters.map((c) => c.filename)).toEqual([
+        'chapter-03.md',
+        'chapter-01.md',
+        'chapter-02.md',
+      ]);
+      expect(result.data.chapters[0].title).toBe('Three');
+      expect(result.data.chapters[0]).toHaveProperty('wordCount');
+    });
+
+    it('setChapterOrder rejects missing chapter files', async () => {
+      const novelName = 'set-order-missing';
+      const novelPath = path.join(TEST_HOME, novelName);
+      await createNovel(novelName, TEST_HOME);
+      await rebuildIndex(novelPath);
+
+      const result = await setChapterOrder(novelPath, ['missing.md']);
+      expect(result.status).toBe('error');
+      expect(result.error.code).toBe('ENOENT');
     });
   });
 

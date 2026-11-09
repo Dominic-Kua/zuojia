@@ -51,6 +51,37 @@ describe('SceneNotesPanel', () => {
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ tension: 'Whether Mara should trust the council' }));
   });
 
+  it('edits POV, status, and scene goal metadata', () => {
+    const onChange = vi.fn();
+    render(<SceneNotesPanel scene={scene} onChange={onChange} onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByTestId('scene-pov-input'), { target: { value: 'Mara' } });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ pov: 'Mara' }));
+
+    fireEvent.change(screen.getByTestId('scene-status-select'), { target: { value: 'drafting' } });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'drafting' }));
+
+    fireEvent.change(screen.getByTestId('scene-goal-input'), { target: { value: 'Reveal the betrayal' } });
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ sceneGoal: 'Reveal the betrayal' }));
+  });
+
+  it('links an assigned scene to its draft chapter and can open it', () => {
+    const onOpenChapter = vi.fn();
+    render(
+      <SceneNotesPanel
+        scene={{ ...scene, chapterId: 'chapter-01.md' }}
+        chapters={[{ id: 'chapter-01.md', title: 'Chapter 1' }]}
+        onChange={vi.fn()}
+        onClose={vi.fn()}
+        onOpenChapter={onOpenChapter}
+      />
+    );
+
+    expect(screen.getByTestId('scene-chapter-select')).toHaveValue('chapter-01.md');
+    fireEvent.click(screen.getByTestId('scene-open-draft'));
+    expect(onOpenChapter).toHaveBeenCalledWith('chapter-01.md');
+  });
+
   it('calls onClose when close button is clicked', () => {
     const onClose = vi.fn();
     render(<SceneNotesPanel scene={scene} onChange={vi.fn()} onClose={onClose} />);

@@ -49,6 +49,7 @@ export const indexHandlers = {
   getIndex: (novelPath) => invokeHandler('helper:index:get', { novelPath }),
   validateNovel: (novelPath) => invokeHandler('helper:index:validate', { novelPath }),
   rebuildIndex: (novelPath) => invokeHandler('helper:index:rebuild', { novelPath }),
+  setChapterOrder: (novelPath, orderedFilenames) => invokeHandler('helper:index:setChapterOrder', { novelPath, orderedFilenames }),
 };
 
 export const storymapHandlers = {
@@ -59,6 +60,8 @@ export const storymapHandlers = {
 export const storymapWindowHandlers = {
   open: (novelPath) => invokeHandler('storymap-window:open', novelPath),
   openWikiPage: (slug) => invokeHandler('storymap:open-wiki-page', slug),
+  openChapter: (filename) => invokeHandler('storymap:open-chapter', filename),
+  notifyIndexUpdated: (novelPath) => invokeHandler('storymap:notify-index-updated', novelPath),
 };
 
 export const chapterHandlers = {
