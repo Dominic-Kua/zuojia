@@ -87,6 +87,17 @@ describe('spellcheck helpers', () => {
     expect(updated).toBe('Alice met another Alice, but Malisen stayed behind.');
   });
 
+  it('replaces accented words using Unicode-aware boundaries', async () => {
+    const { replaceMisspelledWord } = await import('../../../src/lib/spellcheck.js');
+    const updated = replaceMisspelledWord(
+      'Mbacké met Mbackéx and then Mbacké left.',
+      'Mbacké',
+      'Mbake'
+    );
+
+    expect(updated).toBe('Mbake met Mbackéx and then Mbake left.');
+  });
+
   it('uses UK English dictionary conventions', async () => {
     const { findMisspelledWords } = await import('../../../src/lib/spellcheck.js');
     const misspelled = await findMisspelledWords('The colour is bright but the color is odd.', []);

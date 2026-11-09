@@ -70,7 +70,9 @@ export function replaceMisspelledWord(text, originalWord, replacementWord) {
     return text || '';
   }
 
-  const pattern = new RegExp(`\\b${escapeRegExp(originalWord)}\\b`, 'gi');
+  // Unicode-aware boundaries so accented words (e.g. Mbacké) are matched correctly.
+  const escaped = escapeRegExp(originalWord);
+  const pattern = new RegExp(`(?<![\\p{L}\\p{N}'\u2019-])${escaped}(?![\\p{L}\\p{N}'\u2019-])`, 'giu');
   return text.replace(pattern, (match) => applyCasing(match, replacementWord));
 }
 

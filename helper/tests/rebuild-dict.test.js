@@ -63,6 +63,15 @@ describe('Spellcheck Dictionary Rebuild', () => {
       expect(result.data.words).toContain('Shire');
     });
 
+    it('preserves accented letters in wiki titles', async () => {
+      await createWikiPage(testDir, 'Mbacké', '# Mbacké\n\nA character name with an accent.');
+
+      const result = await rebuildSpellcheckDict(testDir);
+
+      expect(result.status).toBe('ok');
+      expect(result.data.words).toContain('Mbacké');
+    });
+
     it('normalizes words by splitting on whitespace and punctuation', async () => {
       await createWikiPage(testDir, "Bob's Place (The Tavern)", "# Bob's Place (The Tavern)\n\nContent");
 
@@ -215,6 +224,17 @@ describe('Spellcheck Dictionary Rebuild', () => {
       expect(result.data.word).toBe('Eldorwyn');
       expect(result.data.words).toContain('Eldorwyn');
       expect(result.data.customWords).toContain('Eldorwyn');
+    });
+
+    it('accepts accented Unicode letters', async () => {
+      await rebuildSpellcheckDict(testDir);
+
+      const result = await addWordToSpellcheckDict(testDir, 'Mbacké');
+
+      expect(result.status).toBe('ok');
+      expect(result.data.word).toBe('Mbacké');
+      expect(result.data.words).toContain('Mbacké');
+      expect(result.data.customWords).toContain('Mbacké');
     });
 
     it('is idempotent for duplicate words (case-insensitive)', async () => {
