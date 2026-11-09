@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import WikiPageList from './WikiSidebar/WikiPageList'
 import { useWikiPages } from '../hooks/useWikiPages'
-import { useGitHistory } from '../hooks/useGitHistory'
 import { wikiHandlers, gitHandlers } from '../lib/ipc-client'
 import { resolveSlug } from '../lib/wiki-link-parser'
 import { buildWikiAssetUrl } from '../lib/wiki-asset-path'
@@ -19,7 +18,6 @@ const escapeHtml = (value) => {
 
 export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggleWikiDetached, isFloating = false, onWikiPageConsumed }){
   const { pages, loading, error, createPage, deletePage, renamePage, search } = useWikiPages(novelPath);
-  const { commits, loading: isLoadingHistory, error: historyError } = useGitHistory(novelPath, 5);
   const [selectedSlug, setSelectedSlug] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -706,24 +704,7 @@ export default function Sidebar({ novelPath, openPageSlug, wikiDetached, onToggl
           )}
         </div>
       </div>
-      <div className="sidebar-section muted">
-        <h3>Version</h3>
-        {isLoadingHistory && <div className="sidebar-muted-copy">Loading commits...</div>}
-        {!isLoadingHistory && historyError && <div className="error-message">{historyError}</div>}
-        {!isLoadingHistory && !historyError && commits.length === 0 && (
-          <div className="sidebar-muted-copy">No commits yet.</div>
-        )}
-        {!isLoadingHistory && !historyError && commits.length > 0 && (
-          <div className="commit-history-list" data-testid="commit-history-list">
-            {commits.map((commit) => (
-              <div key={commit.hash} className="commit-history-item">
-                <span className="commit-history-hash">{commit.hash}</span>
-                <span className="commit-history-message">{commit.message}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+
       <div className="sidebar-section muted">
         <h3>Sync Status</h3>
         {!isGitRepo ? (
