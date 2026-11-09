@@ -262,6 +262,15 @@ body{
 .writing-goal-history li>span:last-child{width:48px;text-align:right;font-variant-numeric:tabular-nums}
 .writing-goal-history-bar{height:8px;flex:1;overflow:hidden;border-radius:var(--radius-pill);background:var(--divider)}
 .writing-goal-history-bar span{display:block;height:100%;border-radius:inherit;background:var(--accent)}
+.read-aloud{display:flex;align-items:center;flex-wrap:wrap;gap:8px;width:100%;padding-top:8px;border-top:1px solid var(--divider);font-size:12.5px;color:var(--text-secondary)}
+.read-aloud-label{font-weight:600;color:var(--text-primary)}
+.read-aloud-actions{display:flex;flex-wrap:wrap;gap:4px}
+.read-aloud-setting{display:inline-flex;align-items:center;gap:4px}
+.read-aloud-setting select{max-width:220px;padding:3px 6px;border-radius:var(--radius-sm);border:1px solid var(--divider-strong);background:var(--manuscript-surface);color:var(--text-primary);font-size:12px}
+.read-aloud-status{flex:1 1 220px;min-width:180px;padding:4px 8px;border-radius:var(--radius-sm);background:color-mix(in srgb, var(--accent) 6%, transparent);color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.read-aloud-unsupported{color:var(--text-faint);font-style:italic}
+.editor-reading-aloud{caret-color:transparent;cursor:default}
+.editor-reading-aloud::selection,.editor-reading-aloud *::selection{background:color-mix(in srgb, var(--accent) 28%, transparent)}
 .editor{font-family:'Merriweather', Georgia, serif;font-size:18px;line-height:1.75;color:var(--text-primary);min-height:0;flex:1;overflow:auto;padding-bottom:16px;white-space:pre-wrap;caret-color:var(--accent)}
 .editor:focus{outline:none}
 .sidebar{padding-top:8px;flex:0 0 auto;min-width:0;height:calc(100vh - 56px - 48px)}

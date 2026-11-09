@@ -6,7 +6,9 @@ import { useWordCount } from '../hooks/useWordCount'
 import { useWikiLinks } from '../hooks/useWikiLinks'
 import { WikiLinkPopover } from './WikiLinkPopover'
 import { WritingGoals } from './WritingGoals'
+import ReadAloudControls from './ReadAloudControls'
 import { findSpellingIssues, replaceMisspelledWord, escapeRegExp as escapeForRegex } from '../lib/spellcheck.js'
+import { getSpeechSelectionText } from '../lib/text-to-speech.js'
 import { indexHandlers, wikiHandlers } from '../lib/ipc-client'
 
 const DEFAULT_CHAPTER_FILENAME = 'chapter-01.md'
@@ -167,6 +169,8 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
   const [spellcheckPanelHeight, setSpellcheckPanelHeight] = useState(260)
   const [isResizingSpellcheck, setIsResizingSpellcheck] = useState(false)
   const [loadError, setLoadError] = useState(null)
+  const [isReadingAloud, setIsReadingAloud] = useState(false)
+  const readAloudCursorRef = useRef(0)
 
   const {
     chapters,
@@ -883,6 +887,79 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
     setIsResizingSpellcheck(true)
   }
 
+  const stripWikiMarkers = useCallback((text) => (
+    String(text || '').replace(/\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/g, (_, target, display) => display || target)
+  ), [])
+
+  const getReadAloudText = useCallback(() => {
+    const editor = editorRef.current
+    const selected = getSpeechSelectionText(window.getSelection?.(), editor)
+    if (selected) return selected
+    return stripWikiMarkers(content || '')
+  }, [content, stripWikiMarkers])
+
+  const handleReadAloudActiveUnit = useCallback((unit, index, total, status) => {
+    const active = Boolean(unit) && (status === 'playing' || status === 'paused')
+    setIsReadingAloud(active)
+    if (!active) {
+      readAloudCursorRef.current = 0
+      // Keep the editor's normal selection/highlighting behavior; avoid forcing
+      // a synthetic caret move when playback ends.
+      return
+    }
+
+    const editor = editorRef.current
+    if (!editor || !unit?.text) return
+    try {
+      const selection = window.getSelection?.()
+      if (!selection) return
+      const haystack = editor.innerText || editor.textContent || ''
+      const needle = String(unit.text).replace(/\s+/g, ' ').trim()
+      if (!needle) return
+      const normalizedHaystack = haystack.replace(/\s+/g, ' ')
+      let start = normalizedHaystack.indexOf(needle, readAloudCursorRef.current)
+      if (start === -1) start = normalizedHaystack.indexOf(needle)
+      if (start === -1) return
+      readAloudCursorRef.current = start + needle.length
+
+      // Best-effort DOM selection for in-manuscript follow: walk text nodes and
+      // select the matching character span in textContent order.
+      const range = document.createRange()
+      let current = 0
+      let startNode = null
+      let startOffset = 0
+      let endNode = null
+      let endOffset = 0
+      const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT)
+      let node = walker.nextNode()
+      while (node) {
+        const value = node.textContent || ''
+        const next = current + value.length
+        if (!startNode && start < next) {
+          startNode = node
+          startOffset = Math.max(0, start - current)
+        }
+        const end = start + needle.length
+        if (startNode && end <= next) {
+          endNode = node
+          endOffset = Math.max(0, end - current)
+          break
+        }
+        current = next
+        node = walker.nextNode()
+      }
+      if (startNode && endNode) {
+        range.setStart(startNode, startOffset)
+        range.setEnd(endNode, endOffset)
+        selection.removeAllRanges()
+        selection.addRange(range)
+        startNode.parentElement?.scrollIntoView?.({ block: 'nearest' })
+      }
+    } catch {
+      // Visible follow is best-effort; status text remains the source of truth.
+    }
+  }, [])
+
   return (
     <div className="manuscript-inner">
       {popoverState && (
@@ -911,12 +988,17 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
           <span>Today: {todayCount.toLocaleString()}</span>
         </div>
         <WritingGoals novelPath={novelPath} manuscriptCount={manuscriptCount} todayCount={todayCount} />
+        <ReadAloudControls
+          key={currentChapter || 'none'}
+          getText={getReadAloudText}
+          onActiveUnitChange={handleReadAloudActiveUnit}
+        />
       </div>
       <article
-        className="editor"
+        className={`editor${isReadingAloud ? ' editor-reading-aloud' : ''}`}
         ref={editorRef}
         style={{ fontSize: `${editorFontSize}px` }}
-        contentEditable
+        contentEditable={!isReadingAloud}
         spellCheck={false}
         autoCorrect="off"
         autoCapitalize="off"
@@ -925,7 +1007,9 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
         onCompositionEnd={handleCompositionEnd}
         onBlur={handleEditorBlur}
         aria-busy={loading || isLoadingChapter}
+        aria-readonly={isReadingAloud || undefined}
         data-testid="manuscript-editor"
+        data-reading-aloud={isReadingAloud || undefined}
       />
       <section
         className="spellcheck-panel"
