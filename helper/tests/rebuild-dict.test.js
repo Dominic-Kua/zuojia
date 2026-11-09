@@ -63,6 +63,37 @@ describe('Spellcheck Dictionary Rebuild', () => {
       expect(result.data.words).toContain('Shire');
     });
 
+    it('preserves accented, Nordic, and ligature letters in wiki titles', async () => {
+      const titles = [
+        'Mbacké',      // acute accent
+        'Åse Sørensen', // Nordic ring, ø
+        'Björk Guðmundsdóttir', // umlaut, ð
+        'Æthelred',    // ash ligature letter
+        'Œuvre',       // œ ligature letter
+        'François',    // cedilla
+        'Łukasz Żółć', // Polish strokes/dots (ogonek/acute/dot)
+        'Zoë Dvořák',  // diaeresis, caron
+      ];
+
+      for (const title of titles) {
+        await createWikiPage(testDir, title, `# ${title}\n\nCharacter.`);
+      }
+
+      const result = await rebuildSpellcheckDict(testDir);
+
+      expect(result.status).toBe('ok');
+      expect(result.data.words).toEqual(expect.arrayContaining([
+        'Mbacké',
+        'Åse', 'Sørensen',
+        'Björk', 'Guðmundsdóttir',
+        'Æthelred',
+        'Œuvre',
+        'François',
+        'Łukasz', 'Żółć',
+        'Zoë', 'Dvořák',
+      ]));
+    });
+
     it('normalizes words by splitting on whitespace and punctuation', async () => {
       await createWikiPage(testDir, "Bob's Place (The Tavern)", "# Bob's Place (The Tavern)\n\nContent");
 
@@ -215,6 +246,37 @@ describe('Spellcheck Dictionary Rebuild', () => {
       expect(result.data.word).toBe('Eldorwyn');
       expect(result.data.words).toContain('Eldorwyn');
       expect(result.data.customWords).toContain('Eldorwyn');
+    });
+
+    it('accepts accented, Nordic, and ligature Unicode letters', async () => {
+      await rebuildSpellcheckDict(testDir);
+
+      const words = [
+        'Mbacké',       // acute
+        'Señorita',     // tilde
+        'Ångström',     // Nordic ring + umlaut
+        'Søren',        // Nordic ø
+        'Þrúðr',        // Icelandic thorn
+        'Æsir',         // ash ligature letter
+        'Cœur',         // œ ligature letter (French)
+        'François',     // cedilla
+        'Łukasz',       // stroke
+        'Dvořák',       // caron + acute
+        "O'Björk",      // apostrophe + umlaut
+      ];
+
+      for (const word of words) {
+        const result = await addWordToSpellcheckDict(testDir, word);
+        expect(result.status, `add "${word}"`).toBe('ok');
+        expect(result.data.word, `word "${word}"`).toBe(word);
+        expect(result.data.customWords, `customWords "${word}"`).toContain(word);
+      }
+
+      const dict = await getSpellcheckDict(testDir);
+      expect(dict.status).toBe('ok');
+      for (const word of words) {
+        expect(dict.data.words, `dict contains "${word}"`).toContain(word);
+      }
     });
 
     it('is idempotent for duplicate words (case-insensitive)', async () => {

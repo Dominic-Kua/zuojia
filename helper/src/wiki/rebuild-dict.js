@@ -43,8 +43,8 @@ function validateDictionaryWord(word) {
   const trimmed = word.trim();
   if (!trimmed) return null;
 
-  // Match the same lexical shape as spellcheck tokenization.
-  if (!/^[A-Za-z][A-Za-z'-]*$/.test(trimmed)) {
+  // Match the same lexical shape as spellcheck tokenization (Unicode-aware).
+  if (!/^\p{L}[\p{L}'\u2019-]*$/u.test(trimmed)) {
     return null;
   }
 
@@ -103,18 +103,19 @@ function extractTitle(content) {
 }
 
 /**
- * Extract words from a title by splitting on whitespace and removing punctuation
+ * Extract words from a title by splitting on whitespace and removing punctuation.
+ * Preserves Unicode letters (e.g. accented names) and apostrophes/hyphens.
  * @param {string} title - Wiki page title
  * @returns {Array<string>} Array of words
  */
 function extractWordsFromTitle(title) {
   return (
     title
-      // Replace punctuation with spaces
-      .replace(/[^\w\s-]/g, ' ')
+      // Replace punctuation/symbols (including apostrophes) with spaces, keeping Unicode letters, numbers, hyphens.
+      .replace(/[^\p{L}\p{N}\s-]/gu, ' ')
       // Split on whitespace
       .split(/\s+/)
-      // Filter out empty strings and hyphens
+      // Filter out empty strings and bare hyphens
       .filter((word) => word.length > 0 && word !== '-')
   );
 }
