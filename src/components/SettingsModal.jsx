@@ -254,6 +254,8 @@ export function SettingsModal({
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-dialog-title"
+            tabIndex={-1}
+            onKeyDown={(event) => { if (event.key === 'Escape') handleClose(); }}
             onClick={(event) => event.stopPropagation()}
           >
             <h3 id="settings-dialog-title">Settings</h3>

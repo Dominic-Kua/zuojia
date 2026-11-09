@@ -293,6 +293,7 @@ body{
 .editor-reading-aloud::selection,.editor-reading-aloud *::selection{background:color-mix(in srgb, var(--accent) 28%, transparent)}
 .editor{font-family:'Merriweather', Georgia, serif;font-size:18px;line-height:1.75;color:var(--text-primary);min-height:0;flex:1;overflow:auto;padding-bottom:16px;white-space:pre-wrap;caret-color:var(--accent)}
 .editor:focus{outline:none}
+.editor:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--radius-sm)}
 .sidebar{padding-top:8px;flex:0 0 auto;min-width:0;height:calc(100vh - 56px - 48px)}
 .sidebar.collapsed{display:none}
 .sidebar.full{max-width:none}
@@ -416,9 +417,11 @@ body{
 .snapshot-dialog p{margin:0 0 16px 0;font-size:13px;color:var(--text-secondary)}
 .snapshot-label-input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--divider);font-size:14px;box-sizing:border-box;background:var(--manuscript-surface);color:var(--text-primary)}
 .snapshot-label-input:focus{outline:none;border-color:var(--accent)}
+.snapshot-label-input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .commit-file-list{display:flex;flex-direction:column;gap:8px;max-height:180px;overflow:auto;margin-bottom:12px;padding:2px}
 .commit-file-option{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text-primary)}
 .commit-message-input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--divider);font-size:14px;resize:vertical;font-family:inherit;box-sizing:border-box;background:var(--manuscript-surface);color:var(--text-primary)}
+.commit-message-input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .commit-empty-state,.commit-loading,.sidebar-muted-copy{font-size:13px;color:var(--text-secondary)}
 .snapshot-dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
 .snapshot-error{margin-top:8px;padding:8px 12px;border-radius:var(--radius-md);background:var(--danger-soft);color:var(--danger);font-size:13px}

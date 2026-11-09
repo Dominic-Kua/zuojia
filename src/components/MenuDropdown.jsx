@@ -48,11 +48,29 @@ export function MenuDropdown({
       }
     };
     const handleKeyDown = (event) => {
+      if (!open) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         setOpen(false);
         triggerRef.current?.focus();
+        return;
       }
+      if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+      if (!rootRef.current?.contains(event.target)) return;
+      const panel = panelRef.current;
+      if (!panel) return;
+      const items = Array.from(
+        panel.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')
+      ).filter((el) => !el.hasAttribute('hidden') && el.getAttribute('aria-hidden') !== 'true');
+      if (items.length === 0) return;
+      const current = items.indexOf(document.activeElement);
+      let next = 0;
+      if (event.key === 'ArrowDown') next = current < 0 ? 0 : (current + 1) % items.length;
+      else if (event.key === 'ArrowUp') next = current < 0 ? items.length - 1 : (current - 1 + items.length) % items.length;
+      else if (event.key === 'Home') next = 0;
+      else next = items.length - 1;
+      event.preventDefault();
+      items[next]?.focus();
     };
 
     document.addEventListener('mousedown', handlePointerDown);
