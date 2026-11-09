@@ -141,7 +141,7 @@ const getSerializedOffset = (editor, targetNode, targetOffset) => {
   return length
 }
 
-export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, editorFontSize = 18, registerEditorFlush }){
+export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, editorFontSize = 18, showReadAloudControls = false, registerEditorFlush }){
   const editorRef = useRef(null)
   const saveTimerRef = useRef(null)
   const highlightTimerRef = useRef(null)
@@ -171,6 +171,13 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
   const [loadError, setLoadError] = useState(null)
   const [isReadingAloud, setIsReadingAloud] = useState(false)
   const readAloudCursorRef = useRef(0)
+
+  useEffect(() => {
+    if (!showReadAloudControls) {
+      setIsReadingAloud(false)
+      readAloudCursorRef.current = 0
+    }
+  }, [showReadAloudControls])
 
   const {
     chapters,
@@ -988,11 +995,13 @@ export default function Manuscript({ novelPath, wikiPages = [], onOpenWikiPage, 
           <span>Today: {todayCount.toLocaleString()}</span>
         </div>
         <WritingGoals novelPath={novelPath} manuscriptCount={manuscriptCount} todayCount={todayCount} />
-        <ReadAloudControls
-          key={currentChapter || 'none'}
-          getText={getReadAloudText}
-          onActiveUnitChange={handleReadAloudActiveUnit}
-        />
+        {showReadAloudControls && (
+          <ReadAloudControls
+            key={currentChapter || 'none'}
+            getText={getReadAloudText}
+            onActiveUnitChange={handleReadAloudActiveUnit}
+          />
+        )}
       </div>
       <article
         className={`editor${isReadingAloud ? ' editor-reading-aloud' : ''}`}

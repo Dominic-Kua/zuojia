@@ -68,6 +68,15 @@ test.describe('Read manuscript text aloud', () => {
     await page.getByTestId('novel-name-input').fill(novelName);
     await page.getByTestId('create-novel-button').click();
     await expect(page.getByTestId('create-novel-dialog')).not.toBeVisible();
+
+    // Read-aloud controls are hidden by default; enable them in Settings.
+    await page.getByTestId('novel-menu').click();
+    await page.getByTestId('settings-button').click();
+    await page.getByTestId('settings-tab-appearance').click();
+    await page.getByTestId('appearance-read-aloud-toggle').check();
+    await page.getByTestId('settings-save').click();
+    await expect(page.getByTestId('settings-dialog')).not.toBeVisible();
+
     await expect(page.getByTestId('read-aloud-controls')).toBeVisible({ timeout: 10000 });
 
     const editor = page.getByTestId('manuscript-editor');
