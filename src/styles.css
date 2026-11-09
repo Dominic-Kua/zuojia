@@ -216,9 +216,13 @@ body{
 .app-menu-heading{padding:2px 8px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint)}
 .app-menu-row{display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:var(--radius-sm)}
 .app-menu-row:hover{background:color-mix(in srgb, var(--accent) 6%, transparent)}
-.app-menu-panel .btn{width:100%;justify-content:flex-start;border-color:transparent;background:transparent;box-shadow:none}
-.app-menu-panel .btn:hover:not(:disabled){background:color-mix(in srgb, var(--accent) 8%, transparent);border-color:transparent}
-.app-menu-panel .btn.primary{color:var(--accent-strong)}
+.app-menu-panel .app-menu-row .btn{width:100%;justify-content:flex-start;border-color:transparent;background:transparent;box-shadow:none}
+.app-menu-panel .app-menu-row .btn:hover:not(:disabled){background:color-mix(in srgb, var(--accent) 8%, transparent);border-color:transparent}
+.app-menu-panel .app-menu-row .btn.primary{color:var(--accent-strong)}
+/* Dialog/chat overlays are rendered inside menu rows but must keep their own layout. */
+.app-menu-panel :is(.snapshot-overlay,.modal-overlay,.llm-chat-overlay,.llm-chat-window,.export-overlay) .btn{width:auto;justify-content:center;border-color:var(--divider-strong);background:transparent;box-shadow:none}
+.app-menu-panel :is(.snapshot-overlay,.modal-overlay,.llm-chat-overlay,.llm-chat-window,.export-overlay) .btn:hover:not(:disabled){background:color-mix(in srgb, var(--accent) 8%, transparent);border-color:var(--muted-accent)}
+.app-menu-panel :is(.snapshot-overlay,.modal-overlay,.llm-chat-overlay,.llm-chat-window,.export-overlay) .btn.primary{color:var(--on-accent);background:var(--accent-strong);border-color:var(--accent-strong)}
 .app-menu-panel .font-size-controls,.app-menu-panel .layout-controls{width:100%;justify-content:space-between;border-left:0;margin-left:0;padding:4px 8px}
 .app-menu-panel .layout-controls{flex-wrap:wrap;justify-content:flex-start}
 .app-menu-panel .layout-controls .btn,.app-menu-panel .font-size-controls .btn{width:auto}
