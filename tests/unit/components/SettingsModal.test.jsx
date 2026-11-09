@@ -102,6 +102,7 @@ describe('SettingsModal', () => {
     expect(mockSaveAppearance).toHaveBeenCalledWith({
       theme: 'dark',
       seasonalThemePreference: 'automatic',
+      showReadAloudControls: false,
     });
     expect(mockGitSaveConfig).not.toHaveBeenCalled();
     expect(mockLlmSaveConfig).not.toHaveBeenCalled();
@@ -135,6 +136,7 @@ describe('SettingsModal', () => {
     expect(mockSaveAppearance).toHaveBeenCalledWith({
       theme: 'light',
       seasonalThemePreference: 'automatic',
+      showReadAloudControls: false,
     });
   });
 

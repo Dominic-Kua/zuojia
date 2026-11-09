@@ -121,9 +121,11 @@ export function CommitButton({ novelPath }) {
           <div
             className="snapshot-dialog commit-dialog"
             onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => { if (event.key === 'Escape' && !isCommitting) closeDialog(); }}
             role="dialog"
             aria-modal="true"
             aria-labelledby="commit-dialog-title"
+            tabIndex={-1}
             data-testid="commit-dialog"
           >
             <h3 id="commit-dialog-title">Create Commit</h3>

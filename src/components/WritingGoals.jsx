@@ -170,6 +170,8 @@ export function WritingGoals({ novelPath, manuscriptCount = 0, todayCount = 0 })
             role="dialog"
             aria-modal="true"
             aria-labelledby="writing-goal-title"
+            tabIndex={-1}
+            onKeyDown={(event) => { if (event.key === 'Escape' && !isSaving) setShowDialog(false); }}
             onClick={(event) => event.stopPropagation()}
             onSubmit={handleSave}
           >

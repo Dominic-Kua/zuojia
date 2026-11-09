@@ -68,6 +68,13 @@ export default function App(){
   // chapter and caret survive entering and leaving it.
   const [focusMode, setFocusMode] = useState(false);
   const [focusHintVisible, setFocusHintVisible] = useState(false);
+  const [showReadAloudControls, setShowReadAloudControls] = useState(() => {
+    try {
+      return window.localStorage.getItem('zuojia-read-aloud-visible') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [theme, setTheme] = useState(() => {
     try {
       const stored = window.localStorage.getItem('zuojia-theme');
@@ -222,9 +229,17 @@ export default function App(){
     }
   }, [activeSeasonalTheme, seasonalTheme]);
 
-  const handleSaveAppearance = ({ theme: nextTheme, seasonalThemePreference }) => {
+  const handleSaveAppearance = ({ theme: nextTheme, seasonalThemePreference, showReadAloudControls: nextShowReadAloud }) => {
     setTheme(nextTheme === 'dark' ? 'dark' : 'light');
     setSeasonalTheme(seasonalThemePreference === 'automatic' ? 'automatic' : 'off');
+    if (typeof nextShowReadAloud === 'boolean') {
+      setShowReadAloudControls(nextShowReadAloud);
+      try {
+        window.localStorage.setItem('zuojia-read-aloud-visible', String(nextShowReadAloud));
+      } catch {
+        // Ignore storage failures.
+      }
+    }
   };
 
   useEffect(() => {
@@ -862,6 +877,7 @@ export default function App(){
                   novelPath={novelPath}
                   theme={theme}
                   seasonalThemePreference={seasonalTheme}
+                  showReadAloudControls={showReadAloudControls}
                   onSaveAppearance={handleSaveAppearance}
                 />
               </div>
@@ -926,6 +942,7 @@ export default function App(){
                   wikiPages={wikiPages}
                   onOpenWikiPage={handleOpenWikiPage}
                   editorFontSize={editorFontSize}
+                  showReadAloudControls={showReadAloudControls}
                   registerEditorFlush={handleRegisterEditorFlush}
                 />
               </section>

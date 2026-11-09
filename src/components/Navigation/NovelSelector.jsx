@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { indexHandlers, appHandlers } from '../../lib/ipc-client';
 import './NovelSelector.css';
 
@@ -14,6 +14,9 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
   const [loading, setLoading] = useState(false);
   const [novels, setNovels] = useState([]);
   const [isLoadingNovels, setIsLoadingNovels] = useState(false);
+  const createDialogTitleId = useId();
+  const createTriggerRef = useRef(null);
+  const createInputRef = useRef(null);
 
   // Validate novel name (accept spaces, capitals, unicode, but not just whitespace)
   const isValidNovelName = (name) => {
@@ -114,9 +117,24 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
     }
   };
 
+  useEffect(() => {
+    if (!showCreateDialog) return undefined;
+    createInputRef.current?.focus();
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape' && !loading) {
+        event.preventDefault();
+        setShowCreateDialog(false);
+        createTriggerRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [showCreateDialog, loading]);
+
   return (
     <div className="novel-selector">
       <button
+        ref={createTriggerRef}
         className="novel-selector-btn"
         data-testid="new-novel-button"
         onClick={() => setShowCreateDialog(true)}
@@ -175,13 +193,22 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
       </div>
 
       {showCreateDialog && (
-        <div className="modal-overlay" onClick={() => !loading && setShowCreateDialog(false)}>
-          <div className="modal-dialog" data-testid="create-novel-dialog" onClick={(e) => e.stopPropagation()}>
-            <h2>Create a New Novel</h2>
+        <div className="modal-overlay" onClick={() => !loading && (setShowCreateDialog(false), createTriggerRef.current?.focus())}>
+          <div
+            className="modal-dialog"
+            data-testid="create-novel-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={createDialogTitleId}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id={createDialogTitleId}>Create a New Novel</h2>
             <form onSubmit={handleCreateNovel}>
               <input
+                ref={createInputRef}
                 type="text"
                 data-testid="novel-name-input"
+                aria-label="Novel name"
                 placeholder="Novel name (e.g., The Winds of Chance)"
                 value={novelName}
                 onChange={(e) => {
@@ -189,7 +216,6 @@ export function NovelSelector({ onNovelCreated, onNovelOpened }) {
                   setError(null);
                 }}
                 disabled={loading}
-                autoFocus
               />
               {novelName && !error && (
                 <p className="slug-preview" data-testid="slug-preview">

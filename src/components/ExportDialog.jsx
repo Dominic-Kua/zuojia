@@ -230,6 +230,8 @@ export function ExportDialog({ novelPath, onBeforeExport }) {
             role="dialog"
             aria-modal="true"
             aria-labelledby="export-dialog-title"
+            tabIndex={-1}
+            onKeyDown={(event) => { if (event.key === 'Escape' && !isExporting) handleClose(); }}
             onClick={(event) => event.stopPropagation()}
           >
             <h3 id="export-dialog-title">Export {metadata.format.toUpperCase()}</h3>

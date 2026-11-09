@@ -185,6 +185,8 @@ export function DiagnosticsPanel({ novelPath, onIndexRebuilt, onRestored, onBefo
             role="dialog"
             aria-modal="true"
             aria-labelledby="diagnostics-dialog-title"
+            tabIndex={-1}
+            onKeyDown={(e) => { if (e.key === 'Escape') handleClose(); }}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="diagnostics-dialog-title">Diagnostics</h3>

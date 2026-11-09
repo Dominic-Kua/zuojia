@@ -38,4 +38,21 @@ describe('MenuDropdown', () => {
     await user.click(screen.getByTestId('close-me'));
     expect(screen.getByTestId('view-menu-panel')).toHaveAttribute('hidden');
   });
+
+  it('supports arrow key navigation within the open menu', async () => {
+    const user = userEvent.setup();
+    render(
+      <MenuDropdown label="View" testId="view-menu">
+        <button type="button" data-testid="first">First</button>
+        <button type="button" data-testid="second">Second</button>
+      </MenuDropdown>
+    );
+
+    await user.click(screen.getByTestId('view-menu'));
+    screen.getByTestId('first').focus();
+    await user.keyboard('{ArrowDown}');
+    expect(screen.getByTestId('second')).toHaveFocus();
+    await user.keyboard('{Home}');
+    expect(screen.getByTestId('first')).toHaveFocus();
+  });
 });

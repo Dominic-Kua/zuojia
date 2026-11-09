@@ -28,6 +28,7 @@ export function SettingsModal({
   novelPath,
   theme = 'light',
   seasonalThemePreference = 'off',
+  showReadAloudControls = false,
   onSaveAppearance = () => {},
   open: controlledOpen,
   onOpenChange,
@@ -50,7 +51,7 @@ export function SettingsModal({
   const [llmSettings, setLlmSettings] = useState(DEFAULT_LLM_SETTINGS);
   const [llmStatus, setLlmStatus] = useState('stopped');
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [appearanceSettings, setAppearanceSettings] = useState({ theme, seasonalThemePreference });
+  const [appearanceSettings, setAppearanceSettings] = useState({ theme, seasonalThemePreference, showReadAloudControls });
   const [dirtySettings, setDirtySettings] = useState({ git: false, llm: false, appearance: false });
 
   useEffect(() => {
@@ -79,7 +80,7 @@ export function SettingsModal({
     setIsLoading(true);
     setError(null);
     setActiveTab(tab);
-    setAppearanceSettings({ theme, seasonalThemePreference });
+    setAppearanceSettings({ theme, seasonalThemePreference, showReadAloudControls });
     setDirtySettings({ git: false, llm: false, appearance: false });
     try {
       const [loadedGit, loadedLlm] = await Promise.allSettled([
@@ -254,6 +255,8 @@ export function SettingsModal({
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-dialog-title"
+            tabIndex={-1}
+            onKeyDown={(event) => { if (event.key === 'Escape') handleClose(); }}
             onClick={(event) => event.stopPropagation()}
           >
             <h3 id="settings-dialog-title">Settings</h3>
@@ -273,6 +276,7 @@ export function SettingsModal({
                 </button>
                 <button
                   className={`settings-tab ${activeTab === 'appearance' ? 'active' : ''}`}
+                  data-testid="settings-tab-appearance"
                   onClick={() => setActiveTab('appearance')}
                 >
                   Appearance
@@ -496,6 +500,25 @@ export function SettingsModal({
                       <option value="off">Off</option>
                       <option value="automatic">Automatic</option>
                     </select>
+                  </label>
+
+                  <label className="settings-field" htmlFor="appearance-read-aloud-toggle">
+                    <span className="settings-checkbox-row">
+                      <input
+                        id="appearance-read-aloud-toggle"
+                        data-testid="appearance-read-aloud-toggle"
+                        type="checkbox"
+                        checked={Boolean(appearanceSettings.showReadAloudControls)}
+                        onChange={(event) => {
+                          setAppearanceSettings((current) => ({
+                            ...current,
+                            showReadAloudControls: event.target.checked,
+                          }));
+                          setDirtySettings((current) => ({ ...current, appearance: true }));
+                        }}
+                      />
+                      <span>Show read-aloud controls in the manuscript</span>
+                    </span>
                   </label>
                 </div>
               )}
