@@ -147,6 +147,17 @@ vi.mock('../../../src/components/LlmChatWindow', () => ({
 
 import App from '../../../src/App';
 
+const openMenu = async (user, testId) => {
+  await user.click(screen.getByTestId(testId));
+};
+const openNovel = async (user) => {
+  await user.click(screen.getByText('Open Novel'));
+  await waitFor(() => {
+    expect(screen.getByTestId('manuscript-mock')).toBeInTheDocument();
+  });
+};
+
+
 // jsdom here has no localStorage (opaque origin), and App guards all
 // storage access with try/catch — so provide an in-memory stand-in for
 // tests that assert persisted preferences.
@@ -202,7 +213,8 @@ describe('App', () => {
   it('shows LLM Chat component after novel is loaded', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByText('Open Novel'));
+    await openNovel(user);
+    await openMenu(user, 'ai-menu');
     await waitFor(() => {
       expect(screen.getByTestId('llm-chat-mock')).toBeInTheDocument();
     });
@@ -211,7 +223,8 @@ describe('App', () => {
   it('passes novelPath to LlmChatWindow', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByText('Open Novel'));
+    await openNovel(user);
+    await openMenu(user, 'ai-menu');
     await waitFor(() => {
       expect(screen.getByText('novelPath=/tmp/test-novel')).toBeInTheDocument();
     });
@@ -223,6 +236,10 @@ describe('App', () => {
     render(<App />);
     await user.click(screen.getByText('Open Novel'));
     await waitFor(() => {
+      expect(screen.getByTestId('manuscript-mock')).toBeInTheDocument();
+    });
+    await openMenu(user, 'ai-menu');
+    await waitFor(() => {
       expect(screen.getByText('loading=true')).toBeInTheDocument();
     });
   });
@@ -231,7 +248,8 @@ describe('App', () => {
     mockStartNovelServices.mockRejectedValue(new Error('Neo4j not found'));
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByText('Open Novel'));
+    await openNovel(user);
+    await openMenu(user, 'ai-menu');
     await waitFor(() => {
       expect(screen.getByTestId('llm-chat-mock')).toBeInTheDocument();
     });
@@ -240,10 +258,8 @@ describe('App', () => {
   it('closes novel and stops services', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByText('Open Novel'));
-    await waitFor(() => {
-      expect(screen.getByTestId('llm-chat-mock')).toBeInTheDocument();
-    });
+    await openNovel(user);
+    await openMenu(user, 'novel-menu');
     await user.click(screen.getByTestId('close-novel-button'));
     await waitFor(() => {
       expect(mockStopNovelServices).toHaveBeenCalled();
@@ -284,13 +300,15 @@ describe('App', () => {
       expect(screen.getByTestId('manuscript-mock')).toBeInTheDocument();
     });
     expect(mockStartNovelServices).not.toHaveBeenCalled();
+    await openMenu(user, 'ai-menu');
     expect(screen.queryByTestId('llm-chat-mock')).not.toBeInTheDocument();
   });
 
   it('toggling AI off stops services and hides chat; toggling on restarts them', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await user.click(screen.getByText('Open Novel'));
+    await openNovel(user);
+    await openMenu(user, 'ai-menu');
     await waitFor(() => {
       expect(screen.getByTestId('llm-chat-mock')).toBeInTheDocument();
     });
@@ -299,11 +317,13 @@ describe('App', () => {
     await user.click(screen.getByTestId('ai-toggle-button'));
     await waitFor(() => {
       expect(mockStopNovelServices).toHaveBeenCalled();
-      expect(screen.queryByTestId('llm-chat-mock')).not.toBeInTheDocument();
     });
+    await openMenu(user, 'ai-menu');
+    expect(screen.queryByTestId('llm-chat-mock')).not.toBeInTheDocument();
     expect(screen.getByTestId('ai-toggle-button')).toHaveTextContent('AI Off');
 
     await user.click(screen.getByTestId('ai-toggle-button'));
+    await openMenu(user, 'ai-menu');
     await waitFor(() => {
       expect(screen.getByTestId('llm-chat-mock')).toBeInTheDocument();
     });

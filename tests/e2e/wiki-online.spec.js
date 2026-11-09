@@ -113,6 +113,7 @@ test.describe('Wiki Online E2E', () => {
   test('wiki shows Ready in LLM Chat after opening novel', async () => {
     await openNovel(page);
 
+    await page.getByTestId('ai-menu').click();
     const llmChatButton = page.getByTestId('llm-chat-button');
     await expect(llmChatButton).toBeVisible({ timeout: 30000 });
     await expect(llmChatButton).toBeEnabled({ timeout: 60000 });
@@ -132,6 +133,7 @@ test.describe('Wiki Online E2E', () => {
   test('wiki query returns results through LLM Chat', async () => {
     await openNovel(page);
 
+    await page.getByTestId('ai-menu').click();
     const llmChatButton = page.getByTestId('llm-chat-button');
     await expect(llmChatButton).toBeVisible({ timeout: 30000 });
     await expect(llmChatButton).toBeEnabled({ timeout: 60000 });

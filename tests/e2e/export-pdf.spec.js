@@ -69,6 +69,7 @@ test.describe('Manuscript Export', () => {
   });
 
   test('shows dependency guidance when TeX is unavailable', async () => {
+    await page.getByTestId('novel-menu').click();
     await page.getByTestId('export-button').click();
     await expect(page.getByTestId('export-dialog')).toBeVisible({ timeout: 5000 });
     await expect(page.getByTestId('export-chapter-list')).toContainText('Chapter 1');
@@ -91,7 +92,8 @@ test.describe('Manuscript Export', () => {
 
   test('exports DOCX and EPUB without requiring TeX', async () => {
     for (const format of ['docx', 'epub']) {
-      await page.getByTestId('export-button').click();
+      await page.getByTestId('novel-menu').click();
+    await page.getByTestId('export-button').click();
       await expect(page.getByTestId('export-dialog')).toBeVisible({ timeout: 5000 });
       await page.getByTestId('export-format-select').selectOption(format);
       await expect(page.getByTestId('export-preflight-ready')).toContainText('pandoc');

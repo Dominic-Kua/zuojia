@@ -145,6 +145,7 @@ test.describe('Git Integration E2E', () => {
 
   test('non-git repo shows proper state', async () => {
     // Close current novel and wait for the sidebar to fully disappear
+    await page.getByTestId('novel-menu').click();
     await page.getByTestId('close-novel-button').click();
     await expect(page.getByTestId('novel-list')).toBeVisible({ timeout: 10000 });
     

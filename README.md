@@ -58,6 +58,7 @@ This list reflects what is currently wired in the app code.
   - disambiguation UI when multiple pages match
   - create-page prompt when page does not exist
 - Spellcheck integration with custom dictionary support
+- Read aloud: play, pause, resume, stop, and navigate the current selection or current chapter with system text-to-speech voices and adjustable speed
 
 ### Wiki Sidebar
 
@@ -68,20 +69,20 @@ This list reflects what is currently wired in the app code.
 - Markdown preview mode
 - Wiki links rendered in preview mode
 - Image embed parsing for wiki content
-- Detachable floating panel: drag by the titlebar, resize from the corner handle, position/size persist across sessions
-- Commit history and git sync status (branch, ahead/behind, uncommitted changes) with a `Pull` button when a remote is configured
+- Detachable floating panel: drag by the titlebar, resize from the corner handle, position/size persist across sessions; dock it again from **View → Dock Wiki** when detached
+- Git sync status (branch, ahead/behind, uncommitted changes) with a `Pull` button when a remote is configured
 
 ### Workspace Layout
 
+- The workspace uses a compact top bar with **Focus**, **View**, **Novel**, and **AI** menus so writing space stays clear.
 - Tiling manuscript/wiki split: drag the divider to give either pane any share of the desk, from a sliver up to the full window
-- Top-bar presets: `Manuscript` (editor only), `Split` (50/50), `Wiki` (wiki only)
-- `Reset UI` button restores the default layout, re-docks the wiki, and resets the floating panel position/size
+- **View → Layout** presets: `Manuscript` (editor only), `Split` (50/50), `Wiki` (wiki only), and `Reset UI` to restore the default layout, re-dock the wiki, and reset the floating panel position/size
 - Layout choice persists across sessions; double-clicking the divider also resets
-- `Focus` mode hides the topbar, wiki, chapter tools, and spellcheck panel; toggle it with `Ctrl/Cmd+Shift+F`, exit with the floating `Exit focus` control or `Esc`, and the editor keeps its chapter and caret
+- `Focus` mode hides menus/chrome, wiki, chapter tools, and spellcheck panel; toggle it with the top-bar `Focus` button or `Ctrl/Cmd+Shift+F`, exit with the floating `Exit focus` control or `Esc`, and the editor keeps its chapter and caret
 
 ### Story Map
 
-- Open `Story Map` from the top bar while a novel is open; it appears in a separate window.
+- Open **Novel → Story Map** while a novel is open; it appears in a separate window.
 - Add and drag scene cards on the canvas. Chronology is relative to the start of the story, using signed `Day` and `Year` values that default to `Day 0 Year 0`.
 - Edit each scene's location, characters, free-text tension prompt (the issue the scene resolves, creates, or explores), and notes. Character suggestions link to existing wiki pages, which open in the main wiki pane when clicked.
 - Assign scenes to chapters from the novel's chapter list. The map follows chapter additions and ordering from the novel.
@@ -89,12 +90,12 @@ This list reflects what is currently wired in the app code.
 - Create arcs from selected scenes or before assigning scenes; manage arcs by renaming, recoloring, merging, splitting, or deleting them. Scenes can belong to multiple arcs.
 - Story Map saves its data to `meta/storymap.json` inside the novel directory.
 
-### AI Toggle
+### AI
 
-- The top-bar `AI On` / `AI Off` switch is a master on/off for all AI features (on by default)
+- **AI → AI On / AI Off** is a master on/off for all AI features (on by default)
 - Switching AI off stops the novel services (Neo4j, MCP/Synapse, LLM runtime) and hides the LLM chat; switching on starts them again
 - The preference persists across sessions, so opening a novel with AI off never starts services
-- Drag the LLM chat by its header to move it; the position persists across sessions
+- Open **AI → LLM Chat** (when AI is on) to ask questions; drag the chat by its header to move it, and its position persists across sessions
 - Wiki answers come from Neo4j page text merged with Synapse results; if Synapse is unavailable, the app imports the wiki into Neo4j directly
 
 ### Statistics
@@ -107,15 +108,15 @@ This list reflects what is currently wired in the app code.
 ### Git and Backup Helpers
 
 - Helper endpoint for chapter Git commits (`helper:git:commit`)
-- `Commit` button commits all novel files; generated directories are ignored on push
-- Validated remote push flow from the UI `Push` button, inheriting the existing git remote and upstream branch when present
+- **Novel → Commit** commits selected/all novel files; generated directories are ignored on push
+- **Novel → Push** uses the configured or inherited git remote/upstream branch, with validation and a trust-on-first-use confirmation where appropriate
 - SSH key auto mode supporting ed25519 keys and ssh-agent setups out of the box
-- Git remote configuration from the UI `Settings` button
-- Local snapshot helper APIs (create, list, restore)
+- **Novel → Settings** configures git remote, branch, and SSH key path
+- **Novel → Snapshot** and local snapshot helper APIs create, list, and restore snapshots
 
 ### Export
 
-- PDF, DOCX, and EPUB export from the top-bar `Export` button
+- **Novel → Export** generates PDF, DOCX, or EPUB
 - Export dialog with title, author, and publication date metadata
 - Select and reorder chapters; choose document style, chapter breaks, and table-of-contents options
 - Export logs written under `meta/logs/`
@@ -283,25 +284,25 @@ The editor tracks:
 
 ### 6. Backup / Push
 
-Use the top-bar `Settings` button to configure your remote URL, branch, and SSH key path.
-Use `Push` to send committed work to that configured remote. If the novel already has a git remote and upstream branch, `Push` uses them automatically.
-Use the sidebar `Pull` button to fetch and merge the remote's latest changes.
+Use **Novel → Settings** to configure your remote URL, branch, and SSH key path.
+Use **Novel → Commit** and **Novel → Push** to save and send work to that remote. If the novel already has a git remote and upstream branch, `Push` uses them automatically.
+Use the wiki sidebar `Pull` button to fetch and merge the remote's latest changes.
 
 ### 7. Arrange the Workspace
 
 - Drag the divider between the manuscript and wiki to give either pane more room, up to the full window
-- Use the top-bar `Manuscript`, `Split`, and `Wiki` buttons to jump to a preset arrangement
-- Click `Detach` in the wiki header to float the wiki as a separate panel; drag it by the titlebar and resize it from the bottom-right corner
-- If anything gets mis-sized or lost, click `Reset UI` to restore the default layout
+- Use **View → Layout** (`Manuscript`, `Split`, `Wiki`, `Reset UI`) to jump to a preset arrangement or restore defaults
+- Click `Detach` in the wiki header to float the wiki as a separate panel; drag it by the titlebar and resize it from the bottom-right corner. Use **View → Dock Wiki** to re-dock it
+- Use the top-bar `Focus` button or `Ctrl/Cmd+Shift+F` for distraction-free writing; press `Esc` or `Exit focus` to return
 
-### 8. Export PDF
+### 8. Export
 
-Use the top-bar `Export` button to review chapter order, set export metadata, and generate a PDF.
-Exported PDFs are written to `meta/exports/`, and export logs are written to `meta/logs/`.
+Use **Novel → Export** to choose PDF, DOCX, or EPUB, review chapter order, set metadata, and generate the export.
+Exported files are written to `meta/exports/`, and export logs are written to `meta/logs/`.
 
 ### 9. Plan with Story Map
 
-- Open a novel, then select `Story Map` in the top bar to open its separate planning window.
+- Open a novel, then choose **Novel → Story Map** to open its separate planning window.
 - Click `Add Scene` and enter a relative day and year. Click a scene to edit its notes and chapter assignment; drag it to position it on the canvas.
 - Open `Arcs` to create a thread, assign selected scenes, or manage an existing arc. Switch to Temporal view to see scenes by story chronology and character lane.
 - Changes save automatically with the novel. The map does not create or modify manuscript chapter files; chapter assignments reflect the novel's existing chapter list.
@@ -324,11 +325,12 @@ npm run test:all          # Run all tests
 
 ## Testing
 
-The project has **690+ tests** across unit, integration, and E2E layers:
+The project has a large automated suite (renderer and helper unit tests, integration coverage, and Playwright Electron E2E):
 
 | Layer | Framework | Run with |
 |-------|-----------|----------|
-| Unit | Vitest (jsdom + node) | `npm run test` |
+| Renderer unit | Vitest (jsdom + node) | `npm run test` |
+| Helper unit | Vitest (node) | `npm test --prefix helper` |
 | Integration | Vitest | `npm run test:integration` |
 | E2E | Playwright + Electron | `npm run test:e2e` |
 

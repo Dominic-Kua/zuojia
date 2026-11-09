@@ -64,6 +64,7 @@ test.describe('Distraction-free focus mode', () => {
   });
 
   test('works in dark theme and respects reduced motion', async () => {
+    await page.getByTestId('view-menu').click();
     await page.getByTestId('theme-toggle-button').click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 

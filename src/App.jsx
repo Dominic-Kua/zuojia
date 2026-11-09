@@ -13,6 +13,7 @@ import { SnapshotButton } from './components/SnapshotButton'
 
 import { LlmChatWindow } from './components/LlmChatWindow'
 import { useWikiPages } from './hooks/useWikiPages'
+import { MenuDropdown } from './components/MenuDropdown'
 import { appHandlers, storymapWindowHandlers } from './lib/ipc-client'
 
 export default function App(){
@@ -715,118 +716,6 @@ export default function App(){
         <div className="brand">作家</div>
         <SeasonalEffects seasonalTheme={activeSeasonalTheme} />
         <div className="top-actions">
-          <div className="font-size-controls" data-testid="font-size-controls">
-            <button
-              type="button"
-              className="btn ghost"
-              data-testid="font-size-decrease"
-              aria-label="Decrease editor font size"
-              onClick={decreaseFontSize}
-              disabled={editorFontSize <= 14}
-            >
-              -
-            </button>
-            <button
-              type="button"
-              className="btn ghost"
-              data-testid="font-size-reset"
-              aria-label="Reset editor font size"
-              onClick={resetFontSize}
-            >
-              aA
-            </button>
-            <button
-              type="button"
-              className="btn ghost"
-              data-testid="font-size-increase"
-              aria-label="Increase editor font size"
-              onClick={increaseFontSize}
-              disabled={editorFontSize >= 30}
-            >
-              +
-            </button>
-          </div>
-          <button
-            type="button"
-            className="btn ghost"
-            data-testid="theme-toggle-button"
-            onClick={toggleTheme}
-          >
-            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-          </button>
-          <button
-            type="button"
-            className="btn ghost"
-            data-testid="ai-toggle-button"
-            aria-pressed={aiEnabled}
-            title={aiEnabled ? 'Turn AI features off (stops novel services, hides LLM chat)' : 'Turn AI features on (starts novel services)'}
-            onClick={() => handleAiToggle(!aiEnabled)}
-          >
-            {aiEnabled ? 'AI On' : 'AI Off'}
-          </button>
-          <ExportDialog novelPath={novelPath} onBeforeExport={flushEditorBeforeDestructiveOp} />
-          <SnapshotButton novelPath={novelPath} />
-          <CommitButton novelPath={novelPath} />
-          <PushButton novelPath={novelPath} />
-          {aiEnabled && (
-            <LlmChatWindow novelPath={novelPath} servicesStatus={servicesStatus} servicesLoading={servicesLoading} />
-          )}
-          <DiagnosticsPanel
-            novelPath={novelPath}
-            onIndexRebuilt={refreshWikiPages}
-            onRestored={handleRestored}
-            onBeforeRestore={prepareEditorForRestore}
-          />
-          <SettingsModal
-            novelPath={novelPath}
-            theme={theme}
-            seasonalThemePreference={seasonalTheme}
-            onSaveAppearance={handleSaveAppearance}
-          />
-          <div className="layout-controls" data-testid="layout-controls" role="group" aria-label="Workspace layout">
-            <button
-              type="button"
-              className="btn ghost btn-sm"
-              data-testid="layout-manuscript-only"
-              title="Manuscript takes all space"
-              aria-pressed={!wikiDetached && wikiPct <= 0.5}
-              onClick={showManuscriptOnly}
-            >
-              Manuscript
-            </button>
-            <button
-              type="button"
-              className="btn ghost btn-sm"
-              data-testid="layout-split-even"
-              title="Split space evenly"
-              aria-pressed={!wikiDetached && wikiPct > 0.5 && wikiPct < 99.5}
-              onClick={showSplitEven}
-            >
-              Split
-            </button>
-            <button
-              type="button"
-              className="btn ghost btn-sm"
-              data-testid="layout-wiki-only"
-              title="Wiki takes all space"
-              aria-pressed={!wikiDetached && wikiPct >= 99.5}
-              onClick={showWikiOnly}
-            >
-              Wiki
-            </button>
-            <button
-              type="button"
-              className="btn ghost btn-sm"
-              data-testid="reset-layout-button"
-              title="Reset workspace layout to defaults"
-              onClick={resetLayout}
-            >
-              Reset UI
-            </button>
-          </div>
-          {wikiDetached && (
-            <button className="btn ghost" data-testid="topbar-dock-wiki-button" onClick={() => setWikiDetached(false)}>Dock Wiki</button>
-          )}
           <button
             type="button"
             className="btn ghost"
@@ -838,15 +727,173 @@ export default function App(){
           >
             Focus
           </button>
-          <button
-            type="button"
-            className="btn ghost"
-            data-testid="open-storymap-button"
-            onClick={() => storymapWindowHandlers.open(novelPath)}
-          >
-            Story Map
-          </button>
-          <button className="btn ghost" data-testid="close-novel-button" onClick={handleCloseNovel}>Close Novel</button>
+          <MenuDropdown label="View" testId="view-menu">
+            <div className="app-menu-section">
+              <div className="app-menu-heading">Appearance</div>
+              <div className="app-menu-row">
+                <button
+                  type="button"
+                  className="btn ghost"
+                  data-testid="theme-toggle-button"
+                  data-menu-close="true"
+                  onClick={toggleTheme}
+                >
+                  {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                </button>
+              </div>
+              <div className="app-menu-row" data-menu-keep-open="true">
+                <div className="font-size-controls" data-testid="font-size-controls">
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    data-testid="font-size-decrease"
+                    aria-label="Decrease editor font size"
+                    onClick={decreaseFontSize}
+                    disabled={editorFontSize <= 14}
+                  >
+                    -
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    data-testid="font-size-reset"
+                    aria-label="Reset editor font size"
+                    onClick={resetFontSize}
+                  >
+                    aA
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    data-testid="font-size-increase"
+                    aria-label="Increase editor font size"
+                    onClick={increaseFontSize}
+                    disabled={editorFontSize >= 30}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="app-menu-section">
+              <div className="app-menu-heading">Layout</div>
+              <div className="app-menu-row" data-menu-keep-open="true">
+                <div className="layout-controls" data-testid="layout-controls" role="group" aria-label="Workspace layout">
+                  <button
+                    type="button"
+                    className="btn ghost btn-sm"
+                    data-testid="layout-manuscript-only"
+                    title="Manuscript takes all space"
+                    aria-pressed={!wikiDetached && wikiPct <= 0.5}
+                    onClick={showManuscriptOnly}
+                  >
+                    Manuscript
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost btn-sm"
+                    data-testid="layout-split-even"
+                    title="Split space evenly"
+                    aria-pressed={!wikiDetached && wikiPct > 0.5 && wikiPct < 99.5}
+                    onClick={showSplitEven}
+                  >
+                    Split
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost btn-sm"
+                    data-testid="layout-wiki-only"
+                    title="Wiki takes all space"
+                    aria-pressed={!wikiDetached && wikiPct >= 99.5}
+                    onClick={showWikiOnly}
+                  >
+                    Wiki
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost btn-sm"
+                    data-testid="reset-layout-button"
+                    title="Reset workspace layout to defaults"
+                    data-menu-close="true"
+                    onClick={resetLayout}
+                  >
+                    Reset UI
+                  </button>
+                </div>
+              </div>
+              {wikiDetached && (
+                <div className="app-menu-row">
+                  <button className="btn ghost" data-testid="topbar-dock-wiki-button" data-menu-close="true" onClick={() => setWikiDetached(false)}>Dock Wiki</button>
+                </div>
+              )}
+            </div>
+          </MenuDropdown>
+          <MenuDropdown label="Novel" testId="novel-menu" align="right">
+            <div className="app-menu-section">
+              <div className="app-menu-heading">Work</div>
+              <div className="app-menu-row" data-menu-close="true"><ExportDialog novelPath={novelPath} onBeforeExport={flushEditorBeforeDestructiveOp} /></div>
+              <div className="app-menu-row" data-menu-close="true"><SnapshotButton novelPath={novelPath} /></div>
+              <div className="app-menu-row" data-menu-close="true"><CommitButton novelPath={novelPath} /></div>
+              <div className="app-menu-row" data-menu-close="true"><PushButton novelPath={novelPath} /></div>
+            </div>
+            <div className="app-menu-section">
+              <div className="app-menu-heading">Tools</div>
+              <div className="app-menu-row">
+                <button
+                  type="button"
+                  className="btn ghost"
+                  data-testid="open-storymap-button"
+                  data-menu-close="true"
+                  onClick={() => storymapWindowHandlers.open(novelPath)}
+                >
+                  Story Map
+                </button>
+              </div>
+              <div className="app-menu-row" data-menu-close="true">
+                <DiagnosticsPanel
+                  novelPath={novelPath}
+                  onIndexRebuilt={refreshWikiPages}
+                  onRestored={handleRestored}
+                  onBeforeRestore={prepareEditorForRestore}
+                />
+              </div>
+              <div className="app-menu-row" data-menu-close="true">
+                <SettingsModal
+                  novelPath={novelPath}
+                  theme={theme}
+                  seasonalThemePreference={seasonalTheme}
+                  onSaveAppearance={handleSaveAppearance}
+                />
+              </div>
+            </div>
+            <div className="app-menu-section">
+              <div className="app-menu-row">
+                <button className="btn ghost" data-testid="close-novel-button" data-menu-close="true" onClick={handleCloseNovel}>Close Novel</button>
+              </div>
+            </div>
+          </MenuDropdown>
+          <MenuDropdown label="AI" testId="ai-menu" align="right">
+            <div className="app-menu-section">
+              <div className="app-menu-row">
+                <button
+                  type="button"
+                  className="btn ghost"
+                  data-testid="ai-toggle-button"
+                  data-menu-close="true"
+                  aria-pressed={aiEnabled}
+                  title={aiEnabled ? 'Turn AI features off (stops novel services, hides LLM chat)' : 'Turn AI features on (starts novel services)'}
+                  onClick={() => handleAiToggle(!aiEnabled)}
+                >
+                  {aiEnabled ? 'AI On' : 'AI Off'}
+                </button>
+              </div>
+              {aiEnabled && (
+                <div className="app-menu-row" data-menu-close="true">
+                  <LlmChatWindow novelPath={novelPath} servicesStatus={servicesStatus} servicesLoading={servicesLoading} />
+                </div>
+              )}
+            </div>
+          </MenuDropdown>
         </div>
       </header>
       <main className="main-grid tiling-grid" ref={mainGridRef}>

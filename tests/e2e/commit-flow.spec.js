@@ -66,6 +66,7 @@ test.describe('Story 4.2: Manual Commit Flow', () => {
       }
     ).toBe('ok');
 
+    await page.getByTestId('novel-menu').click();
     await page.getByTestId('commit-button').click();
     await expect(page.getByTestId('commit-dialog')).toBeVisible({ timeout: 5000 });
 
@@ -79,7 +80,9 @@ test.describe('Story 4.2: Manual Commit Flow', () => {
     await expect(page.getByTestId('commit-toast')).toContainText('Committed', { timeout: 5000 });
     await expect(page.getByTestId('commit-toast')).toContainText('Checkpoint save');
 
-    await expect(page.getByTestId('commit-history-list')).toContainText('Checkpoint save', { timeout: 5000 });
+    // Commit history is no longer shown in the wiki sidebar (git actions live in
+    // the Novel menu); verify the commit landed via git history instead.
+    await expect(page.getByTestId('commit-history-list')).toHaveCount(0);
 
     const logResult = await page.evaluate(
       async ({ novelPath }) => window.electronAPI.invoke('helper:git:history', { novelPath, limit: 1 }),
